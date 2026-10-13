@@ -14,6 +14,7 @@
     teams: [],
     teamId: null,
     journey: null,      // response from /api/journey
+    awards: null,       // response from /api/awards (fetched when the Awards tab opens)
     tab: 'journey',
     lastShownMile: null, // so the walker animates from where it was
     busy: false,
@@ -127,6 +128,15 @@
 
   async function loadJourney() {
     state.journey = await api('/api/journey?team=' + encodeURIComponent(state.teamId));
+    state.awards = null; // miles changed, so awards may have too
+  }
+
+  async function loadAwards() {
+    const teamId = state.teamId;
+    const awards = await api('/api/awards?team=' + encodeURIComponent(teamId));
+    if (teamId !== state.teamId) return;
+    state.awards = awards;
+    if (state.tab === 'awards') renderScreen();
   }
 
   /* ---------- Google sign-in ---------- */
@@ -275,6 +285,7 @@
       positionScene();
       maybeCelebrate();
     }
+    if (state.tab === 'awards' && !state.awards) loadAwards().catch((e) => toast(e.message));
     window.scrollTo({ top: 0 });
   }
 
@@ -442,23 +453,83 @@
 
   /* ---------- Awards screen ---------- */
 
+  function badgeIcon(name) {
+    const icons = typeof BADGE_ICONS !== 'undefined' ? BADGE_ICONS : {};
+    const inner = icons[name] || icons.star || '';
+    return `<svg viewBox="0 0 48 48" aria-hidden="true">${inner}</svg>`;
+  }
+
+  function earnedText(sqlDate) {
+    const d = new Date(sqlDate.replace(' ', 'T') + 'Z');
+    const opts = { timeZone: 'America/Denver', month: 'short', day: 'numeric' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    return 'Earned ' + d.toLocaleDateString('en-US', opts);
+  }
+
+  function badgeCard(a) {
+    const pct = a.progress && a.progress.goal ? Math.min(100, (a.progress.value / a.progress.goal) * 100) : 0;
+    return `<li class="badge-card ${a.earned ? 'earned' : 'locked'}">
+      <div class="badge-frame">${badgeIcon(a.icon)}${a.earned && a.count > 1 ? `<span class="badge-count">×${a.count}</span>` : ''}</div>
+      <h3>${esc(a.title)}</h3>
+      ${a.earned
+        ? `<p class="badge-status">${esc(earnedText(a.earnedAt))}</p>`
+        : `<p class="badge-status">${esc(a.how)}</p>
+           ${a.progress ? `<div class="badge-progress" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct.toFixed(0)}%"></div></div>
+           <p class="badge-progress-text">${esc(a.progress.text)}</p>` : ''}`}
+    </li>`;
+  }
+
   function awardsScreen() {
-    const p = progress();
+    const A = state.awards;
+    if (!A) {
+      return `<div class="page"><h2>Awards</h2><p class="muted small">Opening the trophy case…</p></div>`;
+    }
+    const teamEarned = A.team.filter((a) => a.earned).length;
+    const mineEarned = A.personal.filter((a) => a.earned).length;
+    const lastWeek = A.elfOfLastWeek && A.elfOfLastWeek.names.length
+      ? `Last week's Elf of the Week: <strong>${esc(listNames(A.elfOfLastWeek.names))}</strong>`
+      : `Last week's Elf of the Week: <strong>nobody logged last week</strong>`;
     return `
       <div class="page">
-        <h2>Awards</h2>
-        <p class="muted small">Badges your team has earned on the trail.</p>
-      </div>
-      <div class="page badge ${p.arrived ? 'earned' : ''}">
-        <div class="medal">${poleSvg(34)}</div>
-        <div>
-          <h3>Traveled to the North Pole</h3>
-          <p class="small muted">${p.arrived ? 'Earned together. 2,000 miles from Layton to the top of the world.' : `Earned when your team reaches mile ${fmt(p.goal, 0)}. ${fmt(p.goal - p.total, 0)} miles to go.`}</p>
-        </div>
+        <h2>Team Awards</h2>
+        <p class="muted small">Everyone on the team sees these the same way. ${teamEarned} of ${A.team.length} earned.</p>
+        <p class="small elf-week">${lastWeek}</p>
+        <ul class="badges">${A.team.map(badgeCard).join('')}</ul>
       </div>
       <div class="page">
-        <p class="muted small">More destinations and badges are coming.</p>
+        <h2>Your Awards</h2>
+        <p class="muted small">Earned by your own miles. ${mineEarned} of ${A.personal.length} earned.</p>
+        <ul class="badges">${A.personal.map(badgeCard).join('')}</ul>
       </div>`;
+  }
+
+  function listNames(names) {
+    if (names.length <= 1) return names.join('');
+    return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  }
+
+  /* ---------- New-award pop-ups ---------- */
+
+  const $awardPop = document.getElementById('award-pop');
+  let popQueue = [];
+
+  function showAwardPops(list) {
+    if (!list || !list.length) return;
+    popQueue = popQueue.concat(list);
+    if ($awardPop.hidden) nextAwardPop();
+  }
+
+  function nextAwardPop() {
+    const a = popQueue.shift();
+    if (!a) { $awardPop.hidden = true; return; }
+    $awardPop.innerHTML = `
+      <div class="award-pop-card page" role="dialog" aria-live="assertive" aria-label="New award: ${esc(a.title)}">
+        <div class="badge-frame earned">${badgeIcon(a.icon)}</div>
+        <p class="award-pop-kicker">New ${a.section === 'team' ? 'team ' : ''}award!</p>
+        <h2>${esc(a.title)}</h2>
+        <p class="small muted">${popQueue.length ? 'Tap for the next one' : 'Tap to continue'}</p>
+      </div>`;
+    $awardPop.hidden = false;
   }
 
   /* ---------- Celebration ---------- */
@@ -531,6 +602,7 @@
   }
 
   document.addEventListener('click', (ev) => {
+    if (!$awardPop.hidden && $awardPop.contains(ev.target)) { nextAwardPop(); return; }
     const el = ev.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
@@ -619,6 +691,7 @@
           await loadJourney();
           state.tab = 'journey';
           renderScreen();
+          showAwardPops(added.newAwards);
           toast(`Added ${fmt(added.miles)} miles`, {
             label: 'Undo',
             run: () => withBusy(async () => {

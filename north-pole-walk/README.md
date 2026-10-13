@@ -9,7 +9,8 @@ What it does today:
 - Add your miles (walking, running, treadmill — anything step-based)
 - See the team's shared progress: an animated storybook scene (an elf walks past wooden signposts, and the seasons shift from Utah foothills to the Arctic night), a wooden mile marker, "did you know" facts along the way
 - See your own total miles
-- A celebration when the team reaches the Pole, and a badge in Awards
+- An Awards tab: team badges for every stop and border on the route, plus personal badges for streaks, milestones, early-bird and night-owl walks, weekends, a marathon-length entry and Elf of the Week. Badges unlock with a pop-up the moment miles are added, and relock if the miles that earned them are removed.
+- A celebration when the team reaches the Pole
 
 Runs on Cloudflare Pages with a small database (Cloudflare D1). No monthly cost at this size.
 
@@ -68,8 +69,8 @@ If you later add a custom domain to the site, add that address here too.
 
 ## How the pieces fit (if you want to learn this side of things)
 
-- **`public/`** — the website people see. Plain HTML, CSS, and JavaScript. No build tools. `app.js` draws the screens; `journey.js` holds the route, its stops, and the facts; `scene.js` draws the side-scrolling elf scene from that route.
-- **`functions/`** — the small backend. Each file is one web address under `/api/`. For example, `functions/api/miles.js` handles `POST /api/miles`, which is how miles get saved. Cloudflare runs these for you; there's no server to manage.
+- **`public/`** — the website people see. Plain HTML, CSS, and JavaScript. No build tools. `app.js` draws the screens; `journey.js` holds the route, its stops, and the facts; `scene.js` draws the side-scrolling elf scene from that route; `badges.js` holds the award icons.
+- **`functions/`** — the small backend. Each file in `functions/api/` is one web address under `/api/`. For example, `functions/api/miles.js` handles `POST /api/miles`, which is how miles get saved, and `functions/api/awards.js` answers `GET /api/awards`. The award rules live in `functions/lib/awards.js`; they are worked out fresh from the mile entries every time (nothing is stored), using Denver time for days, weeks and times of day. Cloudflare runs these for you; there's no server to manage.
 - **D1** — the database. It's a normal SQL database (SQLite) that Cloudflare hosts. `schema.sql` describes its five tables: users, sessions, teams, team_members, mile_entries.
 - **`wrangler.toml`** — the settings file. It tells Cloudflare which database to connect and your Google client ID.
 - **Sign-in** — Google gives the browser a signed token. The browser sends it to `functions/api/auth/google.js`, which asks Google to confirm it's real, saves the person in the `users` table, and sets a cookie so they stay signed in for 90 days.
