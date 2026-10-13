@@ -7,10 +7,10 @@ compatibility_date = "2024-09-01"
 
 [vars]
 # CHANGE ME: paste your Google OAuth client ID (it ends in .apps.googleusercontent.com)
-GOOGLE_CLIENT_ID = "PASTE-YOUR-CLIENT-ID.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "317792879558-vvek51jbfktie1gmktn0cl5q0fsfmbf1.apps.googleusercontent.com"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "north-pole-walk"
 # CHANGE ME: paste the Database ID shown on your D1 database page
-database_id = "PASTE-YOUR-DATABASE-ID"
+database_id = "31b582ac-bcef-4ab2-b8e7-2870046fba80"
