@@ -1,6 +1,6 @@
 # The Walk to the North Pole
 
-A small web app where a team walks, together, from Layton, Utah to the North Pole — 2,000 miles, matching the office tracker poster. Everyone adds their own miles, and the whole team's miles move one marker up the trail. Storybook style, built for phones.
+A small web app where a team walks, together, from Layton, Utah to the North Pole — 3,381 miles due north, straight up the 112° W line. Everyone adds their own miles, and the whole team's miles move one marker up the trail. Storybook style, built for phones.
 
 What it does today:
 

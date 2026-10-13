@@ -2,6 +2,56 @@
 // Each entry is the inside of a 48 × 48 viewBox. app.js wraps it in <svg>.
 
 const BADGE_ICONS = {
+  mountain: `
+    <path d="M3 40 L18 14 L26 26 L33 18 L45 40 Z" fill="#6b5f54"/>
+    <path d="M18 14 L22 21 L18 24 L14 21 Z" fill="#fbfbf7"/><path d="M33 18 L36 23 L33 25 L30 23 Z" fill="#fbfbf7"/>
+    <path d="M3 40 L18 14 L26 26 L21 40 Z" fill="#8a7a6a"/>
+    <circle cx="38" cy="9" r="4" fill="#e2b04c"/>`,
+  compass: `
+    <circle cx="24" cy="24" r="18" fill="#fbfbf7" stroke="#7b4a21" stroke-width="2.5"/>
+    <circle cx="24" cy="24" r="13" fill="none" stroke="#e9dcbf" stroke-width="1.5"/>
+    <path d="M24 9 L28 24 L24 39 L20 24 Z" fill="#c9553d"/><path d="M24 9 L28 24 L20 24 Z" fill="#c9553d"/><path d="M24 39 L20 24 L28 24 Z" fill="#6b5f54"/>
+    <circle cx="24" cy="24" r="2.5" fill="#e2b04c"/>
+    <text x="24" y="8" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="7" fill="#2b241f">N</text>`,
+  lake: `
+    <path d="M4 20 L14 8 L22 18 L30 10 L44 22 Z" fill="#8a7a6a"/>
+    <path d="M14 8 L17 12 L14 15 L11 12 Z" fill="#fbfbf7"/><path d="M30 10 L33 14 L30 16 L27 14 Z" fill="#fbfbf7"/>
+    <ellipse cx="24" cy="32" rx="20" ry="9" fill="#6fb4ff"/>
+    <ellipse cx="24" cy="32" rx="20" ry="9" fill="none" stroke="#2b5fa8" stroke-width="1.5"/>
+    <path d="M12 31 q4 -2 8 0 q4 2 8 0 q4 -2 8 0" fill="none" stroke="#dcefff" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M22 15 h4 l-2 -4 z" fill="#2f7a3f"/>`,
+  wave: `
+    <path d="M4 22 q5 -6 10 0 t10 0 t10 0 t10 0 v22 H4 z" fill="#6fb4ff"/>
+    <path d="M4 30 q5 -6 10 0 t10 0 t10 0 t10 0" fill="none" stroke="#dcefff" stroke-width="2" stroke-linecap="round"/>
+    <path d="M4 38 q5 -6 10 0 t10 0 t10 0 t10 0" fill="none" stroke="#2b5fa8" stroke-width="2" stroke-linecap="round"/>
+    <path d="M26 20 L31 9 L37 20 Z" fill="#e4f2fb"/><path d="M31 9 L37 20 L31 20 Z" fill="#c6e1f2"/>
+    <path d="M9 20 L13 14 L18 20 Z" fill="#e4f2fb"/>`,
+  island: `
+    <rect x="4" y="30" width="40" height="12" fill="#6fb4ff"/>
+    <path d="M4 32 q5 -3 10 0 t10 0 t10 0 t10 0" fill="none" stroke="#dcefff" stroke-width="1.5"/>
+    <path d="M10 32 q14 -16 28 0 z" fill="#f4f7fb"/><path d="M14 31 q10 -8 20 0 z" fill="#dbe4f1"/>
+    <rect x="23" y="12" width="2" height="18" fill="#7b4a21"/>
+    <path d="M25 12 h10 l-3 4 l3 4 h-10 z" fill="#c9553d"/>
+    <path d="M16 26 l3 -6 l3 6 z M28 27 l2.5 -5 l2.5 5 z" fill="#2f7a3f"/>`,
+  globe: `
+    <circle cx="24" cy="24" r="17" fill="#6fb4ff" stroke="#2b5fa8" stroke-width="2"/>
+    <path d="M12 12 q12 -5 24 0 q-12 5 -24 0 z" fill="#f4f7fb"/>
+    <path d="M9 19 h30 M8 26 h32 M11 33 h26" stroke="#dcefff" stroke-width="1.2"/>
+    <path d="M24 7 v34 M12 11 q12 13 24 0 M12 37 q12 -13 24 0" fill="none" stroke="#dcefff" stroke-width="1.2"/>
+    <path d="M9 19 h30" stroke="#c9553d" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="24" y="31" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="9" fill="#fbfbf7">80°</text>`,
+  comet: `
+    <path d="M6 40 L26 18" stroke="#ffeec2" stroke-width="6" stroke-linecap="round"/>
+    <path d="M4 32 L20 16 M14 42 L28 28" stroke="#e2b04c" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+    <path d="M32 6 l3.6 7.9 8.6 .9 -6.4 5.9 1.8 8.5 -7.6 -4.3 -7.6 4.3 1.8 -8.5 -6.4 -5.9 8.6 -.9 z" fill="#e2b04c" stroke="#b98624" stroke-width="1.2" stroke-linejoin="round"/>`,
+  scales: `
+    <rect x="22" y="8" width="4" height="30" rx="1" fill="#7b4a21"/>
+    <rect x="12" y="38" width="24" height="4" rx="2" fill="#5a3415"/>
+    <path d="M6 14 h36" stroke="#7b4a21" stroke-width="3" stroke-linecap="round"/>
+    <path d="M6 14 l-4 12 h14 z" fill="#e2b04c" stroke="#b98624" stroke-width="1"/>
+    <path d="M42 14 l-4 12 h14 z" fill="#e2b04c" stroke="#b98624" stroke-width="1"/>
+    <circle cx="24" cy="8" r="3" fill="#e2b04c"/>
+    <text x="24" y="31" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="9" fill="#2b241f">÷</text>`,
   train: `
     <rect x="8" y="14" width="26" height="18" rx="4" fill="#c9553d"/>
     <rect x="34" y="20" width="8" height="12" rx="2" fill="#7b4a21"/>

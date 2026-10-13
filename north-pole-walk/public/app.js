@@ -18,6 +18,7 @@
     tab: 'journey',
     lastShownMile: null, // so the walker animates from where it was
     busy: false,
+    noticeDismissed: false, // fallback when localStorage is unavailable
   };
 
   /* ---------- Helpers ---------- */
@@ -55,6 +56,24 @@
   function currentJourneyDef() {
     const id = (state.journey && state.journey.team.journey_id) || 'north-pole';
     return JOURNEYS[id] || JOURNEYS['north-pole'];
+  }
+
+  // One-time note about the switch to the real route. Remembered in localStorage,
+  // which may be unavailable (private mode), so every touch is guarded.
+  const ROUTE_NOTICE_KEY = 'notice:real-route-3381';
+  function routeNoticeDismissed() {
+    try { return localStorage.getItem(ROUTE_NOTICE_KEY) === '1'; } catch (e) { return state.noticeDismissed === true; }
+  }
+  function dismissRouteNotice() {
+    state.noticeDismissed = true;
+    try { localStorage.setItem(ROUTE_NOTICE_KEY, '1'); } catch (e) { /* no storage; it stays dismissed for this visit */ }
+  }
+  function routeNotice() {
+    if (routeNoticeDismissed()) return '';
+    return `<div class="page notice" role="status">
+      <p><strong>We've switched to the real route: 3,381 miles to the North Pole!</strong> Your miles are all still here; the trail just got longer, and some badges moved.</p>
+      <button class="button quiet" type="button" data-action="dismiss-notice">Got it</button>
+    </div>`;
   }
 
   let toastTimer = null;
@@ -198,7 +217,7 @@
       <section class="cover">
         ${poleSvg(64)}
         <h1 class="cover-title">The Walk to the North Pole</h1>
-        <p class="cover-sub">A team journey, one mile at a time.<br>2,000 miles from Layton to the North Pole.</p>
+        <p class="cover-sub">A team journey, one mile at a time.<br>3,381 miles due north of Layton.</p>
         <div class="signin"><div id="google-button"></div></div>
         ${setupItems.length ? `
           <div class="page setup-note">
@@ -311,6 +330,7 @@
       : `Your team is ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(p.next.name)}, ${fmt(p.next.mile - p.mile, 0)} miles ahead.` : ''}`;
 
     return `
+      ${routeNotice()}
       <div class="page scene-page">
         <div id="scene" class="scene"></div>
       </div>
@@ -490,6 +510,7 @@
       ? `Last week's Elf of the Week: <strong>${esc(listNames(A.elfOfLastWeek.names))}</strong>`
       : `Last week's Elf of the Week: <strong>nobody logged last week</strong>`;
     return `
+      ${routeNotice()}
       <div class="page">
         <h2>Team Awards</h2>
         <p class="muted small">Everyone on the team sees these the same way. ${teamEarned} of ${A.team.length} earned.</p>
@@ -633,6 +654,10 @@
       toast('Entry removed');
     });
 
+    if (action === 'dismiss-notice') {
+      dismissRouteNotice();
+      document.querySelectorAll('.notice').forEach((n) => n.remove());
+    }
     if (action === 'replay-celebration') showCelebration();
     if (action === 'close-celebration') hideCelebration();
   });

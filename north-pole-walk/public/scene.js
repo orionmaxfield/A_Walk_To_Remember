@@ -9,6 +9,7 @@
 
   const H = 280;                                  // scene height in SVG units
   const PPM = 1.8;                                // SVG units per mile (near layer)
+  const MIN_SEG = 130;                            // least room between two neighbouring signposts
   const SPEED = { far: 0.22, mid: 0.5, near: 1 }; // parallax speeds
   const HORIZON = 214;                            // where the ground meets the sky
   const FEET = 238;                               // the elf's feet, on the path
@@ -43,37 +44,78 @@
   }
   const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ---------- Palettes (t = 0 at Layton, 1 at the Pole) ---------- */
+  /* ---------- World geometry ----------
+     Miles map to near-layer x almost linearly (PPM), except that the stretch between
+     two neighbouring stops is never shorter than MIN_SEG, so signs that sit a few
+     miles apart (Ogden, Logan, the Idaho line) still get room of their own. */
 
-  const SKY_TOP = [[0, '#4a9be0'], [0.35, '#4f8fd2'], [0.55, '#3a3a78'], [0.75, '#0d1a3c'], [1, '#070f28']];
-  const SKY_MID = [[0, '#9ccff2'], [0.35, '#cfaebb'], [0.55, '#9a4f7e'], [0.75, '#182a55'], [1, '#111f45']];
-  const SKY_BOT = [[0, '#dcf0fb'], [0.35, '#f6c988'], [0.55, '#f08a58'], [0.75, '#30416e'], [1, '#213460']];
-  const ROCK     = [[0, '#8d7a66'], [0.45, '#7f7078'], [0.75, '#4b5679'], [1, '#3a4869']];
-  const ROCK_BACK = [[0, '#a5978a'], [0.45, '#9a8f9c'], [0.75, '#5a6688'], [1, '#475579']];
-  const HILL_BACK = [[0, '#c9ad52'], [0.3, '#c6b878'], [0.6, '#e4e9ee'], [0.85, '#d5dfee'], [1, '#cfd9eb']];
-  const HILL_FRONT = [[0, '#6f9d49'], [0.3, '#8aa75b'], [0.6, '#eef2f6'], [0.85, '#e0e8f3'], [1, '#dbe4f1']];
-  const GRASS = [[0, '#86b457'], [0.3, '#9bb35a'], [0.5, '#b9c290'], [0.7, '#eaf0f5'], [1, '#e3ebf6']];
-  const PATH  = [[0, '#c9a46f'], [0.45, '#cbb48f'], [0.7, '#dfe6ee'], [1, '#d4ddea']];
-  const TREE  = [[0, '#2f6e3b'], [0.6, '#2b6140'], [1, '#1f3f44']];
-  const SUN   = [[0, '#fff1b8'], [0.35, '#ffd86e'], [0.6, '#ff9b4c']];
+  let SEGS = [];
+  function setWorld(J) {
+    const miles = [...new Set(J.waypoints.map((w) => w.mile))].sort((a, b) => a - b);
+    SEGS = [];
+    let x = 0;
+    for (let i = 1; i < miles.length; i++) {
+      const len = Math.max(MIN_SEG, (miles[i] - miles[i - 1]) * PPM);
+      SEGS.push({ m0: miles[i - 1], m1: miles[i], x0: x, x1: x + len });
+      x += len;
+    }
+  }
+  function worldX(m) {
+    if (!SEGS.length) return m * PPM;
+    const first = SEGS[0], last = SEGS[SEGS.length - 1];
+    if (m <= first.m0) return first.x0 + (m - first.m0) * PPM;
+    if (m >= last.m1) return last.x1 + (m - last.m1) * PPM;
+    for (const sg of SEGS) if (m <= sg.m1) return sg.x0 + ((m - sg.m0) / (sg.m1 - sg.m0)) * (sg.x1 - sg.x0);
+    return m * PPM;
+  }
+  function mileAt(x) {
+    if (!SEGS.length) return x / PPM;
+    const first = SEGS[0], last = SEGS[SEGS.length - 1];
+    if (x <= first.x0) return first.m0 + (x - first.x0) / PPM;
+    if (x >= last.x1) return last.m1 + (x - last.x1) / PPM;
+    for (const sg of SEGS) if (x <= sg.x1) return sg.m0 + ((x - sg.x0) / (sg.x1 - sg.x0)) * (sg.m1 - sg.m0);
+    return x / PPM;
+  }
 
-  function palette(t) {
+  /* ---------- Palettes ----------
+     t runs from 0 at Layton to 1 at the Pole, but the seasons turn at real places:
+     k.canada (the border), k.edmonton, k.nwt (the 60th parallel) and k.arctic
+     (the Arctic Circle), each given as a fraction of the whole trail. */
+
+  const SUN = [[0, '#fff1b8'], [0.6, '#ffd86e'], [1, '#ff9b4c']];
+
+  function palette(t, k) {
+    const dusk = (k.edmonton + k.nwt) / 2;           // sunset halfway through Alberta
+    const night = k.nwt + 0.06;                       // full dark soon after the 60th parallel
+    const sunset = smooth(k.canada, k.nwt - 0.02, t); // 0 by day, 1 once the sun is down
     return {
-      skyTop: ramp(SKY_TOP, t), skyMid: ramp(SKY_MID, t), skyBot: ramp(SKY_BOT, t),
-      rock: ramp(ROCK, t), rockBack: ramp(ROCK_BACK, t),
-      hillBack: ramp(HILL_BACK, t), hillFront: ramp(HILL_FRONT, t),
-      grass: ramp(GRASS, t), path: ramp(PATH, t), tree: ramp(TREE, t),
-      snowLine: lerp(0.26, 1.05, smooth(0.05, 0.85, t)),
-      treeSnow: smooth(0.3, 0.7, t),
-      patch: smooth(0.2, 0.45, t),
-      stars: smooth(0.5, 0.85, t),
-      aurora: smooth(0.42, 0.62, t) * 0.4 + smooth(0.64, 0.8, t) * 0.6,
-      sunY: lerp(48, 150, smooth(0, 0.62, t)),
-      sunOp: 1 - smooth(0.58, 0.7, t),
-      sunColor: ramp(SUN, t),
-      moonY: lerp(130, 44, smooth(0.6, 0.9, t)),
-      moonOp: smooth(0.62, 0.8, t),
-      snowA: smooth(0.22, 0.42, t), snowB: smooth(0.58, 0.76, t), snowC: smooth(0.8, 0.95, t),
+      skyTop: ramp([[0, '#4a9be0'], [k.canada, '#4f8fd2'], [dusk, '#3a3a78'], [night, '#0d1a3c'], [1, '#070f28']], t),
+      skyMid: ramp([[0, '#9ccff2'], [k.canada, '#cfaebb'], [dusk, '#9a4f7e'], [night, '#182a55'], [1, '#111f45']], t),
+      skyBot: ramp([[0, '#dcf0fb'], [k.canada, '#f6c988'], [dusk, '#f08a58'], [night, '#30416e'], [1, '#213460']], t),
+      rock: ramp([[0, '#8d7a66'], [k.edmonton, '#7f7078'], [night, '#4b5679'], [1, '#3a4869']], t),
+      rockBack: ramp([[0, '#a5978a'], [k.edmonton, '#9a8f9c'], [night, '#5a6688'], [1, '#475579']], t),
+      hillBack: ramp([[0, '#c9ad52'], [k.canada, '#c6b878'], [k.nwt, '#e4e9ee'], [1, '#cfd9eb']], t),
+      hillFront: ramp([[0, '#6f9d49'], [k.canada, '#8aa75b'], [k.nwt, '#eef2f6'], [1, '#dbe4f1']], t),
+      grass: ramp([[0, '#86b457'], [k.canada, '#9bb35a'], [k.edmonton, '#b9c290'], [k.nwt, '#eaf0f5'], [1, '#e3ebf6']], t),
+      path: ramp([[0, '#c9a46f'], [k.canada, '#cbb48f'], [k.nwt, '#dfe6ee'], [1, '#d4ddea']], t),
+      tree: ramp([[0, '#2f6e3b'], [k.nwt, '#2b6140'], [1, '#1f3f44']], t),
+      snowLine: lerp(0.26, 1.05, smooth(0.02, k.nwt, t)),
+      treeSnow: smooth(k.canada, dusk, t),
+      patch: smooth(k.canada, k.edmonton, t),
+      stars: smooth(dusk, night, t),
+      // Faint around Edmonton, growing through the Northwest Territories, bold past the Arctic Circle
+      aurora: smooth(k.edmonton - 0.03, k.edmonton + 0.04, t) * 0.18
+        + smooth(k.nwt - 0.02, k.nwt + 0.08, t) * 0.32
+        + smooth(k.arctic - 0.02, k.arctic + 0.04, t) * 0.5,
+      sunY: lerp(48, 150, sunset),
+      sunOp: 1 - smooth(k.nwt - 0.05, k.nwt, t),
+      sunColor: ramp(SUN, sunset),
+      moonY: lerp(130, 44, smooth(k.nwt - 0.02, k.nwt + 0.12, t)),
+      moonOp: smooth(k.nwt - 0.03, k.nwt + 0.05, t),
+      // Flurries from the Canadian border, heavier through Alberta, steady past the Arctic Circle
+      snowA: smooth(k.canada, k.canada + 0.06, t),
+      snowB: smooth(k.edmonton, k.nwt, t),
+      snowC: smooth(k.arctic - 0.03, k.arctic + 0.05, t),
     };
   }
 
@@ -168,7 +210,7 @@
 
   function farLayer(total, VW, c) {
     const r = rng(7);
-    const x0 = -VW * 2, x1 = total * PPM * SPEED.far + VW * 2;
+    const x0 = -VW * 2, x1 = worldX(total) * SPEED.far + VW * 2;
     const back = mountains(x0, x1, HORIZON + 8, 55, 100, r);
     const front = mountains(x0, x1, HORIZON + 4, 60, 140, r);
     return `<path d="${back}" fill="${c.rockBack}"/><path d="${back}" fill="url(#sc-snowcap)" opacity="0.8"/>
@@ -188,18 +230,21 @@
     return d + ` L${x.toFixed(0)} ${base + 70} Z`;
   }
 
-  // Forest density by mile: sparse in Utah, thick through Montana and Canada, bare in the Arctic.
-  const FOREST = [[-500, 250, 0.2], [250, 700, 0.55], [700, 1300, 1], [1300, 1480, 0.5], [1480, 1860, 0.1], [1860, 1990, 0.35], [2040, 2600, 0.15]];
+  // Forest density by mile: sagebrush country through Utah and Idaho, pines through
+  // Montana, thick boreal forest across Alberta, thinning taiga in the Northwest
+  // Territories, bare tundra and sea ice past the Arctic Circle, a few decorated
+  // trees around the workshop.
+  const FOREST = [[-500, 65, 0.2], [65, 242, 0.3], [242, 548, 0.6], [548, 1309, 1], [1309, 1600, 0.55], [1600, 1762, 0.25], [3280, 3370, 0.35], [3420, 3800, 0.15]];
 
   function forest(r) {
     let out = '';
     for (const [a, b, density] of FOREST) {
-      for (let m = a; m < b; m += 10) {
+      const xEnd = worldX(b) * SPEED.mid;
+      for (let x = worldX(a) * SPEED.mid; x < xEnd; x += 9) {
         if (r() > density * 0.8) continue;
         const s = (0.7 + r() * 0.6).toFixed(2);
-        const x = ((m + r() * 8) * PPM * SPEED.mid).toFixed(0);
         const y = HORIZON + 2 + Math.round(r() * 6);
-        out += `<use href="#sc-pine" transform="translate(${x} ${y}) scale(${s})"/>`;
+        out += `<use href="#sc-pine" transform="translate(${(x + r() * 7).toFixed(0)} ${y}) scale(${s})"/>`;
       }
     }
     return out;
@@ -247,18 +292,28 @@
 
   function midLayer(total, VW, c, marks) {
     const r = rng(11);
-    const x0 = -VW * 2, x1 = total * PPM * SPEED.mid + VW * 2;
-    const mx = (mile) => mile * PPM * SPEED.mid;
+    const x0 = -VW * 2, x1 = worldX(total) * SPEED.mid + VW * 2;
+    const mx = (mile) => worldX(mile) * SPEED.mid;
     let out = `<path d="${hills(x0, x1, HORIZON, 48, r)}" fill="${c.hillBack}"/>`;
     if (marks.volcano != null) out += volcano(mx(marks.volcano - 6));
     out += `<path d="${hills(x0, x1, HORIZON + 4, 26, r)}" fill="${c.hillFront}"/>`;
-    // Icebergs in the far north
-    if (marks.arctic != null) {
-      for (let m = marks.arctic + 30; m < total + 300; m += 70 + r() * 90) {
-        out += `<use href="#sc-berg" transform="translate(${mx(m).toFixed(0)} ${HORIZON + 8}) scale(${(0.8 + r() * 0.8).toFixed(2)})"/>`;
+    // Icebergs once the trail reaches the Arctic Ocean
+    const iceFrom = marks.coast != null ? marks.coast : marks.arctic;
+    if (iceFrom != null) {
+      for (let x = mx(iceFrom) + 20; x < x1; x += 60 + r() * 80) {
+        out += `<use href="#sc-berg" transform="translate(${x.toFixed(0)} ${HORIZON + 8}) scale(${(0.8 + r() * 0.8).toFixed(2)})"/>`;
       }
     }
     out += forest(r);
+    // Great Slave Lake: a wide, half-frozen lake behind the trail
+    if (marks.lake != null) {
+      const lx = mx(marks.lake);
+      out += `<g transform="translate(${lx.toFixed(0)} ${HORIZON + 9})">
+        <ellipse rx="170" ry="9" fill="#8fbfe6"/><ellipse rx="170" ry="9" fill="none" stroke="#dcefff" stroke-width="2"/>
+        <ellipse cx="-60" cy="1" rx="34" ry="3.5" fill="#e4f2fb"/><ellipse cx="70" cy="-1" rx="26" ry="3" fill="#e4f2fb"/>
+        <path d="M-120 2 q10 -3 20 0 M20 3 q10 -3 20 0 M110 1 q10 -3 20 0" fill="none" stroke="#dcefff" stroke-width="1.5" stroke-linecap="round"/>
+      </g>`;
+    }
     // A little village behind the workshop
     if (marks.workshop != null) {
       const v = marks.workshop;
@@ -281,7 +336,7 @@
   // Where a sign's post stands: passed signs end a fixed gap behind the elf,
   // upcoming signs begin a fixed gap ahead of it, so neither ever overlaps the elf.
   function signX(mile, width, passed) {
-    return passed ? mile * PPM - (width / 2 + SIGN_GAP) : mile * PPM + (width / 2 + SIGN_GAP + 10);
+    return passed ? worldX(mile) - (width / 2 + SIGN_GAP) : worldX(mile) + (width / 2 + SIGN_GAP + 10);
   }
 
   function signpost(wp, tall, passed) {
@@ -345,32 +400,35 @@
 
   function nearLayer(total, VW, c, J, marks, mile) {
     const r = rng(19);
-    const x0 = -VW * 3, x1 = total * PPM + VW * 3;
-    const nx = (mile) => mile * PPM;
+    const x0 = -VW * 3, x1 = worldX(total) + VW * 3;
+    const nx = (mile) => worldX(mile);
     let out = `<rect x="${x0}" y="${HORIZON}" width="${x1 - x0}" height="${H - HORIZON + 10}" fill="${c.grass}"/>
       <rect x="${x0}" y="${HORIZON}" width="${x1 - x0}" height="3" fill="rgba(0,0,0,0.06)"/>
       <rect x="${x0}" y="228" width="${x1 - x0}" height="24" rx="2" fill="${c.path}"/>
       <rect x="${x0}" y="228" width="${x1 - x0}" height="2" fill="rgba(0,0,0,0.07)"/>`;
 
-    // Utah foothills: sagebrush and rocks for the first stretch
-    for (let m = -400; m < 520; m += 18 + r() * 30) {
+    // Foothills: sagebrush and rocks through Utah and Idaho, up to the Montana line
+    const brushEnd = nx(marks.canada != null ? Math.min(marks.canada, 242) : 242);
+    for (let x = x0; x < brushEnd; x += 32 + r() * 54) {
       const front = r() < 0.4;
       const s = (front ? 0.5 : 0.8 + r() * 0.5).toFixed(2);
       const y = front ? 262 + Math.round(r() * 10) : SIGN_BASE - Math.round(r() * 6);
-      out += `<use href="#${r() < 0.3 ? 'sc-rock' : 'sc-bush'}" transform="translate(${nx(m).toFixed(0)} ${y}) scale(${s})"/>`;
+      out += `<use href="#${r() < 0.3 ? 'sc-rock' : 'sc-bush'}" transform="translate(${x.toFixed(0)} ${y}) scale(${s})"/>`;
     }
     // Snow patches everywhere (faded in with progress)
-    for (let m = -400; m < total + 400; m += 14 + r() * 26) {
+    for (let x = x0; x < x1; x += 25 + r() * 47) {
       const front = r() < 0.45;
       const y = front ? 258 + Math.round(r() * 14) : HORIZON + 4 + Math.round(r() * 8);
-      out += `<use href="#sc-patch" transform="translate(${nx(m).toFixed(0)} ${y}) scale(${(front ? 0.5 : 0.7 + r() * 0.7).toFixed(2)} 1)"/>`;
+      out += `<use href="#sc-patch" transform="translate(${x.toFixed(0)} ${y}) scale(${(front ? 0.5 : 0.7 + r() * 0.7).toFixed(2)} 1)"/>`;
     }
-    // Deep snow and ice in the north
-    if (marks.arctic != null) {
-      for (let m = marks.arctic - 180; m < total + 300; m += 26 + r() * 50) {
-        const ice = r() < 0.5;
+    // Deep snow drifts from the Northwest Territories on, and sea ice from the Arctic coast
+    const driftFrom = marks.nwt != null ? marks.nwt : marks.arctic;
+    const seaIceFrom = marks.coast != null ? marks.coast : marks.arctic;
+    if (driftFrom != null) {
+      for (let x = nx(driftFrom); x < x1; x += 47 + r() * 90) {
+        const ice = seaIceFrom != null && x >= nx(seaIceFrom) - 60 && r() < 0.55;
         const y = r() < 0.5 ? SIGN_BASE - 2 : 264 + Math.round(r() * 8);
-        out += `<use href="#${ice ? 'sc-ice' : 'sc-mound'}" transform="translate(${nx(m).toFixed(0)} ${y}) scale(${(y > 240 ? 0.5 : 0.8 + r() * 0.6).toFixed(2)})"/>`;
+        out += `<use href="#${ice ? 'sc-ice' : 'sc-mound'}" transform="translate(${x.toFixed(0)} ${y}) scale(${(y > 240 ? 0.5 : 0.8 + r() * 0.6).toFixed(2)})"/>`;
       }
     }
 
@@ -380,7 +438,7 @@
       out += signpost(wp, i % 2 === 0, wp.mile <= mile);
     });
 
-    if (marks.arctic != null) out += polarBear(nx(marks.arctic + 38));
+    if (marks.arctic != null) out += polarBear(nx(marks.arctic + 75));
     if (marks.volcano != null) out += penguin(nx(marks.volcano + 44), 250, 0.75, false) + penguin(nx(marks.volcano + 56), 250, 0.6, false);
     if (marks.workshop != null) {
       const w = marks.workshop;
@@ -480,8 +538,15 @@
     const hostW = host.clientWidth || 358;
     const hostH = host.clientHeight || H;
     const VW = Math.round(hostW * H / hostH);
-    const c = palette(t);
+    setWorld(J);
     const marks = sceneMarks(J);
+    const frac = (key, fallback) => (marks[key] != null ? marks[key] / total : fallback);
+    const c = palette(t, {
+      canada: frac('canada', 0.16),
+      edmonton: frac('edmonton', 0.26),
+      nwt: frac('nwt', 0.39),
+      arctic: frac('arctic', 0.52),
+    });
     const vars = `--tree:${c.tree};--tree-snow:${c.treeSnow.toFixed(2)};--patch:${c.patch.toFixed(2)}`;
     host.innerHTML = `<svg class="scene-svg" viewBox="0 0 ${VW} ${H}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${esc(opts.label || '')}" style="${vars}">
       ${defs(c, VW)}
@@ -499,7 +564,7 @@
     const layers = svg.querySelectorAll('.layer');
     for (let i = 0; i < layers.length; i++) {
       const s = Number(layers[i].getAttribute('data-speed'));
-      layers[i].setAttribute('transform', `translate(${(VW / 2 - mile * PPM * s).toFixed(2)} 0)`);
+      layers[i].setAttribute('transform', `translate(${(VW / 2 - worldX(mile) * s).toFixed(2)} 0)`);
     }
   }
 
@@ -539,9 +604,10 @@
 
     const total = opts.journey.totalMiles;
     const to = clamp(opts.mile, 0, total);
-    let from = opts.fromMile == null ? to - 70 : clamp(opts.fromMile, 0, total);
-    if (Math.abs(from - to) < 1) from = to - 30;
-    from = Math.max(-45, from);
+    // Walk in from a little way back (measured on screen, so it looks the same everywhere).
+    let from = opts.fromMile == null ? mileAt(worldX(to) - 130) : clamp(opts.fromMile, 0, total);
+    if (Math.abs(from - to) < 1) from = mileAt(worldX(to) - 60);
+    from = Math.max(mileAt(-80), from);
 
     const finish = () => { current.frame = 0; if (opts.arrived) host.classList.add('arrived'); };
 

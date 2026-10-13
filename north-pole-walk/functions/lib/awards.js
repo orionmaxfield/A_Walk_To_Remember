@@ -69,7 +69,9 @@ const PERSONAL = {
     { id: 'miles-100', title: 'Century Elf', icon: 'medal', goal: 100 },
     { id: 'miles-250', title: 'Seasoned Trekker', icon: 'backpack', goal: 250 },
     { id: 'miles-500', title: 'Legendary Elf', icon: 'crown', goal: 500 },
+    { id: 'miles-1000', title: 'Mythic Elf', icon: 'comet', goal: 1000 },
   ],
+  fairShare: { id: 'fair-share', title: 'Fair Share', icon: 'scales' },
   streaks: [
     { id: 'streak-3', title: 'On a Roll', icon: 'flame', goal: 3 },
     { id: 'streak-7', title: 'Unstoppable', icon: 'bolt', goal: 7 },
@@ -192,9 +194,20 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
     if (nightMs == null && e.at.hour >= 21) nightMs = e.ms;
   }
   for (const m of PERSONAL.milestones) {
-    personal.push(make({ ...m, how: `Log ${m.goal} miles in total.` }, reached[m.id],
-      { value: Math.min(myTotal, m.goal), goal: m.goal, text: `${fmtMiles(Math.min(myTotal, m.goal))} / ${m.goal} miles` }));
+    personal.push(make({ ...m, how: `Log ${m.goal.toLocaleString('en-US')} miles in total.` }, reached[m.id],
+      { value: Math.min(myTotal, m.goal), goal: m.goal, text: `${fmtMiles(Math.min(myTotal, m.goal))} / ${m.goal.toLocaleString('en-US')} miles` }));
   }
+
+  // Fair Share: your own miles reach the journey total split evenly across the current team.
+  // The goal moves as people join or leave, so it is worked out fresh every time.
+  const walkers = Math.max(1, members.length);
+  const share = Math.ceil(J.totalMiles / walkers);
+  let shareMs = null, soFar = 0;
+  for (const e of mine) { soFar += e.miles; if (soFar >= share) { shareMs = e.ms; break; } }
+  personal.push(make({
+    ...PERSONAL.fairShare,
+    how: `Walk your share of the trail: ${J.totalMiles.toLocaleString('en-US')} miles ÷ ${walkers} ${walkers === 1 ? 'walker' : 'walkers'} ≈ ${share.toLocaleString('en-US')} miles.`,
+  }, shareMs, { value: Math.min(myTotal, share), goal: share, text: `${fmtMiles(Math.min(myTotal, share))} / ${share.toLocaleString('en-US')} miles` }, { goal: share }));
 
   // Streaks: consecutive Denver days with at least one entry
   const days = [...new Set(mine.map((e) => e.at.dayIndex))].sort((a, b) => a - b);
