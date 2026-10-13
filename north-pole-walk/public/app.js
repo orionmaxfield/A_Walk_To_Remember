@@ -188,7 +188,7 @@
       <section class="cover">
         ${poleSvg(64)}
         <h1 class="cover-title">The Walk to the North Pole</h1>
-        <p class="cover-sub">A team journey, one mile at a time.<br>3,381 miles due north of Layton.</p>
+        <p class="cover-sub">A team journey, one mile at a time.<br>2,000 miles from Layton to the North Pole.</p>
         <div class="signin"><div id="google-button"></div></div>
         ${setupItems.length ? `
           <div class="page setup-note">
@@ -272,7 +272,7 @@
       b.setAttribute('aria-current', active ? 'page' : 'false');
     });
     if (state.tab === 'journey') {
-      positionTrail();
+      positionScene();
       maybeCelebrate();
     }
     window.scrollTo({ top: 0 });
@@ -300,32 +300,8 @@
       : `Your team is ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(p.next.name)}, ${fmt(p.next.mile - p.mile, 0)} miles ahead.` : ''}`;
 
     return `
-      <div class="page trail-page">
-        <svg class="trail-map" viewBox="0 0 360 150" aria-label="Map of the trail from Layton to the North Pole">
-          <text class="compass" x="22" y="40" text-anchor="middle">N</text>
-          <path d="M22 26 l0 -12 m-4 4 l4 -4 l4 4" fill="none" stroke="#6b5f54" stroke-width="1.5" stroke-linecap="round"/>
-          <path id="trail" class="trail-path" d="M 30 122 C 95 122, 105 46, 170 62 S 262 128, 326 44"/>
-          <path id="trail-done" class="trail-done" d="M 30 122 C 95 122, 105 46, 170 62 S 262 128, 326 44" pathLength="1" stroke-dasharray="0 1"/>
-          <g id="ticks"></g>
-          <g transform="translate(30 122)">
-            <path d="M-9 4 l9 -10 l9 10 z M-6 4 v7 h12 v-7" fill="#e9dcbf" stroke="#6b5f54" stroke-width="1.5" stroke-linejoin="round"/>
-            <text class="trail-label" y="24" text-anchor="middle">Layton</text>
-          </g>
-          <g transform="translate(326 44)">
-            <ellipse cy="10" rx="14" ry="4" fill="#fbfbf7" stroke="#e9dcbf"/>
-            <rect x="-3" y="-20" width="6" height="30" rx="2" fill="#fbfbf7" stroke="#6b5f54" stroke-width="1"/>
-            <path d="M-3 -15 l6 3 M-3 -8 l6 3 M-3 -1 l6 3" stroke="#c9553d" stroke-width="2"/>
-            <circle cy="-22" r="4" fill="#e2b04c" stroke="#b98624"/>
-            <text class="trail-label" y="24" text-anchor="middle">North Pole</text>
-          </g>
-          <g id="walker" class="walker" transform="translate(30 122)">
-            <ellipse cy="9" rx="9" ry="3" fill="rgba(0,0,0,0.12)"/>
-            <path d="M-4 8 L0 -2 L4 8 Z" fill="#2b241f"/>
-            <circle cy="-6" r="4.5" fill="#f5ecd8" stroke="#2b241f" stroke-width="1.5"/>
-            <path d="M-5 -8 a5 5 0 0 1 10 0 z" fill="#c9553d"/>
-            <text class="you" y="-15" text-anchor="middle">you</text>
-          </g>
-        </svg>
+      <div class="page scene-page">
+        <div id="scene" class="scene"></div>
       </div>
 
       <div class="page milepost-page">
@@ -372,36 +348,33 @@
     </li>`;
   }
 
-  function positionTrail() {
-    const trail = document.getElementById('trail');
-    const walker = document.getElementById('walker');
-    const done = document.getElementById('trail-done');
-    const ticks = document.getElementById('ticks');
+  function sceneLabel(p) {
+    const walked = `${fmt(p.mile, 0)} of ${fmt(p.goal, 0)} miles`;
+    if (p.arrived) return `The elf has reached the North Pole after walking ${fmt(p.goal, 0)} miles.`;
+    if (p.here.mile === 0) return `The elf is at the start in ${p.here.name} and has walked ${walked}. Next stop: ${p.next.name}.`;
+    return `The elf has walked ${walked} and just passed ${p.here.name}.${p.next ? ` Next stop: ${p.next.name}.` : ''}`;
+  }
+
+  function positionScene() {
+    const host = document.getElementById('scene');
     const fill = document.getElementById('progress-fill');
-    if (!trail || !walker) return;
+    if (!host || !window.JourneyScene) return;
 
     const p = progress();
-    const len = trail.getTotalLength();
-    const at = (mile) => trail.getPointAtLength(len * Math.max(0, Math.min(1, mile / p.goal)));
+    const from = state.lastShownMile;
+    JourneyScene.mount(host, {
+      journey: p.J,
+      mile: p.mile,
+      fromMile: from,
+      arrived: p.arrived,
+      label: sceneLabel(p),
+    });
 
-    ticks.innerHTML = p.J.waypoints
-      .filter((w) => w.mile > 0 && w.mile < p.goal)
-      .map((w) => { const pt = at(w.mile); return `<circle class="trail-tick ${w.mile <= p.mile ? 'passed' : ''}" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5"><title>${esc(w.name)}, mile ${fmt(w.mile, 0)}</title></circle>`; })
-      .join('');
-
-    const from = state.lastShownMile == null ? p.mile : state.lastShownMile;
-    const start = at(from);
-    walker.setAttribute('transform', `translate(${start.x.toFixed(1)} ${start.y.toFixed(1)})`);
-    done.setAttribute('stroke-dasharray', `${(from / p.goal).toFixed(4)} 1`);
-    fill.style.width = `${(Math.min(100, (from / p.goal) * 100)).toFixed(1)}%`;
-
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const end = at(Math.min(p.mile, p.goal * 0.965));
-      walker.setAttribute('transform', `translate(${end.x.toFixed(1)} ${end.y.toFixed(1)})`);
-      done.style.transition = 'stroke-dasharray 1100ms cubic-bezier(0.22, 1, 0.36, 1)';
-      done.setAttribute('stroke-dasharray', `${(p.mile / p.goal).toFixed(4)} 1`);
-      fill.style.width = `${p.pct.toFixed(1)}%`;
-    }));
+    if (fill) {
+      const was = from == null ? p.mile : from;
+      fill.style.width = `${(Math.min(100, (was / p.goal) * 100)).toFixed(1)}%`;
+      requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = `${p.pct.toFixed(1)}%`; }));
+    }
     state.lastShownMile = p.mile;
   }
 
@@ -480,11 +453,11 @@
         <div class="medal">${poleSvg(34)}</div>
         <div>
           <h3>Traveled to the North Pole</h3>
-          <p class="small muted">${p.arrived ? 'Earned together. 3,381 miles due north.' : `Earned when your team reaches mile ${fmt(p.goal, 0)}. ${fmt(p.goal - p.total, 0)} miles to go.`}</p>
+          <p class="small muted">${p.arrived ? 'Earned together. 2,000 miles from Layton to the top of the world.' : `Earned when your team reaches mile ${fmt(p.goal, 0)}. ${fmt(p.goal - p.total, 0)} miles to go.`}</p>
         </div>
       </div>
       <div class="page">
-        <p class="muted small">More destinations and badges are coming. Mount Doom is on the list.</p>
+        <p class="muted small">More destinations and badges are coming.</p>
       </div>`;
   }
 

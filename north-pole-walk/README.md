@@ -1,13 +1,13 @@
 # The Walk to the North Pole
 
-A small web app where a team walks, together, from Layton, Utah to the North Pole — 3,381 miles due north. Everyone adds their own miles, and the whole team's miles move one marker up the trail. Storybook style, built for phones.
+A small web app where a team walks, together, from Layton, Utah to the North Pole — 2,000 miles, matching the office tracker poster. Everyone adds their own miles, and the whole team's miles move one marker up the trail. Storybook style, built for phones.
 
 What it does today:
 
 - Sign in with Google (one tap, progress is kept across devices)
 - Start a team and share an invite link
 - Add your miles (walking, running, treadmill — anything step-based)
-- See the team's shared progress: a trail map, a wooden mile marker, "did you know" facts along the way
+- See the team's shared progress: an animated storybook scene (an elf walks past wooden signposts, and the seasons shift from Utah foothills to the Arctic night), a wooden mile marker, "did you know" facts along the way
 - See your own total miles
 - A celebration when the team reaches the Pole, and a badge in Awards
 
@@ -68,7 +68,7 @@ If you later add a custom domain to the site, add that address here too.
 
 ## How the pieces fit (if you want to learn this side of things)
 
-- **`public/`** — the website people see. Plain HTML, CSS, and JavaScript. No build tools. `app.js` draws the screens; `journey.js` holds the trail, its mile markers, and the facts.
+- **`public/`** — the website people see. Plain HTML, CSS, and JavaScript. No build tools. `app.js` draws the screens; `journey.js` holds the route, its stops, and the facts; `scene.js` draws the side-scrolling elf scene from that route.
 - **`functions/`** — the small backend. Each file is one web address under `/api/`. For example, `functions/api/miles.js` handles `POST /api/miles`, which is how miles get saved. Cloudflare runs these for you; there's no server to manage.
 - **D1** — the database. It's a normal SQL database (SQLite) that Cloudflare hosts. `schema.sql` describes its five tables: users, sessions, teams, team_members, mile_entries.
 - **`wrangler.toml`** — the settings file. It tells Cloudflare which database to connect and your Google client ID.
