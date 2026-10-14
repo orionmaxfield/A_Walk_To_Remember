@@ -1,13 +1,13 @@
 # The Walk to the North Pole
 
-A small web app where a team walks, together, from Layton, Utah to the North Pole — 3,381 miles due north, straight up the 112° W line. Everyone adds their own miles, and the whole team's miles move one marker up the trail. Storybook style, built for phones.
+A small web app where a team walks, together, from Layton, Utah to the North Pole — 3,381 miles due north, following the stops on the office "Elves on a Self-Care Journey" poster. Each stop's mileage is how far north of Layton it sits. Everyone adds their own miles, and the whole team's miles move one marker up the trail. Storybook style, built for phones.
 
 What it does today:
 
 - Sign in with Google (one tap, progress is kept across devices)
 - Start a team and share an invite link
-- Add your miles (walking, running, treadmill — anything step-based)
-- See the team's shared progress: an animated storybook scene (an elf walks past wooden signposts, and the seasons shift from Utah foothills to the Arctic night), a wooden mile marker, "did you know" facts along the way
+- Add your miles (walking, running, treadmill), or the calories you burned doing anything else (yoga, swimming, biking, lifting): every 100 calories counts as 1 mile. The Add miles tab lists typical calories for common activities.
+- See the team's shared progress: an animated storybook scene (an elf walks past wooden signposts, and the seasons shift from Utah foothills to the Arctic night), a wooden mile marker, and a "Remember" self-care note from each stop on the poster
 - See your own total miles
 - An Awards tab: team badges for every stop and border on the route, plus personal badges for streaks, milestones, early-bird and night-owl walks, weekends, a marathon-length entry and Elf of the Week. Badges unlock with a pop-up the moment miles are added, and relock if the miles that earned them are removed.
 - A celebration when the team reaches the Pole
@@ -69,13 +69,13 @@ If you later add a custom domain to the site, add that address here too.
 
 ## How the pieces fit (if you want to learn this side of things)
 
-- **`public/`** — the website people see. Plain HTML, CSS, and JavaScript. No build tools. `app.js` draws the screens; `journey.js` holds the route, its stops, and the facts; `scene.js` draws the side-scrolling elf scene from that route; `badges.js` holds the award icons.
+- **`public/`** — the website people see. Plain HTML, CSS, and JavaScript. No build tools. `app.js` draws the screens; `journey.js` holds the route, its stops, and each stop's "Remember" note; `scene.js` draws the side-scrolling elf scene from that route; `badges.js` holds the award icons.
 - **`functions/`** — the small backend. Each file in `functions/api/` is one web address under `/api/`. For example, `functions/api/miles.js` handles `POST /api/miles`, which is how miles get saved, and `functions/api/awards.js` answers `GET /api/awards`. The award rules live in `functions/lib/awards.js`; they are worked out fresh from the mile entries every time (nothing is stored), using Denver time for days, weeks and times of day. Cloudflare runs these for you; there's no server to manage.
 - **D1** — the database. It's a normal SQL database (SQLite) that Cloudflare hosts. `schema.sql` describes its five tables: users, sessions, teams, team_members, mile_entries.
 - **`wrangler.toml`** — the settings file. It tells Cloudflare which database to connect and your Google client ID.
 - **Sign-in** — Google gives the browser a signed token. The browser sends it to `functions/api/auth/google.js`, which asks Google to confirm it's real, saves the person in the `users` table, and sets a cookie so they stay signed in for 90 days.
 
-A good first thing to tinker with: open `public/journey.js` and change a fact, or add a new waypoint.
+A good first thing to tinker with: open `public/journey.js` and change a "Remember" note, or add a new waypoint.
 
 ## Running it on your own computer (optional)
 

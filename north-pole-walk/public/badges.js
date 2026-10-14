@@ -2,6 +2,73 @@
 // Each entry is the inside of a 48 × 48 viewBox. app.js wraps it in <svg>.
 
 const BADGE_ICONS = {
+  falls: `
+    <path d="M4 14 h14 l2 6 h8 l2 -6 h14 v8 H4 z" fill="#8a7a6a"/>
+    <rect x="18" y="18" width="12" height="20" fill="#6fb4ff"/>
+    <path d="M21 19 v17 M25 19 v17 M28 19 v14" stroke="#dcefff" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M4 22 h14 v8 H4 z M30 22 h14 v8 H30 z" fill="#6b5f54"/>
+    <ellipse cx="24" cy="39" rx="18" ry="5" fill="#6fb4ff"/>
+    <path d="M12 39 q3 -2 6 0 M30 40 q3 -2 6 0" fill="none" stroke="#dcefff" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="20" cy="37" r="2" fill="#fbfbf7"/><circle cx="27" cy="38" r="2.2" fill="#fbfbf7"/>`,
+  canoe: `
+    <path d="M4 28 q20 14 40 0 q-20 4 -40 0 z" fill="#b8462f" stroke="#7b2f22" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M8 29 q16 4 32 0" fill="none" stroke="#e2b04c" stroke-width="1.5"/>
+    <path d="M30 10 L18 34" stroke="#7b4a21" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M16 33 q-2 6 2 8 q4 -2 2 -8 z" fill="#8b5a2b"/>
+    <path d="M4 40 q5 -3 10 0 t10 0 t10 0 t10 0" fill="none" stroke="#6fb4ff" stroke-width="2" stroke-linecap="round"/>`,
+  swan: `
+    <path d="M10 30 q2 10 16 10 q14 0 16 -12 q-10 5 -18 1 z" fill="#fbfbf7" stroke="#9aa4ad" stroke-width="1.2"/>
+    <path d="M24 30 q-6 -3 -6 -11 q0 -8 6 -9 q5 0 6 4" fill="none" stroke="#fbfbf7" stroke-width="4" stroke-linecap="round"/>
+    <path d="M24 30 q-6 -3 -6 -11 q0 -8 6 -9 q5 0 6 4" fill="none" stroke="#9aa4ad" stroke-width="1" stroke-linecap="round"/>
+    <path d="M29 13 l5 1.5 l-5 1.5 z" fill="#2b241f"/>
+    <circle cx="25.5" cy="12.5" r="1" fill="#2b241f"/>
+    <path d="M4 42 q5 -3 10 0 t10 0 t10 0 t10 0" fill="none" stroke="#6fb4ff" stroke-width="2" stroke-linecap="round"/>`,
+  highway: `
+    <path d="M18 44 L22 8 h4 l4 36 z" fill="#6b5f54"/>
+    <path d="M24 12 v4 M24 22 v5 M24 33 v6" stroke="#e2b04c" stroke-width="1.8" stroke-linecap="round"/>
+    <rect x="30" y="6" width="14" height="18" rx="3" fill="#fbfbf7" stroke="#2f7a3f" stroke-width="2"/>
+    <rect x="36" y="24" width="2" height="12" fill="#7b4a21"/>
+    <text x="37" y="19" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="9" fill="#2f7a3f">47</text>
+    <path d="M4 44 L10 30 L16 44 Z" fill="#2f7a3f"/><path d="M6 36 L11 24 L16 36 Z" fill="#3f9150"/>`,
+  signforest: `
+    <rect x="11" y="10" width="3" height="34" fill="#7b4a21"/><rect x="31" y="14" width="3" height="30" fill="#7b4a21"/>
+    <rect x="3" y="11" width="16" height="6" rx="1" fill="#c9553d"/><rect x="8" y="19" width="14" height="5" rx="1" fill="#6fb4ff"/>
+    <rect x="4" y="26" width="15" height="5" rx="1" fill="#e2b04c"/><rect x="9" y="33" width="12" height="5" rx="1" fill="#fbfbf7" stroke="#6b5f54" stroke-width="0.8"/>
+    <rect x="25" y="15" width="16" height="6" rx="1" fill="#3f9150"/><rect x="27" y="23" width="15" height="5" rx="1" fill="#fbfbf7" stroke="#6b5f54" stroke-width="0.8"/>
+    <rect x="24" y="30" width="13" height="5" rx="1" fill="#c9553d"/><rect x="28" y="37" width="14" height="4" rx="1" fill="#e2b04c"/>
+    <path d="M38 4 L44 14 H32 Z" fill="#2f7a3f"/>`,
+  sternwheeler: `
+    <path d="M4 32 h36 l-4 6 h-30 z" fill="#fbfbf7" stroke="#6b5f54" stroke-width="1.2"/>
+    <rect x="8" y="24" width="28" height="8" fill="#fbfbf7" stroke="#6b5f54" stroke-width="1.2"/>
+    <rect x="14" y="17" width="16" height="7" fill="#fbfbf7" stroke="#6b5f54" stroke-width="1.2"/>
+    <rect x="18" y="8" width="4" height="9" fill="#2b241f"/>
+    <g fill="#e2b04c"><rect x="11" y="26" width="3" height="3"/><rect x="17" y="26" width="3" height="3"/><rect x="23" y="26" width="3" height="3"/><rect x="29" y="26" width="3" height="3"/></g>
+    <circle cx="41" cy="33" r="5" fill="none" stroke="#c9553d" stroke-width="2.5"/>
+    <path d="M41 28 v10 M36 33 h10" stroke="#c9553d" stroke-width="1.5"/>
+    <circle cx="22" cy="5" r="2.5" fill="#c9c6d2"/>
+    <path d="M2 42 q5 -3 10 0 t10 0 t10 0 t12 0" fill="none" stroke="#6fb4ff" stroke-width="2" stroke-linecap="round"/>`,
+  goldpan: `
+    <ellipse cx="22" cy="28" rx="18" ry="10" fill="#8a8f99"/>
+    <ellipse cx="22" cy="26" rx="14" ry="6.5" fill="#6b5f54"/>
+    <path d="M38 24 l8 -4" stroke="#6b5f54" stroke-width="3" stroke-linecap="round"/>
+    <g fill="#e2b04c" stroke="#b98624" stroke-width="0.8"><circle cx="16" cy="25" r="2.4"/><circle cx="22" cy="27" r="3"/><circle cx="28" cy="25" r="2"/><circle cx="19" cy="29" r="1.6"/></g>
+    <path d="M10 10 l1.5 3 3 .4 -2.2 2 .6 3 -2.9 -1.5 -2.9 1.5 .6 -3 -2.2 -2 3 -.4 z" fill="#ffeec2"/>
+    <path d="M36 6 l1 2 2 .3 -1.5 1.4 .4 2 -1.9 -1 -1.9 1 .4 -2 -1.5 -1.4 2 -.3 z" fill="#ffeec2"/>`,
+  igloo: `
+    <path d="M6 38 a18 18 0 0 1 36 0 z" fill="#f4f7fb" stroke="#9cc6e0" stroke-width="1.5"/>
+    <path d="M9 30 h30 M7 36 h34 M12 24 h24 M17 19 h14" stroke="#c6dcef" stroke-width="1.2"/>
+    <path d="M15 24 v6 M24 19 v5 M33 24 v6 M20 30 v6 M28 30 v6" stroke="#c6dcef" stroke-width="1.2"/>
+    <path d="M19 38 v-5 a5 5 0 0 1 10 0 v5 z" fill="#2b5fa8"/>
+    <path d="M24 6 v8 M20 10 h8" stroke="#e2b04c" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M4 40 h40" stroke="#c6dcef" stroke-width="2" stroke-linecap="round"/>`,
+  lantern: `
+    <path d="M18 12 h12 l-2 -4 h-8 z" fill="#2b241f"/>
+    <path d="M24 3 a3 3 0 1 1 0 .1" fill="none" stroke="#2b241f" stroke-width="1.5"/>
+    <rect x="15" y="12" width="18" height="24" rx="3" fill="#ffd76a" stroke="#2b241f" stroke-width="2"/>
+    <path d="M21 12 v24 M27 12 v24" stroke="#2b241f" stroke-width="1.2"/>
+    <path d="M24 20 c2 3 3 5 0 9 c-3 -4 -2 -6 0 -9 z" fill="#ff7a2c"/>
+    <rect x="13" y="36" width="22" height="5" rx="2" fill="#2b241f"/>
+    <circle cx="24" cy="24" r="16" fill="#ffd76a" opacity="0.18"/>`,
   mountain: `
     <path d="M3 40 L18 14 L26 26 L33 18 L45 40 Z" fill="#6b5f54"/>
     <path d="M18 14 L22 21 L18 24 L14 21 Z" fill="#fbfbf7"/><path d="M33 18 L36 23 L33 25 L30 23 Z" fill="#fbfbf7"/>

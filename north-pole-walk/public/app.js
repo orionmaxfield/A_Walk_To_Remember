@@ -38,6 +38,10 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function capitalize(s) {
+    return String(s).charAt(0).toUpperCase() + String(s).slice(1);
+  }
+
   function fmt(n, digits = 1) {
     return Number(n).toLocaleString('en-US', { maximumFractionDigits: digits });
   }
@@ -350,9 +354,10 @@
         </div>
       </div>
 
-      <div class="page fact">
-        <h2>Did you know?</h2>
-        <p>${esc(p.here.fact)}</p>
+      <div class="page fact remember">
+        <h2>Remember</h2>
+        <p>${esc(p.here.remember)}</p>
+        <p class="remember-from">${esc(capitalize(p.here.name))} · mile ${fmt(p.here.mile, 0)}</p>
       </div>
 
       <div class="page">
@@ -411,18 +416,94 @@
 
   /* ---------- Log miles screen ---------- */
 
+  /* Other movement counts too: every 100 calories burned is logged as 1 mile
+     (about 2,000 steps). Typical calories for 30 minutes for a 155-pound adult,
+     worked out from the Compendium of Physical Activities (MET × weight × time). */
+  const CALORIES_PER_MILE = 100;
+  const STEPS_PER_MILE = 2000;
+  const ACTIVITIES = [
+    { name: 'Gentle yoga or stretching', cal: 90 },
+    { name: 'Power or vinyasa yoga', cal: 140 },
+    { name: 'Pilates or tai chi', cal: 105 },
+    { name: 'Chair exercises', cal: 80 },
+    { name: 'Strength training', cal: 125 },
+    { name: 'Dancing or Zumba', cal: 255 },
+    { name: 'Swimming, easy pace', cal: 210 },
+    { name: 'Water aerobics', cal: 195 },
+    { name: 'Biking, easy pace', cal: 140 },
+    { name: 'Elliptical, moderate', cal: 175 },
+    { name: 'Gardening or yard work', cal: 135 },
+    { name: 'Shoveling snow', cal: 185 },
+    { name: 'House cleaning', cal: 115 },
+    { name: 'Active play with kids', cal: 140 },
+  ];
+  const UNITS = {
+    miles: { label: 'Miles', step: '0.1', min: '0.1', max: '100', placeholder: '2.5', inputmode: 'decimal' },
+    calories: { label: 'Calories burned', step: '1', min: '10', max: String(100 * CALORIES_PER_MILE), placeholder: '250', inputmode: 'numeric' },
+  };
+
+  function savedUnit() {
+    try { return localStorage.getItem('logUnit') === 'calories' ? 'calories' : 'miles'; } catch (e) { return 'miles'; }
+  }
+  function saveUnit(unit) {
+    try { localStorage.setItem('logUnit', unit); } catch (e) { /* storage unavailable; the choice lasts for this screen */ }
+  }
+
   function logScreen() {
+    const unit = savedUnit();
+    const u = UNITS[unit];
     return `
       <div class="page">
         <h2>Add your miles</h2>
-        <p class="muted small">Walking, running, treadmill — if your feet did it, it counts.</p>
+        <p class="muted small">Walked or ran? Log miles. Did yoga, swam, biked or lifted? Log the calories you burned: every 100 calories counts as 1 mile.</p>
         <form data-form="add-miles">
-          <label class="field"><span>Miles</span><input class="big" name="miles" type="number" inputmode="decimal" step="0.1" min="0.1" max="100" placeholder="2.5" required></label>
-          <label class="field"><span>Note (optional)</span><input name="note" maxlength="120" placeholder="Lunch walk around the building"></label>
-          <button class="button wide" type="submit">Add miles to the team</button>
+          <div class="unit-toggle" role="radiogroup" aria-label="What are you logging?">
+            <label><input type="radio" name="unit" value="miles" ${unit === 'miles' ? 'checked' : ''}><span>Miles</span></label>
+            <label><input type="radio" name="unit" value="calories" ${unit === 'calories' ? 'checked' : ''}><span>Calories</span></label>
+          </div>
+          <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" required aria-describedby="conversion"></label>
+          <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, '')}</p>
+          <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building"></label>
+          <button class="button wide" type="submit">Add to the team</button>
         </form>
         <p class="small muted" style="margin-top:14px">Counting steps instead? About 2,000 steps is one mile.</p>
+      </div>
+
+      <div class="page">
+        <h2>How other movement counts</h2>
+        <p class="small muted">Every 100 calories you burn counts as 1 mile, which is about 2,000 steps. If your watch or fitness app shows calories for a workout, use that number. If not, here is about what 30 minutes burns. Tap one to fill it in.</p>
+        <ul class="activity-list">
+          ${ACTIVITIES.map((a) => `<li><button type="button" data-action="use-calories" data-cal="${a.cal}">
+            <span class="activity-name">${esc(a.name)}</span>
+            <span class="activity-numbers"><strong>${a.cal} cal</strong> = ${fmt(a.cal / CALORIES_PER_MILE, 2)} mi<small>about ${fmt(a.cal / CALORIES_PER_MILE * STEPS_PER_MILE, 0)} steps</small></span>
+          </button></li>`).join('')}
+        </ul>
+        <p class="small muted" style="margin-top:12px">Numbers are for 30 minutes for a 155-pound adult. Did an hour? Double it. Lighter people burn a little less, heavier people a little more.</p>
       </div>`;
+  }
+
+  function conversionText(unit, raw) {
+    const n = Number(raw);
+    if (raw === '' || !Number.isFinite(n) || n <= 0) {
+      return unit === 'calories' ? 'Every 100 calories counts as 1 mile.' : 'About 2,000 steps is one mile.';
+    }
+    if (unit === 'calories') {
+      const miles = Math.round(n) / CALORIES_PER_MILE;
+      return `${fmt(Math.round(n), 0)} calories = <strong>${fmt(miles, 2)} miles</strong> (about ${fmt(miles * STEPS_PER_MILE, 0)} steps)`;
+    }
+    return `${fmt(n, 2)} miles is about ${fmt(n * STEPS_PER_MILE, 0)} steps`;
+  }
+
+  function applyUnit(form, unit, value) {
+    const u = UNITS[unit];
+    const input = form.querySelector('input[name="amount"]');
+    form.querySelector(`input[name="unit"][value="${unit}"]`).checked = true;
+    form.querySelector('#amount-label').textContent = u.label;
+    for (const attr of ['step', 'min', 'max', 'placeholder', 'inputmode']) input.setAttribute(attr, u[attr]);
+    input.value = value == null ? '' : value;
+    form.querySelector('#conversion').innerHTML = conversionText(unit, input.value);
+    saveUnit(unit);
+    return input;
   }
 
   /* ---------- Team screen ---------- */
@@ -654,6 +735,15 @@
       toast('Entry removed');
     });
 
+    if (action === 'use-calories') {
+      const form = document.querySelector('form[data-form="add-miles"]');
+      if (form) {
+        const input = applyUnit(form, 'calories', el.dataset.cal);
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        input.focus({ preventScroll: true });
+      }
+    }
+
     if (action === 'dismiss-notice') {
       dismissRouteNotice();
       document.querySelectorAll('.notice').forEach((n) => n.remove());
@@ -663,6 +753,7 @@
   });
 
   document.addEventListener('change', (ev) => {
+    if (ev.target.name === 'unit' && ev.target.form) { applyUnit(ev.target.form, ev.target.value); return; }
     const el = ev.target.closest('[data-action="switch-team"]');
     if (!el) return;
     withBusy(async () => {
@@ -672,6 +763,12 @@
       await loadJourney();
       renderMain();
     });
+  });
+
+  document.addEventListener('input', (ev) => {
+    if (ev.target.name !== 'amount' || !ev.target.form) return;
+    const unit = ev.target.form.querySelector('input[name="unit"]:checked').value;
+    document.getElementById('conversion').innerHTML = conversionText(unit, ev.target.value);
   });
 
   document.addEventListener('submit', (ev) => {
@@ -712,12 +809,18 @@
         }
 
         if (kind === 'add-miles') {
-          const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles: fields.miles, note: fields.note }) });
+          // Calories are logged as miles: every 100 calories is 1 mile.
+          const byCalories = fields.unit === 'calories';
+          const calories = Math.round(Number(fields.amount));
+          const miles = byCalories ? calories / CALORIES_PER_MILE : fields.amount;
+          let note = String(fields.note || '').trim();
+          if (byCalories) note = `${fmt(calories, 0)} calories${note ? ' · ' + note : ''}`;
+          const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note }) });
           await loadJourney();
           state.tab = 'journey';
           renderScreen();
           showAwardPops(added.newAwards);
-          toast(`Added ${fmt(added.miles)} miles`, {
+          toast(byCalories ? `Added ${fmt(calories, 0)} calories (${fmt(added.miles, 2)} miles)` : `Added ${fmt(added.miles)} miles`, {
             label: 'Undo',
             run: () => withBusy(async () => {
               await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: added.id }) });

@@ -290,6 +290,37 @@ button { font: inherit; }
 .fact { border-left: 4px solid var(--aurora); padding-left: 14px; }
 .fact h2 { font-size: 18px; }
 .fact p { font-family: var(--font-display); font-size: 18px; line-height: 1.45; }
+.fact p.remember-from { font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--ink-2); margin-top: 10px; }
+
+/* ---------- Add miles: miles or calories ---------- */
+.unit-toggle {
+  display: flex; gap: 4px; padding: 4px; margin-bottom: 14px;
+  background: var(--paper-2); border-radius: 999px;
+}
+.unit-toggle label { flex: 1; }
+.unit-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.unit-toggle span {
+  display: block; text-align: center; padding: 9px 12px; border-radius: 999px;
+  font-weight: 700; color: var(--ink-2); cursor: pointer;
+}
+.unit-toggle input:checked + span { background: var(--snow); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.unit-toggle input:focus-visible + span { outline: 3px solid var(--gold); outline-offset: 1px; }
+.conversion { font-size: 14px; color: var(--ink-2); margin: -6px 0 14px; min-height: 21px; }
+.conversion strong { color: var(--ink); }
+
+.activity-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.activity-list li { border-top: 1px solid rgba(43, 36, 31, 0.12); }
+.activity-list li:first-child { border-top: 0; }
+.activity-list button {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: none; border: 0; padding: 10px 2px; color: var(--ink); text-align: left; cursor: pointer;
+  font: inherit; font-size: 15px;
+}
+.activity-list button:hover .activity-name { text-decoration: underline; }
+.activity-name { flex: 1; min-width: 0; font-weight: 600; }
+.activity-numbers { text-align: right; font-size: 14px; white-space: nowrap; }
+.activity-numbers strong { font-family: var(--font-display); font-size: 16px; }
+.activity-numbers small { display: block; font-size: 12px; color: var(--ink-2); }
 
 .list { list-style: none; margin: 0; padding: 0; }
 .list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid rgba(43, 36, 31, 0.12); }

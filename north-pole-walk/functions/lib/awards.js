@@ -115,21 +115,25 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
     .map((e) => ({ ...e, at: denver(e.ms) }));
   const mine = all.filter((e) => e.user_id === userId);
 
-  /* --- Team: journey stops and border crossings --- */
+  /* --- Team: journey stops, border crossings and milestones --- */
+  // Signposted stops and the journey's milestones (no signpost), in trail order.
+  const marks = J.waypoints.filter((wp) => wp.badge && wp.mile > 0)
+    .concat((J.milestones || []).filter((m) => m.badge && m.mile > 0))
+    .sort((a, b) => a.mile - b.mile);
   const team = [];
   let running = 0;
   const crossed = {}; // mile -> ms when the team total first reached it
   for (const e of all) {
     running += e.miles;
-    for (const wp of J.waypoints) {
-      if (wp.mile > 0 && crossed[wp.mile] == null && running >= wp.mile) crossed[wp.mile] = e.ms;
+    for (const wp of marks) {
+      if (crossed[wp.mile] == null && running >= wp.mile) crossed[wp.mile] = e.ms;
     }
   }
-  for (const wp of J.waypoints) {
-    if (!wp.badge || wp.mile <= 0) continue;
-    const how = wp.kind === 'border'
-      ? `Team crosses ${wp.name}, mile ${wp.mile.toLocaleString('en-US')}.`
-      : `Team reaches mile ${wp.mile.toLocaleString('en-US')}.`;
+  for (const wp of marks) {
+    const at = wp.mile.toLocaleString('en-US');
+    const how = wp.kind === 'border' ? `Team crosses ${wp.name}, mile ${at}.`
+      : wp.kind === 'milestone' ? `Team reaches ${wp.name}, mile ${at}.`
+      : `Team reaches mile ${at}.`;
     team.push(make({ ...wp.badge, how }, crossed[wp.mile],
       { value: Math.min(running, wp.mile), goal: wp.mile, text: `${fmtMiles(Math.min(running, wp.mile))} / ${wp.mile.toLocaleString('en-US')} miles` },
       { mile: wp.mile, kind: wp.kind || 'stop' }));

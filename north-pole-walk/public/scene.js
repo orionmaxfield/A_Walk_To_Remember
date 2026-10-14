@@ -47,7 +47,9 @@
   /* ---------- World geometry ----------
      Miles map to near-layer x almost linearly (PPM), except that the stretch between
      two neighbouring stops is never shorter than MIN_SEG, so signs that sit a few
-     miles apart (Ogden, Logan, the Idaho line) still get room of their own. */
+     miles apart (Ogden, Logan, Idaho Falls) still get room of their own. The last
+     stretch into the finish gets twice that, so the arch and Santa's workshop never
+     crowd the last signpost. */
 
   let SEGS = [];
   function setWorld(J) {
@@ -55,7 +57,8 @@
     SEGS = [];
     let x = 0;
     for (let i = 1; i < miles.length; i++) {
-      const len = Math.max(MIN_SEG, (miles[i] - miles[i - 1]) * PPM);
+      const least = i === miles.length - 1 ? MIN_SEG * 2 : MIN_SEG;
+      const len = Math.max(least, (miles[i] - miles[i - 1]) * PPM);
       SEGS.push({ m0: miles[i - 1], m1: miles[i], x0: x, x1: x + len });
       x += len;
     }
@@ -79,42 +82,42 @@
 
   /* ---------- Palettes ----------
      t runs from 0 at Layton to 1 at the Pole, but the seasons turn at real places:
-     k.canada (the border), k.edmonton, k.nwt (the 60th parallel) and k.arctic
+     k.canada (the first Canadian stop), k.edmonton, k.north60 (the 60th parallel) and k.arctic
      (the Arctic Circle), each given as a fraction of the whole trail. */
 
   const SUN = [[0, '#fff1b8'], [0.6, '#ffd86e'], [1, '#ff9b4c']];
 
   function palette(t, k) {
-    const dusk = (k.edmonton + k.nwt) / 2;           // sunset halfway through Alberta
-    const night = k.nwt + 0.06;                       // full dark soon after the 60th parallel
-    const sunset = smooth(k.canada, k.nwt - 0.02, t); // 0 by day, 1 once the sun is down
+    const dusk = (k.edmonton + k.north60) / 2;           // sunset halfway through Alberta
+    const night = k.north60 + 0.06;                       // full dark soon after the 60th parallel
+    const sunset = smooth(k.canada, k.north60 - 0.02, t); // 0 by day, 1 once the sun is down
     return {
       skyTop: ramp([[0, '#4a9be0'], [k.canada, '#4f8fd2'], [dusk, '#3a3a78'], [night, '#0d1a3c'], [1, '#070f28']], t),
       skyMid: ramp([[0, '#9ccff2'], [k.canada, '#cfaebb'], [dusk, '#9a4f7e'], [night, '#182a55'], [1, '#111f45']], t),
       skyBot: ramp([[0, '#dcf0fb'], [k.canada, '#f6c988'], [dusk, '#f08a58'], [night, '#30416e'], [1, '#213460']], t),
       rock: ramp([[0, '#8d7a66'], [k.edmonton, '#7f7078'], [night, '#4b5679'], [1, '#3a4869']], t),
       rockBack: ramp([[0, '#a5978a'], [k.edmonton, '#9a8f9c'], [night, '#5a6688'], [1, '#475579']], t),
-      hillBack: ramp([[0, '#c9ad52'], [k.canada, '#c6b878'], [k.nwt, '#e4e9ee'], [1, '#cfd9eb']], t),
-      hillFront: ramp([[0, '#6f9d49'], [k.canada, '#8aa75b'], [k.nwt, '#eef2f6'], [1, '#dbe4f1']], t),
-      grass: ramp([[0, '#86b457'], [k.canada, '#9bb35a'], [k.edmonton, '#b9c290'], [k.nwt, '#eaf0f5'], [1, '#e3ebf6']], t),
-      path: ramp([[0, '#c9a46f'], [k.canada, '#cbb48f'], [k.nwt, '#dfe6ee'], [1, '#d4ddea']], t),
-      tree: ramp([[0, '#2f6e3b'], [k.nwt, '#2b6140'], [1, '#1f3f44']], t),
-      snowLine: lerp(0.26, 1.05, smooth(0.02, k.nwt, t)),
+      hillBack: ramp([[0, '#c9ad52'], [k.canada, '#c6b878'], [k.north60, '#e4e9ee'], [1, '#cfd9eb']], t),
+      hillFront: ramp([[0, '#6f9d49'], [k.canada, '#8aa75b'], [k.north60, '#eef2f6'], [1, '#dbe4f1']], t),
+      grass: ramp([[0, '#86b457'], [k.canada, '#9bb35a'], [k.edmonton, '#b9c290'], [k.north60, '#eaf0f5'], [1, '#e3ebf6']], t),
+      path: ramp([[0, '#c9a46f'], [k.canada, '#cbb48f'], [k.north60, '#dfe6ee'], [1, '#d4ddea']], t),
+      tree: ramp([[0, '#2f6e3b'], [k.north60, '#2b6140'], [1, '#1f3f44']], t),
+      snowLine: lerp(0.26, 1.05, smooth(0.02, k.north60, t)),
       treeSnow: smooth(k.canada, dusk, t),
       patch: smooth(k.canada, k.edmonton, t),
       stars: smooth(dusk, night, t),
       // Faint around Edmonton, growing through the Northwest Territories, bold past the Arctic Circle
       aurora: smooth(k.edmonton - 0.03, k.edmonton + 0.04, t) * 0.18
-        + smooth(k.nwt - 0.02, k.nwt + 0.08, t) * 0.32
+        + smooth(k.north60 - 0.02, k.north60 + 0.08, t) * 0.32
         + smooth(k.arctic - 0.02, k.arctic + 0.04, t) * 0.5,
       sunY: lerp(48, 150, sunset),
-      sunOp: 1 - smooth(k.nwt - 0.05, k.nwt, t),
+      sunOp: 1 - smooth(k.north60 - 0.05, k.north60, t),
       sunColor: ramp(SUN, sunset),
-      moonY: lerp(130, 44, smooth(k.nwt - 0.02, k.nwt + 0.12, t)),
-      moonOp: smooth(k.nwt - 0.03, k.nwt + 0.05, t),
+      moonY: lerp(130, 44, smooth(k.north60 - 0.02, k.north60 + 0.12, t)),
+      moonOp: smooth(k.north60 - 0.03, k.north60 + 0.05, t),
       // Flurries from the Canadian border, heavier through Alberta, steady past the Arctic Circle
       snowA: smooth(k.canada, k.canada + 0.06, t),
-      snowB: smooth(k.edmonton, k.nwt, t),
+      snowB: smooth(k.edmonton, k.north60, t),
       snowC: smooth(k.arctic - 0.03, k.arctic + 0.05, t),
     };
   }
@@ -234,7 +237,7 @@
   // Montana, thick boreal forest across Alberta, thinning taiga in the Northwest
   // Territories, bare tundra and sea ice past the Arctic Circle, a few decorated
   // trees around the workshop.
-  const FOREST = [[-500, 65, 0.2], [65, 242, 0.3], [242, 548, 0.6], [548, 1309, 1], [1309, 1600, 0.55], [1600, 1762, 0.25], [3280, 3370, 0.35], [3420, 3800, 0.15]];
+  const FOREST = [[-500, 65, 0.2], [65, 242, 0.3], [242, 548, 0.6], [548, 1309, 1], [1309, 1600, 0.55], [1600, 1900, 0.25], [3290, 3372, 0.35], [3420, 3800, 0.15]];
 
   function forest(r) {
     let out = '';
@@ -314,13 +317,13 @@
         <path d="M-120 2 q10 -3 20 0 M20 3 q10 -3 20 0 M110 1 q10 -3 20 0" fill="none" stroke="#dcefff" stroke-width="1.5" stroke-linecap="round"/>
       </g>`;
     }
-    // A little village behind the workshop
-    if (marks.workshop != null) {
-      const v = marks.workshop;
-      out += house(mx(v + 14), HORIZON + 8, 26, 16, '#b35b4a', '#4e7a5a', true);
-      out += house(mx(v + 46), HORIZON + 10, 34, 20, '#d9c29a', '#8a3b30', true);
-      out += house(mx(v + 76), HORIZON + 8, 22, 15, '#4e7a5a', '#b35b4a', true);
-      out += house(mx(v + 104), HORIZON + 10, 30, 18, '#8a3b30', '#4e7a5a', true);
+    // Santa's village behind the North Pole arch (placed in screen units around the finish)
+    if (marks.finish != null) {
+      const v = mx(marks.finish);
+      out += house(v - 60, HORIZON + 8, 26, 16, '#b35b4a', '#4e7a5a', true);
+      out += house(v - 31, HORIZON + 10, 34, 20, '#d9c29a', '#8a3b30', true);
+      out += house(v - 5, HORIZON + 8, 22, 15, '#4e7a5a', '#b35b4a', true);
+      out += house(v + 20, HORIZON + 10, 30, 18, '#8a3b30', '#4e7a5a', true);
     }
     return out;
   }
@@ -421,8 +424,8 @@
       const y = front ? 258 + Math.round(r() * 14) : HORIZON + 4 + Math.round(r() * 8);
       out += `<use href="#sc-patch" transform="translate(${x.toFixed(0)} ${y}) scale(${(front ? 0.5 : 0.7 + r() * 0.7).toFixed(2)} 1)"/>`;
     }
-    // Deep snow drifts from the Northwest Territories on, and sea ice from the Arctic coast
-    const driftFrom = marks.nwt != null ? marks.nwt : marks.arctic;
+    // Deep snow drifts from the 60th parallel on, and sea ice from the Arctic coast
+    const driftFrom = marks.north60 != null ? marks.north60 : marks.arctic;
     const seaIceFrom = marks.coast != null ? marks.coast : marks.arctic;
     if (driftFrom != null) {
       for (let x = nx(driftFrom); x < x1; x += 47 + r() * 90) {
@@ -430,6 +433,16 @@
         const y = r() < 0.5 ? SIGN_BASE - 2 : 264 + Math.round(r() * 8);
         out += `<use href="#${ice ? 'sc-ice' : 'sc-mound'}" transform="translate(${x.toFixed(0)} ${y}) scale(${(y > 240 ? 0.5 : 0.8 + r() * 0.6).toFixed(2)})"/>`;
       }
+    }
+
+    // Santa's workshop just left of the North Pole arch. Drawn before the signposts,
+    // so a sign that happens to stand nearby is painted in front of the buildings.
+    if (marks.finish != null) {
+      const fx = nx(marks.finish);
+      out += house(fx - 99, SIGN_BASE, 76, 34, '#b35b4a', '#4e7a5a', true);
+      out += `<g transform="translate(${(fx - 99).toFixed(0)} ${SIGN_BASE})"><rect x="-26" y="-54" width="8" height="18" fill="#6b4320"/><circle cx="-22" cy="-62" r="7" fill="#c9c6d2" opacity="0.6"/></g>`;
+      out += house(fx - 34, SIGN_BASE, 34, 24, '#d9c29a', '#8a3b30', true);
+      out += lights(fx - 143, SIGN_BASE - 58, fx - 24, SIGN_BASE - 36, 22);
     }
 
     // Signposts: alternate tall and short so close neighbours never collide
@@ -440,19 +453,11 @@
 
     if (marks.arctic != null) out += polarBear(nx(marks.arctic + 75));
     if (marks.volcano != null) out += penguin(nx(marks.volcano + 44), 250, 0.75, false) + penguin(nx(marks.volcano + 56), 250, 0.6, false);
-    if (marks.workshop != null) {
-      const w = marks.workshop;
-      out += house(nx(w + 26), SIGN_BASE, 76, 34, '#b35b4a', '#4e7a5a', true);
-      out += `<g transform="translate(${nx(w + 26).toFixed(0)} ${SIGN_BASE})"><rect x="-26" y="-54" width="8" height="18" fill="#6b4320"/><circle cx="-22" cy="-62" r="7" fill="#c9c6d2" opacity="0.6"/></g>`;
-      out += house(nx(w + 62), SIGN_BASE, 34, 24, '#d9c29a', '#8a3b30', true);
-      out += lights(nx(w + 26) - 44, SIGN_BASE - 58, nx(w + 62) + 10, SIGN_BASE - 36, 22);
-      out += penguin(nx(w + 74), 254, 0.7, true);
-    }
     if (marks.finish != null) {
       const f = marks.finish;
       out += `<g transform="translate(${nx(f + 42).toFixed(0)} ${SIGN_BASE})"><ellipse rx="12" ry="4" fill="#fbfbf7"/><rect x="-5" y="-72" width="10" height="72" rx="3" fill="url(#sc-candy)"/><rect x="-5" y="-72" width="10" height="72" rx="3" fill="none" stroke="#7b2f22" stroke-width="1"/><circle cy="-77" r="7" fill="#e2b04c" stroke="#b98624" stroke-width="1"/></g>`;
       out += arch(nx(f));
-      out += penguin(nx(f - 24), 256, 0.7, false) + penguin(nx(f + 24), 258, 0.8, true);
+      out += penguin(nx(f) - 43, 256, 0.7, false) + penguin(nx(f) - 13, 254, 0.7, true) + penguin(nx(f) + 43, 258, 0.8, true);
     }
     return out;
   }
@@ -544,7 +549,7 @@
     const c = palette(t, {
       canada: frac('canada', 0.16),
       edmonton: frac('edmonton', 0.26),
-      nwt: frac('nwt', 0.39),
+      north60: frac('north60', 0.39),
       arctic: frac('arctic', 0.52),
     });
     const vars = `--tree:${c.tree};--tree-snow:${c.treeSnow.toFixed(2)};--patch:${c.patch.toFixed(2)}`;
