@@ -17,6 +17,9 @@
     journey: null,      // response from /api/journey
     awards: null,       // response from /api/awards (fetched when the Awards tab opens)
     rhythm: null,       // response from /api/rhythm (streak, today, goal)
+    history: null,      // response from /api/history (the You tab)
+    historyMonth: null, // 'YYYY-MM' being shown on the You tab
+    moment: null,       // { miles, next } shown over the scene right after an entry
     goalOpen: false,    // the goal form on the Journey tab
     tab: 'journey',
     picking: null,       // destination picker: null, or { journeyId: null | 'oz' … }
@@ -199,7 +202,15 @@
     state.journey = journey;
     state.rhythm = rhythm;
     state.awards = null; // miles changed, so awards may have too
+    state.history = null;
     if (before !== state.journey.team.id) state.feedOpen = false;
+  }
+
+  async function loadHistory(month) {
+    const data = await api('/api/history' + (month ? '?month=' + encodeURIComponent(month) : ''));
+    state.history = data;
+    state.historyMonth = `${data.year}-${String(data.month).padStart(2, '0')}`;
+    if (state.tab === 'you') renderScreen();
   }
 
   async function loadAwards() {
@@ -488,6 +499,7 @@
         ${navButton('log', 'Add miles', '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
         ${navButton('team', solo ? 'Friends' : 'Team', '<circle cx="9" cy="9" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 5 1.5 5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
         ${navButton('awards', 'Awards', '<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1.1 5.8L12 16.3 6.7 19.1l1.1-5.8L3.5 9.2l5.9-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>')}
+        ${navButton('you', 'You', '<rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M9 3v4M15 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/>')}
       </div></nav>`;
     renderScreen();
   }
@@ -504,6 +516,7 @@
     if (state.tab === 'log') $screen.innerHTML = logScreen();
     if (state.tab === 'team') $screen.innerHTML = teamScreen();
     if (state.tab === 'awards') $screen.innerHTML = awardsScreen();
+    if (state.tab === 'you') $screen.innerHTML = youScreen();
     document.querySelectorAll('.nav button').forEach((b) => {
       const active = b.dataset.tab === state.tab;
       b.classList.toggle('active', active);
@@ -514,6 +527,7 @@
       maybeCelebrate();
     }
     if (state.tab === 'awards' && !state.awards) loadAwards().catch((e) => toast(e.message));
+    if (state.tab === 'you' && !state.history) loadHistory(state.historyMonth).catch((e) => toast(e.message));
     window.scrollTo({ top: 0 });
   }
 
@@ -548,6 +562,7 @@
         <div id="scene" class="scene"></div>
       </div>
 
+      ${momentBanner(p)}
       ${rhythmCard(p)}
 
       <div class="page milepost-page">
@@ -594,6 +609,20 @@
           : `<p class="muted">${isSolo() ? 'No miles yet. Take the first step.' : 'No miles yet. Be the first to take a step.'}</p>`}
         ${all.length > 6 && !state.feedOpen ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show more</button>` : ''}
       </div>`;
+  }
+
+  /* ---------- "You are here": the moment right after an entry ---------- */
+
+  function momentBanner(p) {
+    const m = state.moment;
+    if (!m) return '';
+    state.moment = null; // shows once
+    const next = p.arrived ? `You have arrived at ${esc(p.J.end)}.`
+      : p.next ? `${fmt(p.next.mile - p.mile, 1)} mi to ${esc(p.next.name)}.` : '';
+    setTimeout(() => { const el = document.getElementById('moment'); if (el) el.classList.add('gone'); }, 4200);
+    return `<div id="moment" class="moment" role="status">
+      <strong>+${fmt(m.miles)} mi</strong><span>You are here. ${next}</span>
+    </div>`;
   }
 
   /* ---------- Daily rhythm: today's ring, streak, next stop ---------- */
@@ -701,6 +730,8 @@
       label: sceneLabel(p),
     });
 
+    const post = document.querySelector('.milepost .board');
+    if (post && from != null && Math.abs(from - p.mile) >= 0.05) { post.classList.remove('pulse'); void post.offsetWidth; post.classList.add('pulse'); }
     if (fill) {
       const was = from == null ? p.mile : from;
       fill.style.width = `${(Math.min(100, (was / p.goal) * 100)).toFixed(1)}%`;
@@ -995,6 +1026,77 @@
       </div>`;
   }
 
+  /* ---------- You: calendar and history ---------- */
+
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  function shiftMonth(ym, delta) {
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function youScreen() {
+    const Hs = state.history;
+    const R = state.rhythm;
+    const first = (state.user.name || '').split(' ')[0];
+    if (!Hs) return `<div class="page"><h2>${esc(first)}</h2><p class="muted small">Opening your walking diary…</p></div>`;
+    const ym = `${Hs.year}-${String(Hs.month).padStart(2, '0')}`;
+    const isThisMonth = Hs.today.year === Hs.year && Hs.today.month === Hs.month;
+    const maxDay = Math.max(0.1, ...Object.values(Hs.days));
+    let cells = '';
+    for (let i = 0; i < Hs.firstWeekday; i++) cells += '<span class="cal-cell empty"></span>';
+    for (let d = 1; d <= Hs.daysInMonth; d++) {
+      const mi = Hs.days[d] || 0;
+      const future = isThisMonth && d > Hs.today.day;
+      const today = isThisMonth && d === Hs.today.day;
+      const size = mi ? (0.45 + 0.55 * Math.min(1, mi / maxDay)).toFixed(2) : 0;
+      cells += `<span class="cal-cell ${mi ? 'walked' : ''} ${today ? 'today' : ''} ${future ? 'future' : ''}" title="${mi ? fmt(mi, 1) + ' mi' : ''}">
+        <i style="transform:scale(${size})"></i><b>${d}</b>${mi ? `<small>${fmt(mi, mi >= 10 ? 0 : 1)}</small>` : ''}</span>`;
+    }
+    const grouped = [];
+    const shown = state.feedOpen ? Hs.entries : Hs.entries.slice(0, 30);
+    for (const e of shown) {
+      const last = grouped[grouped.length - 1];
+      if (last && last.day === e.day) last.items.push(e); else grouped.push({ day: e.day, items: [e] });
+    }
+    const stats = R ? `
+        <ul class="stat-row">
+          <li><strong>${R.streak}</strong><span>day streak</span></li>
+          <li><strong>${R.bestStreak}</strong><span>best streak</span></li>
+          <li><strong>${fmt(Hs.allTimeMiles, 0)}</strong><span>miles ever</span></li>
+          <li><strong>${R.daysWalked}</strong><span>days walked</span></li>
+        </ul>` : '';
+    return `
+      <div class="page">
+        <h2>${esc(first)}'s walking diary</h2>
+        ${stats}
+      </div>
+      <div class="page">
+        <div class="cal-head">
+          <button type="button" class="button quiet small-btn" data-action="history-month" data-month="${shiftMonth(ym, -1)}" aria-label="Previous month">‹</button>
+          <h2>${MONTHS[Hs.month - 1]} ${Hs.year}</h2>
+          <button type="button" class="button quiet small-btn" data-action="history-month" data-month="${shiftMonth(ym, 1)}" aria-label="Next month" ${isThisMonth ? 'disabled' : ''}>›</button>
+        </div>
+        <p class="small muted">${fmt(Hs.total, 1)} miles this month · ${Object.keys(Hs.days).length} ${Object.keys(Hs.days).length === 1 ? 'day' : 'days'} walked</p>
+        <div class="cal-grid" role="grid" aria-label="Days walked this month">
+          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span class="cal-dow">${d}</span>`).join('')}
+          ${cells}
+        </div>
+      </div>
+      <div class="page">
+        <h2>Walks this month</h2>
+        ${grouped.length ? grouped.map((g) => `
+          <h3 class="day-head">${MONTHS[Hs.month - 1].slice(0, 3)} ${g.day}<span>${fmt(Hs.days[g.day] || 0, 1)} mi</span></h3>
+          <ul class="list">${g.items.map((e) => `<li>
+            <div class="who"><strong>${fmt(e.miles)} mi${e.note ? ` · ${esc(e.note)}` : ''}</strong><span>${esc(e.team_id === state.teamId ? 'this walk' : e.team_name)}</span></div>
+            ${e.team_id === state.teamId ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}">edit</button>` : ''}
+          </li>`).join('')}</ul>`).join('')
+          : `<p class="muted">No walks logged this month${isThisMonth ? ' yet. Today is a good day for one.' : '.'}</p>`}
+        ${Hs.entries.length > shown.length ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show all ${Hs.entries.length}</button>` : ''}
+      </div>`;
+  }
+
   function listNames(names) {
     if (names.length <= 1) return names.join('');
     return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
@@ -1013,7 +1115,8 @@
 
   function nextAwardPop() {
     const a = popQueue.shift();
-    if (!a) { $awardPop.hidden = true; return; }
+    if (!a) { $awardPop.hidden = true; stopBurst(); return; }
+    if (a.section === 'team' && (a.kind === 'stop' || a.kind === 'milestone' || a.kind === 'border')) burst(); else stopBurst();
     $awardPop.innerHTML = `
       <div class="award-pop-card page" role="dialog" aria-live="assertive" aria-label="New award: ${esc(a.title)}">
         <div class="badge-frame earned">${badgeIcon(a.icon)}</div>
@@ -1022,6 +1125,42 @@
         <p class="small muted">${popQueue.length ? 'Tap for the next one' : 'Tap to continue'}</p>
       </div>`;
     $awardPop.hidden = false;
+  }
+
+  /* ---------- A short confetti burst (for reaching a stop) ---------- */
+
+  let burstFrame = null, burstCanvas = null;
+  function burst() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    stopBurst();
+    burstCanvas = document.createElement('canvas');
+    burstCanvas.className = 'burst';
+    document.body.appendChild(burstCanvas);
+    const dpr = window.devicePixelRatio || 1;
+    const W = window.innerWidth, H = window.innerHeight;
+    burstCanvas.width = W * dpr; burstCanvas.height = H * dpr;
+    const ctx = burstCanvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const colors = ['#e2b04c', '#6fe3b4', '#fbfbf7', '#c9553d', '#6fb4ff'];
+    const bits = Array.from({ length: 90 }, () => {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = 6 + Math.random() * 9;
+      return { x: W / 2, y: H * 0.42, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, w: 5 + Math.random() * 5, h: 7 + Math.random() * 7, rot: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: colors[Math.floor(Math.random() * colors.length)] };
+    });
+    const t0 = performance.now();
+    const tick = (now) => {
+      const k = (now - t0) / 1800;
+      ctx.clearRect(0, 0, W, H);
+      for (const b of bits) {
+        b.vy += 0.25; b.x += b.vx; b.y += b.vy; b.rot += b.vr;
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot); ctx.globalAlpha = Math.max(0, 1 - k); ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore();
+      }
+      if (k < 1) burstFrame = requestAnimationFrame(tick); else stopBurst();
+    };
+    burstFrame = requestAnimationFrame(tick);
+  }
+  function stopBurst() {
+    cancelAnimationFrame(burstFrame); burstFrame = null;
+    if (burstCanvas) { burstCanvas.remove(); burstCanvas = null; }
   }
 
   /* ---------- Celebration ---------- */
@@ -1095,6 +1234,7 @@
     const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note, date }) });
     await loadJourney();
     state.tab = 'journey';
+    state.moment = { miles: added.miles };
     renderScreen();
     showAwardPops(added.newAwards);
     toast(label || (date ? `Added ${fmt(added.miles)} miles for ${esc(whenText(added.entry.logged_at))}` : `Added ${fmt(added.miles)} miles`), {
@@ -1149,6 +1289,7 @@
 
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
     if (action === 'toggle-goal') { state.goalOpen = !state.goalOpen; renderScreen(); }
+    if (action === 'history-month') { state.history = null; state.historyMonth = el.dataset.month; renderScreen(); }
     if (action === 'clear-goal') withBusy(async () => {
       await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: 0 }) });
       state.goalOpen = false;

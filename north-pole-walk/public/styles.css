@@ -542,3 +542,40 @@ form select[data-action="custom-choose"] {
 .goal-form { flex-basis: 100%; border-top: 1px solid rgba(43, 36, 31, 0.12); padding-top: 12px; }
 .goal-form select { font: inherit; font-size: 15px; padding: 8px 10px; border: 2px solid rgba(43, 36, 31, 0.25); border-radius: 12px; background: var(--snow); color: var(--ink); min-height: 48px; }
 @media (prefers-reduced-motion: reduce) { .ring-fill { transition: none; } }
+
+/* ---------- You are here ---------- */
+.moment {
+  display: flex; align-items: center; gap: 12px; margin: -6px 0 16px; padding: 12px 16px;
+  background: var(--night-2); color: var(--snow); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 14px;
+  animation: moment-in 420ms cubic-bezier(0.22, 1, 0.36, 1); transition: opacity 600ms ease, transform 600ms ease;
+}
+.moment strong { font-family: var(--font-display); font-size: 24px; color: var(--gold); white-space: nowrap; }
+.moment span { font-size: 15px; line-height: 1.3; }
+.moment.gone { opacity: 0; transform: translateY(-6px); }
+@keyframes moment-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+@keyframes post-pulse { 0% { transform: scale(1); } 35% { transform: scale(1.08); box-shadow: 0 3px 0 var(--wood-2), 0 0 0 10px rgba(226, 176, 76, 0.25); } 100% { transform: scale(1); } }
+.milepost .board.pulse { animation: post-pulse 900ms ease; }
+.burst { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 41; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .moment { animation: none; } .milepost .board.pulse { animation: none; } }
+
+/* ---------- You: diary ---------- */
+.stat-row { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat-row li { text-align: center; background: var(--paper-2); border-radius: 12px; padding: 10px 4px; }
+.stat-row strong { display: block; font-family: var(--font-display); font-size: 24px; line-height: 1.1; }
+.stat-row span { font-size: 11px; font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.cal-head h2 { margin: 0; text-align: center; }
+.cal-head .small-btn { min-width: 44px; font-size: 22px; line-height: 1; padding: 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+.cal-dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--ink-2); padding-bottom: 2px; }
+.cal-cell { position: relative; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; font-size: 13px; font-weight: 700; color: var(--ink-2); overflow: hidden; }
+.cal-cell i { position: absolute; inset: 3px; border-radius: 50%; background: var(--gold); opacity: 0; }
+.cal-cell.walked i { opacity: 0.9; }
+.cal-cell.walked b, .cal-cell.walked small { position: relative; color: var(--ink); }
+.cal-cell small { font-size: 10px; font-weight: 700; line-height: 1; }
+.cal-cell.today { box-shadow: inset 0 0 0 2px var(--gold-2); }
+.cal-cell.future { opacity: 0.35; }
+.cal-cell.empty { visibility: hidden; }
+.day-head { display: flex; justify-content: space-between; font-size: 15px; margin: 12px 0 2px; padding-bottom: 4px; border-bottom: 2px solid var(--paper-2); }
+.day-head span { font-family: var(--font-body); color: var(--ink-2); font-size: 13px; font-weight: 700; }
+.nav button { font-size: 11px; }
