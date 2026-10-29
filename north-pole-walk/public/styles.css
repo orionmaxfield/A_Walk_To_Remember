@@ -274,6 +274,9 @@ input, select { touch-action: manipulation; }
 .scene-svg .snow-fall { animation: snow-fall 8s linear infinite; }
 .scene-svg .snow-sway { animation: snow-sway 5s ease-in-out infinite alternate; }
 
+@keyframes cloud-drift { from { transform: translateX(-18px); } to { transform: translateX(18px); } }
+.scene-svg .clouds { animation: cloud-drift 26s ease-in-out infinite alternate; }
+
 @media (prefers-reduced-motion: reduce) {
   .scene-svg, .scene-svg * { animation: none !important; }
 }

@@ -202,7 +202,7 @@
       for (let i = 0; i < 5; i++) {
         clouds += `<use href="#${id('cloud')}" transform="translate(${(cr() * VW).toFixed(0)} ${(30 + cr() * 90).toFixed(0)}) scale(${(0.6 + cr() * 0.7).toFixed(2)})"/>`;
       }
-      clouds = `<g opacity="${f2(c.clouds * 0.85)}">${clouds}</g>`;
+      clouds = `<g class="clouds" opacity="${f2(c.clouds * 0.85)}">${clouds}</g>`;
     }
     return `
       <rect x="0" y="0" width="${VW}" height="${H}" fill="${ref('sky')}"/>
