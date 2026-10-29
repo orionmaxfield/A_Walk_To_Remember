@@ -89,7 +89,7 @@
 
   function teamLabel(t) {
     const J = JOURNEYS[t.journey_id] || JOURNEYS['north-pole'];
-    return t.kind === 'solo' ? `${J.title} (solo)` : t.name;
+    return t.kind === 'solo' ? `${t.name} · ${J.end}` : t.name;
   }
 
   // One-time note about the switch to the real route. Remembered in localStorage,
@@ -381,7 +381,7 @@
       <div class="header">
         <div>
           <h1>${esc(J.title)}</h1>
-          <div class="team-name">${solo ? 'Your own journey' : esc(team.name)}</div>
+          <div class="team-name">${solo ? `Your own journey · ${esc(team.name)}` : esc(team.name)}</div>
         </div>
         ${switcher}
       </div>
@@ -663,6 +663,17 @@
         </ul>
       </div>`}
 
+      ${team.created_by === state.user.id ? `
+      <div class="page">
+        <h2>${solo ? 'Name this walk' : 'Rename the group'}</h2>
+        <form data-form="rename-team">
+          <div class="row">
+            <label class="field" style="margin:0"><input name="name" maxlength="60" value="${esc(team.name)}" required aria-label="Walk name"></label>
+            <button class="button quiet" type="submit" style="flex:0 0 auto">Save</button>
+          </div>
+        </form>
+      </div>` : ''}
+
       <div class="page">
         <h2>Another trail</h2>
         <p class="muted small">You can be on more than one walk at a time: your own journey, one with work, one with family.</p>
@@ -675,7 +686,8 @@
         </form>
       </div>
 
-      <button class="button quiet on-night wide" data-action="sign-out">Sign out</button>`;
+      <button class="button quiet on-night wide" data-action="sign-out">Sign out</button>
+      <p class="small" style="text-align:center;margin-top:14px"><button class="button link on-night" type="button" data-action="delete-account">Delete my account</button></p>`;
   }
 
   /* ---------- Awards screen ---------- */
@@ -862,6 +874,15 @@
       location.reload();
     });
 
+    if (action === 'delete-account') {
+      const sure = window.confirm('Delete your account? Your miles and sign-in are removed. Walks you share with others keep going without you. This cannot be undone.');
+      if (sure) withBusy(async () => {
+        await api('/api/me', { method: 'DELETE' });
+        localStorage.removeItem('teamId');
+        location.reload();
+      });
+    }
+
     if (action === 'copy-link') {
       const link = el.dataset.link;
       (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
@@ -929,6 +950,15 @@
       try {
         if (kind === 'create-team') {
           await startWalk(form.dataset.journey || 'north-pole', 'team', fields.name);
+        }
+
+        if (kind === 'rename-team') {
+          const saved = await api('/api/team', { method: 'PATCH', body: JSON.stringify({ team_id: state.teamId, name: fields.name }) });
+          const me = await api('/api/me');
+          state.teams = me.teams;
+          state.journey.team.name = saved.name;
+          renderMain();
+          toast('Saved');
         }
 
         if (kind === 'join-team') {
