@@ -60,10 +60,18 @@
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
-  function currentJourneyDef() {
-    const id = (state.journey && state.journey.team.journey_id) || 'north-pole';
-    return JOURNEYS[id] || JOURNEYS['north-pole'];
+  function journeyDefFor(team) {
+    if (!team) return JOURNEYS['north-pole'];
+    if (team.journey_id === 'custom' && team.custom) return customJourney(team.custom);
+    return JOURNEYS[team.journey_id] || JOURNEYS['north-pole'];
   }
+
+  function currentJourneyDef() {
+    return journeyDefFor(state.journey && state.journey.team);
+  }
+
+  // The sample shown on the "somewhere real" card.
+  const CUSTOM_SAMPLE = { start: { name: 'Your front door' }, end: { name: 'Anywhere' }, miles: 500 };
 
   function isSolo() {
     return Boolean(state.journey && state.journey.team.kind === 'solo');
@@ -89,7 +97,7 @@
   }
 
   function teamLabel(t) {
-    const J = JOURNEYS[t.journey_id] || JOURNEYS['north-pole'];
+    const J = journeyDefFor(t);
     return t.kind === 'solo' ? `${t.name} · ${J.end}` : t.name;
   }
 
@@ -285,6 +293,16 @@
         </div>
         <ul class="destinations">
           ${JOURNEY_ORDER.map((id) => destinationCard(JOURNEYS[id])).join('')}
+          <li class="destination theme-road">
+            <button type="button" data-action="pick-custom">
+              <span class="destination-art" aria-hidden="true">${destinationArt(customJourney(CUSTOM_SAMPLE))}</span>
+              <span class="destination-copy">
+                <strong>Somewhere real</strong>
+                <span class="destination-miles">Any place on the map · you pick the start and the finish</span>
+                <span class="destination-blurb">Grandma's house, the beach you love, a city you've always wanted to see. Type the two places and we'll measure the road between them.</span>
+              </span>
+            </button>
+          </li>
         </ul>
         <div class="page">
           <h2>Walking with a group?</h2>
@@ -356,8 +374,77 @@
     window.scrollTo({ top: 0 });
   }
 
-  async function startWalk(journeyId, kind, name) {
-    const made = await api('/api/teams', { method: 'POST', body: JSON.stringify({ journey_id: journeyId, kind, name }) });
+  /* ---------- A real-world destination ---------- */
+
+  // The form remembers what was looked up so the chosen places survive re-renders.
+  const customForm = { startQ: '', endQ: '', starts: null, ends: null, start: null, end: null, busy: false, error: '' };
+
+  function renderCustom() {
+    state.picking = { journeyId: 'custom' };
+    const f = customForm;
+    const miles = f.start && f.end ? previewMiles(f.start, f.end) : null;
+    const chooser = (field, list, chosen) => list && list.length > 1 ? `
+        <select data-action="custom-choose" data-field="${field}" aria-label="Which one?">
+          ${list.map((p, i) => `<option value="${i}" ${chosen === p ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>` : list && list.length === 1 ? `<p class="small found">${esc(list[0].name)}</p>` : list ? `<p class="small error-note">Nothing found. Try adding the state or country.</p>` : '';
+    $app.innerHTML = `
+      <section>
+        <div class="header">
+          <div>
+            <h1>Somewhere real</h1>
+            <div class="team-name">Any two places on the map</div>
+          </div>
+          <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
+        </div>
+        <div class="page scene-page destination-preview theme-road" aria-hidden="true">${destinationArt(customJourney(f.start && f.end ? { start: f.start, end: f.end, miles } : CUSTOM_SAMPLE))}</div>
+        <div class="page">
+          <form data-form="custom-lookup">
+            <label class="field"><span>Starting from</span><input name="start" maxlength="120" placeholder="Layton, Utah" value="${esc(f.startQ)}" required></label>
+            ${chooser('start', f.starts, f.start)}
+            <label class="field"><span>Walking to</span><input name="end" maxlength="120" placeholder="Grand Canyon" value="${esc(f.endQ)}" required></label>
+            ${chooser('end', f.ends, f.end)}
+            ${f.error ? `<p class="small error-note">${esc(f.error)}</p>` : ''}
+            <button class="button quiet wide" type="submit" ${f.busy ? 'disabled' : ''}>${f.busy ? 'Looking up…' : (f.starts ? 'Look up again' : 'Find the route')}</button>
+          </form>
+          ${miles ? `
+          <div class="route-summary">
+            <h2>${fmt(miles, 0)} miles</h2>
+            <p class="small muted">${esc(f.start.name)} to ${esc(f.end.name)}, as the roads run (straight-line distance plus a fifth). ${esc(dailyHint({ totalMiles: miles }))}</p>
+          </div>
+          <div class="start-buttons">
+            <button class="button wide" type="button" data-action="start-custom-solo">Walk it on my own</button>
+            <button class="button quiet wide" type="button" data-action="show-group-form">Start a group walk</button>
+          </div>
+          <form data-form="create-team" data-journey="custom" hidden>
+            <label class="field"><span>Group name</span><input name="name" maxlength="60" placeholder="The Lunch Walkers" required></label>
+            <button class="button wide" type="submit">Start the group walk</button>
+          </form>` : ''}
+          <p class="small muted" style="margin-top:14px">Place names come from OpenStreetMap, © OpenStreetMap contributors.</p>
+        </div>
+      </section>`;
+    window.scrollTo({ top: 0 });
+  }
+
+  // Same sum the server uses, so the number shown is the number saved.
+  function previewMiles(a, b) {
+    const R = 3958.8, toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+    return Math.max(1, Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))) * 1.2));
+  }
+
+  async function lookupPlaces(q) {
+    const res = await api('/api/places?q=' + encodeURIComponent(q));
+    return res.places || [];
+  }
+
+  function customPayload() {
+    const f = customForm;
+    return { start: f.start, end: f.end };
+  }
+
+  async function startWalk(journeyId, kind, name, custom) {
+    const made = await api('/api/teams', { method: 'POST', body: JSON.stringify({ journey_id: journeyId, kind, name, custom }) });
     const me = await api('/api/me');
     state.teams = me.teams;
     state.teamId = made.team.id;
@@ -908,6 +995,11 @@
     if (action === 'pick-open') renderPick();
     if (action === 'pick-back') { state.picking = null; renderMain(); }
     if (action === 'pick-destination') renderDestination(JOURNEYS[el.dataset.journey]);
+    if (action === 'pick-custom') renderCustom();
+    if (action === 'start-custom-solo') withBusy(async () => {
+      el.disabled = true;
+      try { await startWalk('custom', 'solo', null, customPayload()); } finally { el.disabled = false; }
+    });
     if (action === 'pick-destination-back') renderPick();
     if (action === 'show-group-form') {
       const form = document.querySelector('form[data-form="create-team"]');
@@ -981,6 +1073,14 @@
 
   document.addEventListener('change', (ev) => {
     if (ev.target.name === 'unit' && ev.target.form) { applyUnit(ev.target.form, ev.target.value); return; }
+    if (ev.target.dataset.action === 'custom-choose') {
+      const f = customForm;
+      const list = ev.target.dataset.field === 'start' ? f.starts : f.ends;
+      const chosen = list[Number(ev.target.value)] || null;
+      if (ev.target.dataset.field === 'start') f.start = chosen; else f.end = chosen;
+      renderCustom();
+      return;
+    }
     if (ev.target.dataset.action === 'toggle-leaderboard') {
       const on = ev.target.checked;
       withBusy(async () => {
@@ -1022,7 +1122,27 @@
       button.disabled = true;
       try {
         if (kind === 'create-team') {
-          await startWalk(form.dataset.journey || 'north-pole', 'team', fields.name);
+          const jid = form.dataset.journey || 'north-pole';
+          await startWalk(jid, 'team', fields.name, jid === 'custom' ? customPayload() : undefined);
+        }
+
+        if (kind === 'custom-lookup') {
+          const f = customForm;
+          f.startQ = String(fields.start || '').trim(); f.endQ = String(fields.end || '').trim();
+          f.busy = true; f.error = ''; f.starts = null; f.ends = null; f.start = null; f.end = null;
+          renderCustom();
+          try {
+            f.starts = await lookupPlaces(f.startQ);
+            await new Promise((r) => setTimeout(r, 1100)); // the lookup service asks for a second between requests
+            f.ends = await lookupPlaces(f.endQ);
+            f.start = f.starts[0] || null; f.end = f.ends[0] || null;
+            if (!f.start || !f.end) f.error = 'One of those places was not found. Try adding the state or country.';
+          } catch (e) {
+            f.error = e.message;
+          } finally {
+            f.busy = false;
+            renderCustom();
+          }
         }
 
         if (kind === 'rename-team') {

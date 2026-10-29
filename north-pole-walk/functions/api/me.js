@@ -10,8 +10,25 @@ export async function onRequestGet({ env, data }) {
       WHERE m.user_id = ?
       ORDER BY m.joined_at`
   ).bind(data.user.id).all();
+  const list = teams.results || [];
+  await attachCustom(env, list);
 
-  return json({ user: data.user, teams: teams.results || [] });
+  return json({ user: data.user, teams: list });
+}
+
+// Custom destinations keep their places in teams.custom_json (migration 003).
+// Until a database has that column, custom walks simply don't exist yet.
+export async function attachCustom(env, teams) {
+  const ids = teams.filter((t) => t.journey_id === 'custom').map((t) => t.id);
+  for (const t of teams) t.custom = null;
+  if (!ids.length) return;
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT id, custom_json FROM teams WHERE id IN (${ids.map(() => '?').join(',')})`
+    ).bind(...ids).all();
+    const byId = Object.fromEntries(rows.results.map((r) => [r.id, r.custom_json]));
+    for (const t of teams) if (byId[t.id]) { try { t.custom = JSON.parse(byId[t.id]); } catch (e) { t.custom = null; } }
+  } catch (err) { /* column missing: leave custom null */ }
 }
 
 function json(obj, status = 200) {

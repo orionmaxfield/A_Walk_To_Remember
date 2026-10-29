@@ -490,3 +490,13 @@ button { font: inherit; }
 .standings li.me { background: rgba(226, 176, 76, 0.14); margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 8px; }
 .switch { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-weight: 700; cursor: pointer; }
 .switch input { width: 22px; height: 22px; accent-color: var(--gold-2); }
+
+/* ---------- Custom destination form ---------- */
+.found { color: var(--gold-2); font-weight: 700; margin: -8px 0 12px; }
+form select[data-action="custom-choose"] {
+  width: 100%; font: inherit; font-size: 15px; padding: 8px 10px; margin: -8px 0 12px;
+  border: 2px solid rgba(43, 36, 31, 0.25); border-radius: 10px; background: var(--snow); color: var(--ink);
+}
+.route-summary { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(43, 36, 31, 0.12); }
+.route-summary h2 { font-size: 30px; }
+.error-note { margin: -6px 0 12px; }

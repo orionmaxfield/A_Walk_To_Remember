@@ -5,7 +5,9 @@
 // Used by GET /api/awards and by POST /api/miles (to spot freshly earned awards).
 
 import '../../public/journey.js';
+import '../../public/custom.js';
 const JOURNEYS = globalThis.JOURNEYS;
+const customJourney = globalThis.customJourney;
 
 /* ---------- America/Denver time ----------
    Mountain Standard Time is UTC-7. Daylight time (UTC-6) runs from the second
@@ -107,8 +109,8 @@ const fmtMiles = (n) => (Math.round(n * 10) / 10).toLocaleString('en-US');
 
 // entries: every mile entry for the team, oldest first ({ id, user_id, miles, logged_at }).
 // members: everyone on the team ({ id, name }). userId: the signed-in person.
-export function computeAwards({ journeyId, kind, entries, members, userId, now = Date.now() }) {
-  const J = JOURNEYS[journeyId] || JOURNEYS['north-pole'];
+export function computeAwards({ journeyId, kind, custom, entries, members, userId, now = Date.now() }) {
+  const J = journeyId === 'custom' && custom ? customJourney(custom) : (JOURNEYS[journeyId] || JOURNEYS['north-pole']);
   const hero = J.heroName || 'Elf'; // "Century Elf" on the office's walk, "Century Walker" elsewhere
   const named = (def) => ({ ...def, title: def.title.replace(/\bElf\b/g, hero) });
   const solo = kind === 'solo';

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS teams (
   journey_id TEXT NOT NULL DEFAULT 'north-pole',
   kind TEXT NOT NULL DEFAULT 'team',  -- 'team' (a group walk) or 'solo' (one person's own journey)
   leaderboard INTEGER NOT NULL DEFAULT 1,  -- 1 shows the leaderboard; 0 = the organizer switched it off
+  custom_json TEXT,                   -- for journey_id 'custom': {"start":{name,lat,lon},"end":{...},"miles":N}
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

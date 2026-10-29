@@ -3,6 +3,7 @@
 // the signed-in person. Each award says whether it is earned, when, and how far along it is.
 
 import { computeAwards } from '../lib/awards.js';
+import { attachCustom } from './me.js';
 
 export async function onRequestGet({ request, env, data }) {
   if (!data.user) return json({ error: 'Not signed in.' }, 401);
@@ -19,9 +20,12 @@ export async function onRequestGet({ request, env, data }) {
     env.DB.prepare(`SELECT id, user_id, miles, logged_at FROM mile_entries WHERE team_id = ? ORDER BY logged_at, id`).bind(teamId),
   ]);
 
+  const t = team.results[0] || {};
+  await attachCustom(env, [t]);
   const awards = computeAwards({
-    journeyId: team.results[0] && team.results[0].journey_id,
-    kind: team.results[0] && team.results[0].kind,
+    journeyId: t.journey_id,
+    kind: t.kind,
+    custom: t.custom,
     entries: entries.results,
     members: members.results,
     userId: data.user.id,

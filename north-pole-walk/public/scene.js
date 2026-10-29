@@ -1396,6 +1396,59 @@
     },
   };
 
+  /* --- Road: any real place to any other; plain countryside with a town at each end --- */
+  THEMES.road = {
+    walker: 'hiker',
+    hillAmp: 1,
+    farScale: 0.7,
+    palette(t) {
+      const evening = smooth(0.85, 1, t);
+      return Object.assign({}, CLEAR, {
+        skyTop: ramp([[0, '#5aa6e8'], [0.85, '#5a9fe0'], [1, '#c98c6a']], t),
+        skyMid: ramp([[0, '#a8d6f5'], [0.85, '#b0d4ee'], [1, '#f0c48a']], t),
+        skyBot: ramp([[0, '#e6f3fb'], [1, '#ffe2b0']], t),
+        rock: '#7f8fa0', rockBack: '#a6b4c2',
+        hillBack: ramp([[0, '#9cc26a'], [0.5, '#a9c46a'], [1, '#c4b45a']], t),
+        hillFront: ramp([[0, '#6ea84c'], [0.5, '#78aa4e'], [1, '#9aa84a']], t),
+        grass: ramp([[0, '#7fb757'], [0.5, '#8ab857'], [1, '#a9b15a']], t),
+        path: '#c9a46f',
+        tree: '#2f6e3b',
+        leaf: ramp([[0, '#3f8a3c'], [1, '#6f8a3c']], t),
+        sunY: lerp(56, 150, evening), sunOp: 1, sunColor: ramp(SUN, evening),
+        clouds: 0.45,
+      });
+    },
+    forest: [[0.04, 0.2, 0.6, 'round'], [0.22, 0.3, 0.9, 'pine'], [0.34, 0.48, 0.5, 'round'], [0.52, 0.6, 0.8, 'round'], [0.64, 0.78, 0.4, 'round'], [0.8, 0.9, 0.6, 'pine']],
+    midFront({ marks, mx, J }) {
+      let out = '';
+      if (marks.start != null) {
+        const s = mx(marks.start);
+        out += cottage(s - 70, HORIZON + 8, 26, 16, '#d9c29a', '#8a3b30', false) + cottage(s - 36, HORIZON + 10, 22, 14, '#e6d7b4', '#6b5f54', false) + cottage(s + 4, HORIZON + 8, 24, 15, '#d9c29a', '#5a3415', false);
+      }
+      if (marks.finish != null) {
+        const v = mx(marks.finish);
+        out += cottage(v - 90, HORIZON + 8, 30, 18, '#e6d7b4', '#8a3b30', true) + cottage(v - 52, HORIZON + 10, 24, 16, '#d9c29a', '#6b5f54', true);
+        out += `<g transform="translate(${(v - 14).toFixed(0)} ${HORIZON + 8})"><rect x="-14" y="-40" width="28" height="40" fill="#c9bca8"/><path d="M-18 -40 l18 -14 l18 14z" fill="#8a7a6a"/><rect x="-4" y="-62" width="8" height="12" fill="#c9bca8"/><path d="M-6 -62 l6 -8 l6 8z" fill="#8a7a6a"/><rect x="-4" y="-12" width="8" height="12" fill="#4a3a2f"/></g>`;
+        out += cottage(v + 24, HORIZON + 8, 26, 16, '#d9c29a', '#8a3b30', true) + cottage(v + 58, HORIZON + 10, 30, 18, '#e6d7b4', '#5a3415', true);
+      }
+      return out;
+    },
+    nearBehind({ marks, nx, r, x0, x1 }) {
+      let out = '';
+      // Fence posts and the odd milestone along the road
+      for (let x = x0 + 30; x < x1; x += 200 + r() * 260) {
+        out += `<g transform="translate(${x.toFixed(0)} ${SIGN_BASE})"><rect x="-4" y="-18" width="8" height="18" rx="2" fill="#b3a494"/><rect x="-3" y="-15" width="6" height="3" fill="#2b241f" opacity="0.5"/></g>`;
+      }
+      for (let x = x0; x < x1; x += 60 + r() * 100) {
+        out += `<use href="#${id(r() < 0.3 ? 'rock' : 'bush')}" transform="translate(${x.toFixed(0)} ${(r() < 0.5 ? SIGN_BASE - 1 : 266).toFixed(0)}) scale(${(0.5 + r() * 0.6).toFixed(2)})"/>`;
+      }
+      return out;
+    },
+    nearFront({ marks, nx, J }) {
+      return marks.finish != null ? finishBanner(nx(marks.finish), (J.banner || J.end || 'FINISH').toUpperCase().slice(0, 14), '#2f7a3f') : '';
+    },
+  };
+
   /* ---------- Build, place, animate ---------- */
 
   function sceneMarks(J) {

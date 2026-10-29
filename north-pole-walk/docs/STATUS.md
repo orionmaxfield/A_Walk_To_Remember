@@ -25,7 +25,7 @@ _Written Thu Oct 29, 2026, on branch `claude/loving-cerf-7dwr4l`. Nothing here i
 
 Each item is small enough to preview and check on its own. Items 1 to 4 are what the public launch needs; 5 onward are polish and growth.
 
-1. **Custom real-world destination.** Type any place; the app looks up the distance from your start with a map service and builds a journey with distance-based milestones. Needs a decision from Orion on the map provider (a free tier is enough: this is one lookup per new walk).
+1. _(built, needs a decision)_ **Custom real-world destination.** "Somewhere real" on the destination screen: type a start and a finish, pick the right match, and the app measures the road (straight-line distance plus a fifth) and builds a journey with distance-based milestones. Uses OpenStreetMap's free Nominatim lookup for now (no key, one lookup per new walk, attribution shown). Orion's call whether to keep it or move to a paid map service before the launch ads; the provider lives in one file. Needs `migrations/003_custom_destinations.sql`.
 2. **Step syncing, phase one: the iPhone app shell.** Wrap the web app with Capacitor, read daily steps from HealthKit, and post them as mile entries (about 2,000 steps per mile, configurable). Manual entry stays as the fallback. Plan in `docs/step-sync-plan.md`. Needs Orion's Apple developer account (Nov 3).
 3. **Public sign-up polish.** Landing page copy on the cover and a short "how it works" for first-timers. (Account deletion and renaming are done.)
 4. **App Store readiness.** App icon, splash screen, screenshots, privacy labels, support page. Checklist reusable for Earmark. Target submission mid-December.

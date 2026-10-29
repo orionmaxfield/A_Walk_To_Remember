@@ -3,6 +3,7 @@
 // their cheers, and the standings (when the walk's leaderboard is on).
 
 import { denver, denverMidnightUtc, weekStartDay, toSql } from '../lib/awards.js';
+import { attachCustom } from './me.js';
 
 export async function onRequestGet({ request, env, data }) {
   if (!data.user) return json({ error: 'Not signed in.' }, 401);
@@ -32,6 +33,7 @@ export async function onRequestGet({ request, env, data }) {
   ]);
 
   const t = team.results[0];
+  await attachCustom(env, [t]);
   const entries = recent.results;
 
   // Cheers and the leaderboard switch arrive with migration 002. Until a database
