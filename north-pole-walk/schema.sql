@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL,
   name TEXT NOT NULL,
   picture TEXT,
+  goal_miles REAL,                        -- personal goal; NULL = not set
+  goal_period TEXT NOT NULL DEFAULT 'day', -- 'day' or 'week'
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

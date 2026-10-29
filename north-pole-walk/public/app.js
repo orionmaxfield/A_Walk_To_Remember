@@ -16,6 +16,8 @@
     teamId: null,
     journey: null,      // response from /api/journey
     awards: null,       // response from /api/awards (fetched when the Awards tab opens)
+    rhythm: null,       // response from /api/rhythm (streak, today, goal)
+    goalOpen: false,    // the goal form on the Journey tab
     tab: 'journey',
     picking: null,       // destination picker: null, or { journeyId: null | 'oz' … }
     feedOpen: false,     // "Latest on the trail" shows 6 entries, or all of them
@@ -190,7 +192,12 @@
 
   async function loadJourney() {
     const before = state.journey && state.journey.team.id;
-    state.journey = await api('/api/journey?team=' + encodeURIComponent(state.teamId));
+    const [journey, rhythm] = await Promise.all([
+      api('/api/journey?team=' + encodeURIComponent(state.teamId)),
+      api('/api/rhythm').catch(() => null),
+    ]);
+    state.journey = journey;
+    state.rhythm = rhythm;
     state.awards = null; // miles changed, so awards may have too
     if (before !== state.journey.team.id) state.feedOpen = false;
   }
@@ -541,6 +548,8 @@
         <div id="scene" class="scene"></div>
       </div>
 
+      ${rhythmCard(p)}
+
       <div class="page milepost-page">
         <div class="milepost" aria-hidden="true">
           <div class="board"><div class="label">MILE</div><div class="number">${fmt(Math.floor(p.mile), 0)}</div></div>
@@ -585,6 +594,60 @@
           : `<p class="muted">${isSolo() ? 'No miles yet. Take the first step.' : 'No miles yet. Be the first to take a step.'}</p>`}
         ${all.length > 6 && !state.feedOpen ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show more</button>` : ''}
       </div>`;
+  }
+
+  /* ---------- Daily rhythm: today's ring, streak, next stop ---------- */
+
+  function rhythmCard(p) {
+    const R = state.rhythm;
+    if (!R) return '';
+    const goal = R.goal;
+    const period = goal ? goal.period : 'day';
+    const done = period === 'week' ? R.weekMiles : R.todayMiles;
+    const target = goal ? goal.miles : null;
+    const pct = target ? Math.min(100, (done / target) * 100) : 0;
+    const nextStop = !p.arrived && p.next ? `${fmt(p.next.mile - p.mile, 1)} mi to ${esc(p.next.name)}` : p.arrived ? 'Journey complete' : '';
+    const streakText = R.streak >= 2 ? `${R.streak}-day streak${R.walkedToday ? '' : ' · walk today to keep it'}`
+      : R.streak === 1 ? (R.walkedToday ? 'Day 1 of a streak' : 'Walked yesterday · walk today to start a streak')
+      : 'Walk today to start a streak';
+    const ringLabel = target
+      ? `${fmt(done, 1)} of ${fmt(target, 1)} mi ${period === 'week' ? 'this week' : 'today'}`
+      : `${fmt(done, 1)} mi ${period === 'week' ? 'this week' : 'today'}`;
+    const goalForm = state.goalOpen ? `
+        <form data-form="set-goal" class="goal-form">
+          <div class="row">
+            <label class="field" style="margin:0"><span class="visually-hidden">Miles</span><input name="miles" type="number" inputmode="decimal" step="0.1" min="0" max="500" value="${goal ? esc(goal.miles) : '2'}" required aria-label="Goal in miles"></label>
+            <select name="period" aria-label="Per day or per week">
+              <option value="day" ${period === 'day' ? 'selected' : ''}>miles a day</option>
+              <option value="week" ${period === 'week' ? 'selected' : ''}>miles a week</option>
+            </select>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="button" type="submit">Save goal</button>
+            ${goal ? `<button class="button quiet" type="button" data-action="clear-goal">No goal</button>` : `<button class="button quiet" type="button" data-action="toggle-goal">Cancel</button>`}
+          </div>
+        </form>` : '';
+    return `
+      <div class="page rhythm">
+        <button type="button" class="ring-button" data-action="toggle-goal" aria-label="${target ? 'Change your goal' : 'Set a goal'}">
+          <svg class="ring" viewBox="0 0 80 80" aria-hidden="true">
+            <circle class="ring-track" cx="40" cy="40" r="34"/>
+            <circle class="ring-fill ${pct >= 100 ? 'done' : ''}" cx="40" cy="40" r="34" style="stroke-dashoffset:${(213.6 * (1 - pct / 100)).toFixed(1)}"/>
+          </svg>
+          <span class="ring-number">${target ? Math.round(pct) + '%' : fmt(done, 1)}</span>
+        </button>
+        <div class="rhythm-copy">
+          <strong>${ringLabel}</strong>
+          <span class="streak ${R.walkedToday && R.streak >= 2 ? 'hot' : ''}">${flameSvg()} ${esc(streakText)}</span>
+          ${nextStop ? `<span class="next-stop">${nextStop}</span>` : ''}
+          ${!state.goalOpen ? `<button type="button" class="button link" data-action="toggle-goal">${target ? 'Change goal' : (R.features && R.features.goal ? 'Set a daily goal' : '')}</button>` : ''}
+        </div>
+        ${goalForm}
+      </div>`;
+  }
+
+  function flameSvg() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-3 1.5-4 2-6 1 1.5 1.5 2 2 3 .5-2.5-.5-5 1-8z"/></svg>';
   }
 
   function entryRow(e) {
@@ -1085,6 +1148,14 @@
     });
 
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
+    if (action === 'toggle-goal') { state.goalOpen = !state.goalOpen; renderScreen(); }
+    if (action === 'clear-goal') withBusy(async () => {
+      await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: 0 }) });
+      state.goalOpen = false;
+      await loadJourney();
+      renderScreen();
+      toast('Goal cleared');
+    });
 
     if (action === 'cheer') withBusy(async () => {
       const id = Number(el.dataset.id);
@@ -1225,6 +1296,14 @@
             f.busy = false;
             renderCustom();
           }
+        }
+
+        if (kind === 'set-goal') {
+          await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: fields.miles, period: fields.period }) });
+          state.goalOpen = false;
+          await loadJourney();
+          renderScreen();
+          toast('Goal saved');
         }
 
         if (kind === 'rename-team') {
