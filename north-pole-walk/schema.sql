@@ -1,4 +1,5 @@
--- Run this once in your D1 database (Cloudflare dashboard > D1 > your database > Console).
+-- Run this once in a NEW D1 database (Cloudflare dashboard > D1 > your database > Console).
+-- An existing database that already has these tables gets updated with the files in migrations/ instead.
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,              -- Google account id
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS teams (
   name TEXT NOT NULL,
   invite_code TEXT NOT NULL UNIQUE,
   journey_id TEXT NOT NULL DEFAULT 'north-pole',
+  kind TEXT NOT NULL DEFAULT 'team',  -- 'team' (a group walk) or 'solo' (one person's own journey)
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
