@@ -594,7 +594,7 @@
       <span class="avatar">${esc((e.name || '?')[0].toUpperCase())}</span>
       <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span>${cheersOn ? cheerLine(e) : ''}</div>
       <span class="miles">${fmt(e.miles)} mi</span>
-      ${mine ? `<button type="button" class="undo" data-action="delete-entry" data-id="${e.id}" aria-label="Remove this entry">remove</button>`
+      ${mine ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}" aria-label="Edit this entry">edit</button>`
         : cheersOn ? `<button type="button" class="cheer ${e.cheered ? 'on' : ''}" data-action="cheer" data-id="${e.id}" aria-pressed="${e.cheered ? 'true' : 'false'}" aria-label="${e.cheered ? 'Take back your cheer' : 'Cheer'}">${heartSvg()}<b>${e.cheers || ''}</b></button>` : ''}
     </li>`;
   }
@@ -670,37 +670,83 @@
     { name: 'Active play with kids', cal: 140 },
   ];
   const UNITS = {
-    miles: { label: 'Miles', step: '0.1', min: '0.1', max: '100', placeholder: '2.5', inputmode: 'decimal' },
+    miles: { label: 'Miles', step: '0.01', min: '0.01', max: '100', placeholder: '2.5', inputmode: 'decimal' },
+    steps: { label: 'Steps', step: '1', min: '100', max: String(100 * STEPS_PER_MILE), placeholder: '4000', inputmode: 'numeric' },
     calories: { label: 'Calories burned', step: '1', min: '10', max: String(100 * CALORIES_PER_MILE), placeholder: '250', inputmode: 'numeric' },
   };
+  const QUICK_ADD = [0.5, 1, 2, 3];
 
   function savedUnit() {
-    try { return localStorage.getItem('logUnit') === 'calories' ? 'calories' : 'miles'; } catch (e) { return 'miles'; }
+    try { const u = localStorage.getItem('logUnit'); return UNITS[u] ? u : 'miles'; } catch (e) { return 'miles'; }
+  }
+
+  // The entry being edited on the Add miles screen, or null when adding.
+  let editing = null;
+
+  function todayIso() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function isoOf(sqlDate) {
+    const d = new Date(sqlDate.replace(' ', 'T') + 'Z');
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function myLastEntry() {
+    return (state.journey && state.journey.recent.find((e) => e.user_id === state.user.id)) || null;
   }
   function saveUnit(unit) {
     try { localStorage.setItem('logUnit', unit); } catch (e) { /* storage unavailable; the choice lasts for this screen */ }
   }
 
   function logScreen() {
-    const unit = savedUnit();
+    const unit = editing ? 'miles' : savedUnit();
     const u = UNITS[unit];
+    const last = myLastEntry();
+    const today = todayIso();
+    const editDate = editing ? isoOf(editing.logged_at) : today;
+    const quick = QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-miles="${m}">+${m}<small>mi</small></button>`).join('');
     return `
+      ${editing ? '' : `
       <div class="page">
-        <h2>Add your miles</h2>
-        <p class="muted small">Walked or ran? Log miles. Did yoga, swam, biked or lifted? Log the calories you burned: every 100 calories counts as 1 mile.</p>
-        <form data-form="add-miles">
+        <h2>Quick add</h2>
+        <p class="muted small">One tap logs a walk for today.</p>
+        <div class="quick-row">${quick}</div>
+      </div>`}
+
+      <div class="page">
+        <h2>${editing ? 'Edit your entry' : 'Add your miles'}</h2>
+        ${editing ? `<p class="muted small">Logged ${esc(whenText(editing.logged_at))}. Change the number, the note or the day, then save.</p>`
+          : `<p class="muted small">Walked or ran? Log miles or steps. Did yoga, swam, biked or lifted? Log the calories you burned: every 100 calories counts as 1 mile.</p>`}
+        <form data-form="add-miles" ${editing ? `data-edit="${editing.id}"` : ''}>
+          ${editing ? '' : `
           <div class="unit-toggle" role="radiogroup" aria-label="What are you logging?">
             <label><input type="radio" name="unit" value="miles" ${unit === 'miles' ? 'checked' : ''}><span>Miles</span></label>
+            <label><input type="radio" name="unit" value="steps" ${unit === 'steps' ? 'checked' : ''}><span>Steps</span></label>
             <label><input type="radio" name="unit" value="calories" ${unit === 'calories' ? 'checked' : ''}><span>Calories</span></label>
-          </div>
-          <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" required aria-describedby="conversion"></label>
-          <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, '')}</p>
-          <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building"></label>
-          <button class="button wide" type="submit">${isSolo() ? 'Add to my walk' : 'Add to the team'}</button>
+          </div>`}
+          <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" value="${editing ? esc(editing.miles) : ''}" required aria-describedby="conversion"></label>
+          <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, editing ? String(editing.miles) : '')}</p>
+          <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building" value="${editing ? esc(editing.note || '') : ''}"></label>
+          <details class="when" ${editing && editDate !== today ? 'open' : ''}>
+            <summary>${editing ? 'Change the day' : 'Missed a day? Log it for another date'}</summary>
+            <label class="field"><span>Day</span><input name="date" type="date" value="${editDate}" max="${today}"></label>
+          </details>
+          <button class="button wide" type="submit">${editing ? 'Save changes' : isSolo() ? 'Add to my walk' : 'Add to the team'}</button>
+          ${editing ? `<div class="row" style="margin-top:8px"><button class="button quiet" type="button" data-action="cancel-edit">Cancel</button><button class="button quiet" type="button" data-action="delete-entry" data-id="${editing.id}">Remove entry</button></div>` : ''}
         </form>
-        <p class="small muted" style="margin-top:14px">Counting steps instead? About 2,000 steps is one mile.</p>
       </div>
 
+      ${!editing && last ? `
+      <div class="page last-entry">
+        <h2>Your last entry</h2>
+        <ul class="list"><li>
+          <div class="who"><strong>${fmt(last.miles)} mi</strong><span>${esc(whenText(last.logged_at))}${last.note ? ' · ' + esc(last.note) : ''}</span></div>
+          <button type="button" class="button quiet small-btn" data-action="edit-entry" data-id="${last.id}">Edit</button>
+          <button type="button" class="button quiet small-btn" data-action="delete-entry" data-id="${last.id}">Remove</button>
+        </li></ul>
+      </div>` : ''}
+
+      ${editing ? '' : `
       <div class="page">
         <h2>How other movement counts</h2>
         <p class="small muted">Every 100 calories you burn counts as 1 mile, which is about 2,000 steps. If your watch or fitness app shows calories for a workout, use that number. If not, here is about what 30 minutes burns. Tap one to fill it in.</p>
@@ -711,13 +757,17 @@
           </button></li>`).join('')}
         </ul>
         <p class="small muted" style="margin-top:12px">Numbers are for 30 minutes for a 155-pound adult. Did an hour? Double it. Lighter people burn a little less, heavier people a little more.</p>
-      </div>`;
+      </div>`}`;
   }
 
   function conversionText(unit, raw) {
     const n = Number(raw);
     if (raw === '' || !Number.isFinite(n) || n <= 0) {
       return unit === 'calories' ? 'Every 100 calories counts as 1 mile.' : 'About 2,000 steps is one mile.';
+    }
+    if (unit === 'steps') {
+      const miles = Math.round(n) / STEPS_PER_MILE;
+      return `${fmt(Math.round(n), 0)} steps = <strong>${fmt(miles, 2)} miles</strong>`;
     }
     if (unit === 'calories') {
       const miles = Math.round(n) / CALORIES_PER_MILE;
@@ -976,6 +1026,24 @@
     cancelAnimationFrame(celebrationFrame);
   }
 
+  /* ---------- Adding miles (form and quick-add share this) ---------- */
+
+  async function addMiles(miles, note, date, label) {
+    const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note, date }) });
+    await loadJourney();
+    state.tab = 'journey';
+    renderScreen();
+    showAwardPops(added.newAwards);
+    toast(label || (date ? `Added ${fmt(added.miles)} miles for ${esc(whenText(added.entry.logged_at))}` : `Added ${fmt(added.miles)} miles`), {
+      label: 'Undo',
+      run: () => withBusy(async () => {
+        await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: added.id }) });
+        await loadJourney();
+        renderScreen();
+      }),
+    });
+  }
+
   /* ---------- Actions ---------- */
 
   async function withBusy(fn) {
@@ -990,7 +1058,7 @@
     if (!el) return;
     const action = el.dataset.action;
 
-    if (action === 'tab') { state.tab = el.dataset.tab; renderScreen(); }
+    if (action === 'tab') { state.tab = el.dataset.tab; if (state.tab !== 'log') editing = null; renderScreen(); }
 
     if (action === 'pick-open') renderPick();
     if (action === 'pick-back') { state.picking = null; renderMain(); }
@@ -1049,10 +1117,23 @@
 
     if (action === 'delete-entry') withBusy(async () => {
       await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: Number(el.dataset.id) }) });
+      editing = null;
       await loadJourney();
       renderScreen();
       toast('Entry removed');
     });
+
+    if (action === 'quick-add') withBusy(async () => {
+      el.disabled = true;
+      try { await addMiles(Number(el.dataset.miles), '', undefined); } finally { el.disabled = false; }
+    });
+
+    if (action === 'edit-entry') {
+      editing = state.journey.recent.find((e) => e.id === Number(el.dataset.id)) || null;
+      state.tab = 'log';
+      renderScreen();
+    }
+    if (action === 'cancel-edit') { editing = null; renderScreen(); }
 
     if (action === 'use-calories') {
       const form = document.querySelector('form[data-form="add-miles"]');
@@ -1106,7 +1187,8 @@
 
   document.addEventListener('input', (ev) => {
     if (ev.target.name !== 'amount' || !ev.target.form) return;
-    const unit = ev.target.form.querySelector('input[name="unit"]:checked').value;
+    const checked = ev.target.form.querySelector('input[name="unit"]:checked');
+    const unit = checked ? checked.value : 'miles';
     document.getElementById('conversion').innerHTML = conversionText(unit, ev.target.value);
   });
 
@@ -1169,25 +1251,25 @@
         }
 
         if (kind === 'add-miles') {
-          // Calories are logged as miles: every 100 calories is 1 mile.
-          const byCalories = fields.unit === 'calories';
-          const calories = Math.round(Number(fields.amount));
-          const miles = byCalories ? calories / CALORIES_PER_MILE : fields.amount;
+          // Steps and calories are logged as miles: 2,000 steps or 100 calories is 1 mile.
+          const unit = form.dataset.edit ? 'miles' : (fields.unit || 'miles');
+          const raw = Math.round(Number(fields.amount));
+          const miles = unit === 'calories' ? raw / CALORIES_PER_MILE : unit === 'steps' ? raw / STEPS_PER_MILE : fields.amount;
           let note = String(fields.note || '').trim();
-          if (byCalories) note = `${fmt(calories, 0)} calories${note ? ' · ' + note : ''}`;
-          const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note }) });
-          await loadJourney();
-          state.tab = 'journey';
-          renderScreen();
-          showAwardPops(added.newAwards);
-          toast(byCalories ? `Added ${fmt(calories, 0)} calories (${fmt(added.miles, 2)} miles)` : `Added ${fmt(added.miles)} miles`, {
-            label: 'Undo',
-            run: () => withBusy(async () => {
-              await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: added.id }) });
-              await loadJourney();
-              renderScreen();
-            }),
-          });
+          if (unit === 'calories') note = `${fmt(raw, 0)} calories${note ? ' · ' + note : ''}`;
+          if (unit === 'steps') note = `${fmt(raw, 0)} steps${note ? ' · ' + note : ''}`;
+          const date = fields.date && fields.date !== todayIso() ? fields.date : undefined;
+          if (form.dataset.edit) {
+            const saved = await api('/api/miles', { method: 'PATCH', body: JSON.stringify({ id: Number(form.dataset.edit), miles, note, date: fields.date || undefined }) });
+            editing = null;
+            await loadJourney();
+            state.tab = 'journey';
+            renderScreen();
+            showAwardPops(saved.newAwards);
+            toast(`Saved: ${fmt(saved.miles)} miles`);
+          } else {
+            await addMiles(miles, note, date, unit === 'calories' ? `Added ${fmt(raw, 0)} calories (${fmt(miles, 2)} miles)` : unit === 'steps' ? `Added ${fmt(raw, 0)} steps (${fmt(miles, 2)} miles)` : null);
+          }
         }
       } finally {
         button.disabled = false;
