@@ -18,6 +18,10 @@ _Written Thu Oct 29, 2026, on branch `claude/loving-cerf-7dwr4l`. Nothing here i
 - Rename a walk (creator only) and delete your account from the app.
 - Activity feed with cheers: tap the heart on anyone's miles; "You and Sam cheered" lines; "Show more" for the full list.
 - Leaderboard with an off switch: all-time and this-week miles per walker; the organizer can hide it for everyone. (Needs `migrations/002_cheers_leaderboard.sql`; until it runs, both features hide themselves.)
+- Faster miles entry: one-tap quick add (+0.5/1/2/3), steps as a unit, back-dating a missed day, editing any of your own entries.
+- Daily rhythm: streak, a daily or weekly goal with a progress ring (needs `migrations/004_goals.sql`), and "X mi to the next stop" on the Journey tab.
+- Progress feel: a "you are here" banner and mile-post pulse after every entry, confetti at every stop, and a You tab with a month calendar and the month's walks.
+- Visual polish: readable gold text on paper (5:1), thumb-friendly tabs and 40px+ tap targets, light native controls on paper cards, a Stroll signpost mark on the cover, card lift and art fades on the destination cards.
 
 **Decided but not built:** automatic step syncing (Apple Health first). See `docs/step-sync-plan.md`.
 
@@ -29,7 +33,7 @@ Each item is small enough to preview and check on its own. Items 1 to 4 are what
 2. **Step syncing, phase one: the iPhone app shell.** Wrap the web app with Capacitor, read daily steps from HealthKit, and post them as mile entries (about 2,000 steps per mile, configurable). Manual entry stays as the fallback. Plan in `docs/step-sync-plan.md`. Needs Orion's Apple developer account (Nov 3).
 3. **Public sign-up polish.** Landing page copy on the cover and a short "how it works" for first-timers. (Account deletion and renaming are done.)
 4. **App Store readiness.** App icon, splash screen, screenshots, privacy labels, support page. Checklist reusable for Earmark. Target submission mid-December.
-5. **Nudges.** A daily "Jamie walked 3 miles today" line and weekly streak nudges or email digests, to keep New Year walkers consistent through February. (The feed and cheers are done.)
+5. **Nudges.** Weekly streak nudges or email digests, to keep New Year walkers consistent through February. (The feed, cheers, streak and goal ring are done.)
 6. _(done: leaderboard with an off switch)_
 7. _(merged into 5)_
 8. **More destinations.** The Great Wall (3,890 miles of actual wall; good for big teams), Land's End to John o' Groats, the Pacific Crest Trail, Around the World in Eighty Days (team epic). Plus a public edition of the North Pole walk if Orion wants one.
