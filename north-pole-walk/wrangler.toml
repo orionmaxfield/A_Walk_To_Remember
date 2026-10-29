@@ -31,5 +31,4 @@ GOOGLE_CLIENT_ID = "317792879558-vvek51jbfktie1gmktn0cl5q0fsfmbf1.apps.googleuse
 [[env.preview.d1_databases]]
 binding = "DB"
 database_name = "stroll-test"
-# CHANGE ME: paste the Database ID of the stroll-test database here
-database_id = "PASTE-STROLL-TEST-DATABASE-ID"
+database_id = "4f433557-d34c-4281-9b56-4b4be0e2afcf"
