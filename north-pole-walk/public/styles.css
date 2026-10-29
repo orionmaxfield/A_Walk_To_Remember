@@ -475,3 +475,18 @@ button { font: inherit; }
 /* The hiker's walk cycle shares the elf's keyframes (same class names). */
 .scene-svg.still, .scene-svg.still * { animation: none !important; }
 .scene-svg .embers { fill: #ffb347; }
+
+/* ---------- Cheers & leaderboard ---------- */
+.list .cheer {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 4px 8px;
+  background: none; border: 0; border-radius: 999px; color: var(--ink-2); cursor: pointer; font-weight: 700; font-size: 14px;
+}
+.list .cheer svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+.list .cheer.on { color: var(--berry); }
+.list .cheer.on svg { fill: var(--berry); stroke: var(--berry); }
+.list .cheer:active { transform: scale(0.92); }
+.cheer-line { display: block; font-size: 12px; font-style: normal; color: var(--berry); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.standings .rank { flex: 0 0 26px; text-align: center; font-family: var(--font-display); font-weight: 700; font-size: 16px; color: var(--ink-2); }
+.standings li.me { background: rgba(226, 176, 76, 0.14); margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 8px; }
+.switch { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-weight: 700; cursor: pointer; }
+.switch input { width: 22px; height: 22px; accent-color: var(--gold-2); }

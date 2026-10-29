@@ -15,6 +15,9 @@ _Written Thu Oct 29, 2026, on branch `claude/loving-cerf-7dwr4l`. Nothing here i
 - A hiker walker for the new trails (the elf stays on the North Pole walk).
 - Awards adapt: "Walker of the Week" instead of "Elf of the Week" off the North Pole route; solo walks skip the team-only awards.
 - Cover page now says Stroll.
+- Rename a walk (creator only) and delete your account from the app.
+- Activity feed with cheers: tap the heart on anyone's miles; "You and Sam cheered" lines; "Show more" for the full list.
+- Leaderboard with an off switch: all-time and this-week miles per walker; the organizer can hide it for everyone. (Needs `migrations/002_cheers_leaderboard.sql`; until it runs, both features hide themselves.)
 
 **Decided but not built:** automatic step syncing (Apple Health first). See `docs/step-sync-plan.md`.
 
@@ -24,11 +27,11 @@ Each item is small enough to preview and check on its own. Items 1 to 4 are what
 
 1. **Custom real-world destination.** Type any place; the app looks up the distance from your start with a map service and builds a journey with distance-based milestones. Needs a decision from Orion on the map provider (a free tier is enough: this is one lookup per new walk).
 2. **Step syncing, phase one: the iPhone app shell.** Wrap the web app with Capacitor, read daily steps from HealthKit, and post them as mile entries (about 2,000 steps per mile, configurable). Manual entry stays as the fallback. Plan in `docs/step-sync-plan.md`. Needs Orion's Apple developer account (Nov 3).
-3. **Public sign-up polish.** Landing page copy on the cover, a short "how it works" for first-timers, account deletion button (the privacy page promises it), and a rename for walks and groups.
+3. **Public sign-up polish.** Landing page copy on the cover and a short "how it works" for first-timers. (Account deletion and renaming are done.)
 4. **App Store readiness.** App icon, splash screen, screenshots, privacy labels, support page. Checklist reusable for Earmark. Target submission mid-December.
-5. **Activity feed with cheers.** A feed per walk with a "cheer" button and a daily nudge ("Jamie walked 3 miles today").
-6. **Leaderboard with an off switch.** Per-walk ranking the organizer can turn off.
-7. **Weekly streak nudges and email digests.** Keep New Year walkers consistent through February.
+5. **Nudges.** A daily "Jamie walked 3 miles today" line and weekly streak nudges or email digests, to keep New Year walkers consistent through February. (The feed and cheers are done.)
+6. _(done: leaderboard with an off switch)_
+7. _(merged into 5)_
 8. **More destinations.** The Great Wall (3,890 miles of actual wall; good for big teams), Land's End to John o' Groats, the Pacific Crest Trail, Around the World in Eighty Days (team epic). Plus a public edition of the North Pole walk if Orion wants one.
 9. **Fitbit, Garmin and Strava sync.** Server-side connections after the iPhone app ships.
 10. **Android (Health Connect).** Phase two unless it turns out cheap once Capacitor is in place.

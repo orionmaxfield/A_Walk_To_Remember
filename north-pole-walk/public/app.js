@@ -18,6 +18,7 @@
     awards: null,       // response from /api/awards (fetched when the Awards tab opens)
     tab: 'journey',
     picking: null,       // destination picker: null, or { journeyId: null | 'oz' … }
+    feedOpen: false,     // "Latest on the trail" shows 6 entries, or all of them
     lastShownMile: null, // so the walker animates from where it was
     busy: false,
     noticeDismissed: false, // fallback when localStorage is unavailable
@@ -180,8 +181,10 @@
   }
 
   async function loadJourney() {
+    const before = state.journey && state.journey.team.id;
     state.journey = await api('/api/journey?team=' + encodeURIComponent(state.teamId));
     state.awards = null; // miles changed, so awards may have too
+    if (before !== state.journey.team.id) state.feedOpen = false;
   }
 
   async function loadAwards() {
@@ -435,7 +438,8 @@
 
   function journeyScreen() {
     const p = progress();
-    const recent = state.journey.recent.slice(0, 6);
+    const all = state.journey.recent;
+    const recent = state.feedOpen ? all : all.slice(0, 6);
 
     const who = isSolo() ? 'You are' : 'Your team is';
     const where = p.arrived
@@ -489,19 +493,39 @@
 
       <div class="page">
         <h2>Latest on the trail</h2>
+        ${!isSolo() && state.journey.features && state.journey.features.cheers ? `<p class="small muted">Tap the heart to cheer someone on.</p>` : ''}
         ${recent.length ? `<ul class="list">${recent.map(entryRow).join('')}</ul>`
           : `<p class="muted">${isSolo() ? 'No miles yet. Take the first step.' : 'No miles yet. Be the first to take a step.'}</p>`}
+        ${all.length > 6 && !state.feedOpen ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show more</button>` : ''}
       </div>`;
   }
 
   function entryRow(e) {
     const mine = e.user_id === state.user.id;
-    return `<li>
+    const cheersOn = !isSolo() && state.journey.features && state.journey.features.cheers;
+    return `<li data-entry="${e.id}">
       <span class="avatar">${esc((e.name || '?')[0].toUpperCase())}</span>
-      <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span></div>
+      <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span>${cheersOn ? cheerLine(e) : ''}</div>
       <span class="miles">${fmt(e.miles)} mi</span>
-      ${mine ? `<button type="button" class="undo" data-action="delete-entry" data-id="${e.id}" aria-label="Remove this entry">remove</button>` : ''}
+      ${mine ? `<button type="button" class="undo" data-action="delete-entry" data-id="${e.id}" aria-label="Remove this entry">remove</button>`
+        : cheersOn ? `<button type="button" class="cheer ${e.cheered ? 'on' : ''}" data-action="cheer" data-id="${e.id}" aria-pressed="${e.cheered ? 'true' : 'false'}" aria-label="${e.cheered ? 'Take back your cheer' : 'Cheer'}">${heartSvg()}<b>${e.cheers || ''}</b></button>` : ''}
     </li>`;
+  }
+
+  function heartSvg() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5l-1.3-1.2C5.4 14.5 2 11.4 2 7.6 2 4.6 4.4 2.5 7.2 2.5c1.7 0 3.3.8 4.3 2.1 1-1.3 2.6-2.1 4.3-2.1 2.8 0 5.2 2.1 5.2 5.1 0 3.8-3.4 6.9-8.7 11.7L12 20.5z"/></svg>';
+  }
+
+  // "You and Sam cheered", "Sam, Jo and 2 others cheered"
+  function cheerLine(e) {
+    const n = e.cheers || 0;
+    if (!n) return '';
+    const names = (e.cheer_names || []).slice();
+    if (e.cheered) names.unshift('You');
+    const others = n - names.length;
+    let text = listNames(names);
+    if (others > 0) text += `${names.length ? ' and ' : ''}${others} ${others === 1 ? 'other' : 'others'}`;
+    return `<em class="cheer-line">${esc(text)} cheered</em>`;
   }
 
   function sceneLabel(p) {
@@ -663,6 +687,8 @@
         </ul>
       </div>`}
 
+      ${standingsCard()}
+
       ${team.created_by === state.user.id ? `
       <div class="page">
         <h2>${solo ? 'Name this walk' : 'Rename the group'}</h2>
@@ -688,6 +714,30 @@
 
       <button class="button quiet on-night wide" data-action="sign-out">Sign out</button>
       <p class="small" style="text-align:center;margin-top:14px"><button class="button link on-night" type="button" data-action="delete-account">Delete my account</button></p>`;
+  }
+
+  function standingsCard() {
+    const J = state.journey;
+    if (isSolo() || !J.features || !J.features.leaderboard) return '';
+    const owner = J.team.created_by === state.user.id;
+    const on = Boolean(J.team.leaderboard);
+    const toggle = owner ? `
+        <label class="switch"><input type="checkbox" data-action="toggle-leaderboard" ${on ? 'checked' : ''}><span>Show the leaderboard to everyone</span></label>` : '';
+    if (!on) {
+      return owner ? `<div class="page"><h2>Leaderboard</h2><p class="muted small">Off. Only you can see this switch.</p>${toggle}</div>` : '';
+    }
+    const rows = (J.standings || []).map((m, i) => `<li class="${m.id === state.user.id ? 'me' : ''}">
+        <span class="rank">${i < 3 && m.total > 0 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+        ${m.picture ? `<img class="avatar" src="${esc(m.picture)}" alt="" referrerpolicy="no-referrer">` : `<span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>`}
+        <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>${fmt(m.week)} mi this week</span></div>
+        <span class="miles">${fmt(m.total)} mi</span>
+      </li>`).join('');
+    return `<div class="page">
+        <h2>Leaderboard</h2>
+        <p class="muted small">Miles so far, with this week's miles underneath (Monday to Sunday).</p>
+        <ol class="list standings">${rows}</ol>
+        ${toggle}
+      </div>`;
   }
 
   /* ---------- Awards screen ---------- */
@@ -874,6 +924,17 @@
       location.reload();
     });
 
+    if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
+
+    if (action === 'cheer') withBusy(async () => {
+      const id = Number(el.dataset.id);
+      const entry = state.journey.recent.find((e) => e.id === id);
+      const on = !(entry && entry.cheered);
+      const res = await api('/api/cheer', { method: on ? 'POST' : 'DELETE', body: JSON.stringify({ entry_id: id }) });
+      if (entry) { entry.cheered = res.cheered; entry.cheers = res.cheers; }
+      renderScreen();
+    });
+
     if (action === 'delete-account') {
       const sure = window.confirm('Delete your account? Your miles and sign-in are removed. Walks you share with others keep going without you. This cannot be undone.');
       if (sure) withBusy(async () => {
@@ -920,6 +981,18 @@
 
   document.addEventListener('change', (ev) => {
     if (ev.target.name === 'unit' && ev.target.form) { applyUnit(ev.target.form, ev.target.value); return; }
+    if (ev.target.dataset.action === 'toggle-leaderboard') {
+      const on = ev.target.checked;
+      withBusy(async () => {
+        try {
+          await api('/api/team', { method: 'PATCH', body: JSON.stringify({ team_id: state.teamId, leaderboard: on }) });
+          await loadJourney();
+          renderScreen();
+          toast(on ? 'Leaderboard is on' : 'Leaderboard is off');
+        } catch (e) { ev.target.checked = !on; throw e; }
+      });
+      return;
+    }
     const el = ev.target.closest('[data-action="switch-team"]');
     if (!el) return;
     withBusy(async () => {

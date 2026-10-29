@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS teams (
   invite_code TEXT NOT NULL UNIQUE,
   journey_id TEXT NOT NULL DEFAULT 'north-pole',
   kind TEXT NOT NULL DEFAULT 'team',  -- 'team' (a group walk) or 'solo' (one person's own journey)
+  leaderboard INTEGER NOT NULL DEFAULT 1,  -- 1 shows the leaderboard; 0 = the organizer switched it off
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -39,6 +40,13 @@ CREATE TABLE IF NOT EXISTS mile_entries (
   miles REAL NOT NULL,
   note TEXT,
   logged_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cheers (
+  entry_id INTEGER NOT NULL,        -- the mile entry being cheered
+  user_id TEXT NOT NULL,            -- who cheered
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (entry_id, user_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_team ON mile_entries (team_id, id);
