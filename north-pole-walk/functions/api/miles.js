@@ -24,11 +24,12 @@ export async function onRequestPost({ request, env, data }) {
 
   // Snapshot the awards before this entry, so we can tell which ones it unlocks.
   const [team, members, entries] = await env.DB.batch([
-    env.DB.prepare(`SELECT journey_id FROM teams WHERE id = ?`).bind(teamId),
+    env.DB.prepare(`SELECT journey_id, kind FROM teams WHERE id = ?`).bind(teamId),
     env.DB.prepare(`SELECT u.id, u.name FROM team_members m JOIN users u ON u.id = m.user_id WHERE m.team_id = ?`).bind(teamId),
     env.DB.prepare(`SELECT id, user_id, miles, logged_at FROM mile_entries WHERE team_id = ? ORDER BY logged_at, id`).bind(teamId),
   ]);
-  const base = { journeyId: team.results[0] && team.results[0].journey_id, members: members.results, userId: data.user.id };
+  const t = team.results[0] || {};
+  const base = { journeyId: t.journey_id, kind: t.kind, members: members.results, userId: data.user.id };
   const before = computeAwards({ ...base, entries: entries.results });
 
   const result = await env.DB.prepare(

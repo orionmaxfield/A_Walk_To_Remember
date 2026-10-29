@@ -141,6 +141,11 @@ button { font: inherit; }
 }
 .cover-sub { color: rgba(255, 255, 255, 0.78); font-size: 17px; margin-bottom: 28px; }
 .cover-pole { margin: 0 auto; display: block; }
+.cover-places { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 8px; margin: 0 auto 20px; max-width: 420px; }
+.cover-places span {
+  font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 999px; padding: 3px 10px;
+}
 .signin { display: flex; justify-content: center; min-height: 48px; margin-bottom: 18px; }
 .cover .page { text-align: left; }
 
@@ -439,3 +444,33 @@ button { font: inherit; }
 .error-note { background: #fde9e4; border-left: 4px solid var(--berry); padding: 10px 12px; border-radius: 6px; }
 .setup-note { border-left: 4px solid var(--gold); padding-left: 14px; }
 .setup-note li { margin-bottom: 6px; }
+
+/* ---------- Choose a destination ---------- */
+.destinations { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 14px; }
+.destination button {
+  width: 100%; display: flex; flex-direction: column; text-align: left; cursor: pointer;
+  border: 0; padding: 0; overflow: hidden; color: var(--ink);
+  background: var(--paper);
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.35), transparent 45%, rgba(0,0,0,0.03));
+  border-radius: 14px 10px 16px 9px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  transition: transform 120ms ease;
+}
+.destination button:active { transform: translateY(1px); }
+.destination-art { display: block; width: 100%; height: 132px; background: var(--night); }
+.destination-art svg, .destination-preview svg { display: block; width: 100%; height: 100%; }
+.destination-copy { display: block; padding: 14px 16px 16px; }
+.destination-copy strong { display: block; font-family: var(--font-display); font-size: 20px; font-weight: 600; line-height: 1.15; }
+.destination-miles { display: block; font-size: 13px; font-weight: 700; color: var(--gold-2); margin: 4px 0 6px; }
+.destination-blurb { display: block; font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.destination-preview { height: 180px; }
+.start-buttons { display: grid; gap: 10px; margin-top: 14px; }
+.stops { list-style: none; margin: 0; padding: 0; }
+.stops li { display: flex; gap: 12px; align-items: baseline; padding: 7px 0; border-top: 1px solid rgba(43, 36, 31, 0.12); font-size: 15px; }
+.stops li:first-child { border-top: 0; }
+.stop-mile { flex: 0 0 52px; font-family: var(--font-display); font-weight: 700; color: var(--gold-2); text-align: right; font-size: 15px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The hiker's walk cycle shares the elf's keyframes (same class names). */
+.scene-svg.still, .scene-svg.still * { animation: none !important; }
+.scene-svg .embers { fill: #ffb347; }

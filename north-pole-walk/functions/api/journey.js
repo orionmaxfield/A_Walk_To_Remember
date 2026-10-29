@@ -9,7 +9,7 @@ export async function onRequestGet({ request, env, data }) {
   if (!member) return json({ error: 'You are not on that team.' }, 403);
 
   const [team, teamTotal, myTotal, members, recent] = await env.DB.batch([
-    env.DB.prepare(`SELECT id, name, invite_code, journey_id FROM teams WHERE id = ?`).bind(teamId),
+    env.DB.prepare(`SELECT id, name, invite_code, journey_id, kind FROM teams WHERE id = ?`).bind(teamId),
     env.DB.prepare(`SELECT COALESCE(SUM(miles), 0) AS total FROM mile_entries WHERE team_id = ?`).bind(teamId),
     env.DB.prepare(`SELECT COALESCE(SUM(miles), 0) AS total FROM mile_entries WHERE team_id = ? AND user_id = ?`).bind(teamId, data.user.id),
     env.DB.prepare(

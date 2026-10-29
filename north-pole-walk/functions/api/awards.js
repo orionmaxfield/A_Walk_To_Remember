@@ -14,13 +14,14 @@ export async function onRequestGet({ request, env, data }) {
   if (!member) return json({ error: 'You are not on that team.' }, 403);
 
   const [team, members, entries] = await env.DB.batch([
-    env.DB.prepare(`SELECT id, journey_id FROM teams WHERE id = ?`).bind(teamId),
+    env.DB.prepare(`SELECT id, journey_id, kind FROM teams WHERE id = ?`).bind(teamId),
     env.DB.prepare(`SELECT u.id, u.name FROM team_members m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? ORDER BY m.joined_at`).bind(teamId),
     env.DB.prepare(`SELECT id, user_id, miles, logged_at FROM mile_entries WHERE team_id = ? ORDER BY logged_at, id`).bind(teamId),
   ]);
 
   const awards = computeAwards({
     journeyId: team.results[0] && team.results[0].journey_id,
+    kind: team.results[0] && team.results[0].kind,
     entries: entries.results,
     members: members.results,
     userId: data.user.id,

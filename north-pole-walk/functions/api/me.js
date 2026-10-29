@@ -1,10 +1,10 @@
-// GET /api/me — who is signed in, and which teams they belong to.
+// GET /api/me — who is signed in, and which walks (solo journeys and teams) they belong to.
 
 export async function onRequestGet({ env, data }) {
   if (!data.user) return json({ error: 'Not signed in.' }, 401);
 
   const teams = await env.DB.prepare(
-    `SELECT t.id, t.name, t.invite_code, t.journey_id
+    `SELECT t.id, t.name, t.invite_code, t.journey_id, t.kind
        FROM teams t
        JOIN team_members m ON m.team_id = t.id
       WHERE m.user_id = ?

@@ -1,5 +1,6 @@
-/* The Walk to the North Pole — front-end app.
-   Plain JavaScript, no build step. Screens are rendered into #app. */
+/* Stroll — front-end app.
+   Plain JavaScript, no build step. Screens are rendered into #app.
+   A "team" row is any walk: a solo journey (kind 'solo') or a group walk (kind 'team'). */
 
 (function () {
   'use strict';
@@ -16,6 +17,7 @@
     journey: null,      // response from /api/journey
     awards: null,       // response from /api/awards (fetched when the Awards tab opens)
     tab: 'journey',
+    picking: null,       // destination picker: null, or { journeyId: null | 'oz' … }
     lastShownMile: null, // so the walker animates from where it was
     busy: false,
     noticeDismissed: false, // fallback when localStorage is unavailable
@@ -62,6 +64,34 @@
     return JOURNEYS[id] || JOURNEYS['north-pole'];
   }
 
+  function isSolo() {
+    return Boolean(state.journey && state.journey.team.kind === 'solo');
+  }
+
+  // "The elf" on the office's walk, "the walker" everywhere else.
+  function heroWord(J) {
+    return (J.hero || 'elf') === 'elf' ? 'elf' : 'walker';
+  }
+
+  // "About 1.2 miles a day for a year" — how a destination compares to a year of walking.
+  function dailyHint(J) {
+    const perDay = J.totalMiles / 365;
+    if (perDay < 1) return `About ${fmt(Math.round(perDay * STEPS_PER_MILE / 100) * 100, 0)} steps a day gets you there in a year.`;
+    return `About ${fmt(perDay, 1)} miles a day gets you there in a year.`;
+  }
+
+  // The card under the mile post: the office poster's "Remember" note, a "Did you know?" fact, or road lore.
+  function stopCard(wp) {
+    if (wp.remember) return { heading: 'Remember', text: wp.remember };
+    if (wp.lore) return { heading: 'Road lore', text: wp.lore };
+    return { heading: 'Did you know?', text: wp.fact || '' };
+  }
+
+  function teamLabel(t) {
+    const J = JOURNEYS[t.journey_id] || JOURNEYS['north-pole'];
+    return t.kind === 'solo' ? `${J.title} (solo)` : t.name;
+  }
+
   // One-time note about the switch to the real route. Remembered in localStorage,
   // which may be unavailable (private mode), so every touch is guarded.
   const ROUTE_NOTICE_KEY = 'notice:real-route-3381';
@@ -73,7 +103,7 @@
     try { localStorage.setItem(ROUTE_NOTICE_KEY, '1'); } catch (e) { /* no storage; it stays dismissed for this visit */ }
   }
   function routeNotice() {
-    if (routeNoticeDismissed()) return '';
+    if (currentJourneyDef().id !== 'north-pole' || routeNoticeDismissed()) return '';
     return `<div class="page notice" role="status">
       <p><strong>We've switched to the real route: 3,381 miles to the North Pole!</strong> Your miles are all still here; the trail just got longer, and some badges moved.</p>
       <button class="button quiet" type="button" data-action="dismiss-notice">Got it</button>
@@ -139,7 +169,7 @@
       }
     }
 
-    if (!state.teams.length) return renderBegin();
+    if (!state.teams.length) return renderPick();
 
     const saved = localStorage.getItem('teamId');
     if (!state.teamId) state.teamId = state.teams.some((t) => t.id === saved) ? saved : state.teams[0].id;
@@ -220,9 +250,10 @@
     $app.innerHTML = `
       <section class="cover">
         ${poleSvg(64)}
-        <h1 class="cover-title">The Walk to the North Pole</h1>
-        <p class="cover-sub">A team journey, one mile at a time.<br>3,381 miles due north of Layton.</p>
+        <h1 class="cover-title">Stroll</h1>
+        <p class="cover-sub">Why not walk somewhere amazing this year?<br>Pick a destination, log your miles, watch yourself get there.</p>
         <div class="signin"><div id="google-button"></div></div>
+        <p class="cover-places">${JOURNEY_ORDER.map((id) => `<span>${esc(JOURNEYS[id].end)}</span>`).join('')}</p>
         ${setupItems.length ? `
           <div class="page setup-note">
             <h2>Almost ready</h2>
@@ -233,39 +264,116 @@
     mountGoogleButton();
   }
 
-  function renderBegin() {
+  /* ---------- Choose a destination ---------- */
+
+  // The picker opens for a brand-new walker (no walks yet) and from "Start another journey".
+  function renderPick() {
     const first = (state.user.name || '').split(' ')[0];
+    const hasWalks = state.teams.length > 0;
+    state.picking = { journeyId: null };
     $app.innerHTML = `
       <section>
-        <div class="header"><h1>Hello, ${esc(first)}</h1></div>
-        <div class="page">
-          <h2>Start a team</h2>
-          <p class="muted small">You will get an invite link to share with everyone who is walking with you.</p>
-          <form data-form="create-team">
-            <label class="field"><span>Team name</span><input name="name" maxlength="60" placeholder="Hill Field Walkers" required></label>
-            <button class="button wide" type="submit">Begin the journey</button>
-          </form>
+        <div class="header">
+          <div>
+            <h1>${hasWalks ? 'Start another journey' : `Hello, ${esc(first)}`}</h1>
+            <div class="team-name">Where will you walk this year?</div>
+          </div>
+          ${hasWalks ? `<button class="button quiet on-night" type="button" data-action="pick-back" style="min-height:40px;padding:6px 14px">Back</button>` : ''}
         </div>
+        <ul class="destinations">
+          ${JOURNEY_ORDER.map((id) => destinationCard(JOURNEYS[id])).join('')}
+        </ul>
         <div class="page">
-          <h2>Have an invite?</h2>
-          <p class="muted small">Enter the code from your invite link.</p>
+          <h2>Walking with a group?</h2>
+          <p class="muted small">Pick a destination above and choose <strong>Start a group walk</strong>. Or, if someone sent you an invite, enter the code here.</p>
           <form data-form="join-team">
             <div class="row">
-              <label class="field" style="margin:0"><span class="visually-hidden"></span><input name="code" maxlength="8" placeholder="ABC123" autocapitalize="characters" required></label>
+              <label class="field" style="margin:0"><span class="visually-hidden"></span><input name="code" maxlength="8" placeholder="Invite code" autocapitalize="characters" required aria-label="Invite code"></label>
               <button class="button" type="submit" style="flex:0 0 auto">Join</button>
             </div>
           </form>
         </div>
-        <button class="button quiet on-night wide" data-action="sign-out">Sign out</button>
+        ${hasWalks ? '' : `<button class="button quiet on-night wide" data-action="sign-out">Sign out</button>`}
       </section>`;
+    window.scrollTo({ top: 0 });
+  }
+
+  function destinationCard(J) {
+    return `<li class="destination theme-${esc(J.theme)}">
+      <button type="button" data-action="pick-destination" data-journey="${esc(J.id)}">
+        <span class="destination-art" aria-hidden="true">${destinationArt(J)}</span>
+        <span class="destination-copy">
+          <strong>${esc(J.title)}</strong>
+          <span class="destination-miles">${fmt(J.totalMiles, 0)} miles · ${esc(J.start)} to ${esc(J.end)}</span>
+          <span class="destination-blurb">${esc(J.blurb)}</span>
+        </span>
+      </button>
+    </li>`;
+  }
+
+  // A small storybook scene for the destination card: the finish of each trail.
+  function destinationArt(J) {
+    if (!window.JourneyScene || !JourneyScene.thumbnail) return '';
+    return JourneyScene.thumbnail(J);
+  }
+
+  function renderDestination(J) {
+    state.picking = { journeyId: J.id };
+    const stops = J.waypoints.filter((w) => w.mile > 0);
+    $app.innerHTML = `
+      <section>
+        <div class="header">
+          <div>
+            <h1>${esc(J.title)}</h1>
+            <div class="team-name">${fmt(J.totalMiles, 0)} miles · ${esc(J.start)} to ${esc(J.end)}</div>
+          </div>
+          <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
+        </div>
+        <div class="page scene-page destination-preview theme-${esc(J.theme)}" aria-hidden="true">${destinationArt(J)}</div>
+        <div class="page">
+          <p>${esc(J.blurb)}</p>
+          <p class="small muted">${esc(dailyHint(J))}</p>
+          <div class="start-buttons">
+            <button class="button wide" type="button" data-action="start-solo" data-journey="${esc(J.id)}">Walk it on my own</button>
+            <button class="button quiet wide" type="button" data-action="show-group-form">Start a group walk</button>
+          </div>
+          <form data-form="create-team" data-journey="${esc(J.id)}" hidden>
+            <label class="field"><span>Group name</span><input name="name" maxlength="60" placeholder="The Lunch Walkers" required></label>
+            <button class="button wide" type="submit">Start the group walk</button>
+            <p class="small muted" style="margin-top:8px">You'll get an invite link to share. Everyone's miles pool together.</p>
+          </form>
+        </div>
+        <div class="page">
+          <h2>Along the way</h2>
+          <ol class="stops">
+            ${stops.map((w) => `<li><span class="stop-mile">${fmt(w.mile, 0)}</span><span>${esc(capitalize(w.name))}</span></li>`).join('')}
+          </ol>
+        </div>
+      </section>`;
+    window.scrollTo({ top: 0 });
+  }
+
+  async function startWalk(journeyId, kind, name) {
+    const made = await api('/api/teams', { method: 'POST', body: JSON.stringify({ journey_id: journeyId, kind, name }) });
+    const me = await api('/api/me');
+    state.teams = me.teams;
+    state.teamId = made.team.id;
+    localStorage.setItem('teamId', state.teamId);
+    state.lastShownMile = null;
+    state.picking = null;
+    state.tab = kind === 'team' ? 'team' : 'journey';
+    await loadJourney();
+    renderMain();
+    toast(kind === 'team' ? `${made.team.name} is ready. Share the invite link.` : `Your journey begins. Add your first miles!`);
   }
 
   function renderMain() {
     const team = state.journey.team;
     const J = currentJourneyDef();
+    const solo = isSolo();
     const switcher = state.teams.length > 1
-      ? `<select data-action="switch-team" aria-label="Choose a team">
-          ${state.teams.map((t) => `<option value="${esc(t.id)}" ${t.id === state.teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+      ? `<select data-action="switch-team" aria-label="Choose a walk">
+          ${state.teams.map((t) => `<option value="${esc(t.id)}" ${t.id === state.teamId ? 'selected' : ''}>${esc(teamLabel(t))}</option>`).join('')}
          </select>`
       : '';
 
@@ -273,7 +381,7 @@
       <div class="header">
         <div>
           <h1>${esc(J.title)}</h1>
-          <div class="team-name">${esc(team.name)}</div>
+          <div class="team-name">${solo ? 'Your own journey' : esc(team.name)}</div>
         </div>
         ${switcher}
       </div>
@@ -281,7 +389,7 @@
       <nav class="nav" aria-label="Sections"><div class="nav-inner">
         ${navButton('journey', 'Journey', '<path d="M4 18c4-6 6-6 8 0s4 6 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="6" r="2.5" fill="currentColor"/>')}
         ${navButton('log', 'Add miles', '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
-        ${navButton('team', 'Team', '<circle cx="9" cy="9" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 5 1.5 5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
+        ${navButton('team', solo ? 'Friends' : 'Team', '<circle cx="9" cy="9" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 5 1.5 5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
         ${navButton('awards', 'Awards', '<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1.1 5.8L12 16.3 6.7 19.1l1.1-5.8L3.5 9.2l5.9-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>')}
       </div></nav>`;
     renderScreen();
@@ -329,9 +437,12 @@
     const p = progress();
     const recent = state.journey.recent.slice(0, 6);
 
+    const who = isSolo() ? 'You are' : 'Your team is';
     const where = p.arrived
-      ? `Your team is standing at the top of the world.`
-      : `Your team is ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(p.next.name)}, ${fmt(p.next.mile - p.mile, 0)} miles ahead.` : ''}`;
+      ? `${who} ${esc(p.J.waypoints[p.J.waypoints.length - 1].region)}.`
+      : `${who} ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(capitalize(p.next.name))}, ${fmt(p.next.mile - p.mile, 0)} miles ahead.` : ''}`;
+    const card = stopCard(p.here);
+    const inviteLink = `${location.origin}/join/${state.journey.team.invite_code}`;
 
     return `
       ${routeNotice()}
@@ -355,22 +466,31 @@
       </div>
 
       <div class="page fact remember">
-        <h2>Remember</h2>
-        <p>${esc(p.here.remember)}</p>
+        <h2>${esc(card.heading)}</h2>
+        <p>${esc(card.text)}</p>
         <p class="remember-from">${esc(capitalize(p.here.name))} · mile ${fmt(p.here.mile, 0)}</p>
       </div>
 
+      ${isSolo() ? `
+      <div class="page">
+        <h2>Walk with friends</h2>
+        <p class="small muted">Walking is easier with company. Invite a friend and their miles join yours on this trail.</p>
+        <div class="row" style="margin-top:10px">
+          <button class="button" data-action="tab" data-tab="log">Add miles</button>
+          <button class="button quiet" data-action="copy-link" data-link="${esc(inviteLink)}">Copy invite link</button>
+        </div>
+      </div>` : `
       <div class="page">
         <h2>Your miles</h2>
         <div class="big-number">${fmt(state.journey.myTotal)}<small>miles so far</small></div>
         <p class="small muted" style="margin-top:8px">Every mile you add moves the whole team along the trail.</p>
         <button class="button" data-action="tab" data-tab="log" style="margin-top:8px">Add miles</button>
-      </div>
+      </div>`}
 
       <div class="page">
         <h2>Latest on the trail</h2>
         ${recent.length ? `<ul class="list">${recent.map(entryRow).join('')}</ul>`
-          : `<p class="muted">No miles yet. Be the first to take a step.</p>`}
+          : `<p class="muted">${isSolo() ? 'No miles yet. Take the first step.' : 'No miles yet. Be the first to take a step.'}</p>`}
       </div>`;
   }
 
@@ -385,10 +505,11 @@
   }
 
   function sceneLabel(p) {
+    const hero = capitalize(`the ${heroWord(p.J)}`);
     const walked = `${fmt(p.mile, 0)} of ${fmt(p.goal, 0)} miles`;
-    if (p.arrived) return `The elf has reached the North Pole after walking ${fmt(p.goal, 0)} miles.`;
-    if (p.here.mile === 0) return `The elf is at the start in ${p.here.name} and has walked ${walked}. Next stop: ${p.next.name}.`;
-    return `The elf has walked ${walked} and just passed ${p.here.name}.${p.next ? ` Next stop: ${p.next.name}.` : ''}`;
+    if (p.arrived) return `${hero} has reached ${p.J.end} after walking ${fmt(p.goal, 0)} miles.`;
+    if (p.here.mile === 0) return `${hero} is at the start in ${p.here.name} and has walked ${walked}. Next stop: ${p.next.name}.`;
+    return `${hero} has walked ${walked} and just passed ${p.here.name}.${p.next ? ` Next stop: ${p.next.name}.` : ''}`;
   }
 
   function positionScene() {
@@ -464,7 +585,7 @@
           <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" required aria-describedby="conversion"></label>
           <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, '')}</p>
           <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building"></label>
-          <button class="button wide" type="submit">Add to the team</button>
+          <button class="button wide" type="submit">${isSolo() ? 'Add to my walk' : 'Add to the team'}</button>
         </form>
         <p class="small muted" style="margin-top:14px">Counting steps instead? About 2,000 steps is one mile.</p>
       </div>
@@ -510,16 +631,26 @@
 
   function teamScreen() {
     const team = state.journey.team;
+    const J = currentJourneyDef();
     const link = `${location.origin}/join/${team.invite_code}`;
     const members = state.journey.members;
-    return `
-      <div class="page">
-        <h2>${esc(team.name)}</h2>
-        <p class="muted small">Send this link to anyone who wants to walk with you. They sign in with Google and they're on the team.</p>
+    const solo = isSolo();
+    const invite = `
         <div class="invite-box"><code>${esc(link)}</code><button class="button" type="button" data-action="copy-link" data-link="${esc(link)}" style="flex:0 0 auto;min-height:40px;padding:6px 14px">Copy</button></div>
         <p class="small muted" style="margin-bottom:2px">Or share the code</p>
         <p class="invite-code">${esc(team.invite_code)}</p>
-        ${navigator.share ? `<button class="button quiet wide" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(team.name)}">Share invite</button>` : ''}
+        ${navigator.share ? `<button class="button quiet wide" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(solo ? J.title : team.name)}" data-end="${esc(J.end)}">Share invite</button>` : ''}`;
+    return `
+      ${solo ? `
+      <div class="page">
+        <h2>Walk with friends</h2>
+        <p class="muted small">This is your own journey to ${esc(J.end)}. Invite a friend and their miles join yours; it becomes a group walk the moment they sign in.</p>
+        ${invite}
+      </div>` : `
+      <div class="page">
+        <h2>${esc(team.name)}</h2>
+        <p class="muted small">Send this link to anyone who wants to walk with you. They sign in with Google and they're on the team.</p>
+        ${invite}
       </div>
 
       <div class="page">
@@ -530,20 +661,15 @@
             <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>joined ${esc(whenText(m.joined_at))}</span></div>
           </li>`).join('')}
         </ul>
-      </div>
+      </div>`}
 
       <div class="page">
-        <h2>Walk another trail</h2>
-        <p class="muted small">You can be on more than one team — one for work, one for family.</p>
-        <form data-form="create-team">
-          <div class="row">
-            <label class="field" style="margin:0"><input name="name" maxlength="60" placeholder="New team name" required></label>
-            <button class="button quiet" type="submit" style="flex:0 0 auto">Start</button>
-          </div>
-        </form>
+        <h2>Another trail</h2>
+        <p class="muted small">You can be on more than one walk at a time: your own journey, one with work, one with family.</p>
+        <button class="button quiet wide" type="button" data-action="pick-open">Start another journey</button>
         <form data-form="join-team" style="margin-top:10px">
           <div class="row">
-            <label class="field" style="margin:0"><input name="code" maxlength="8" placeholder="Invite code" autocapitalize="characters" required></label>
+            <label class="field" style="margin:0"><input name="code" maxlength="8" placeholder="Invite code" autocapitalize="characters" required aria-label="Invite code"></label>
             <button class="button quiet" type="submit" style="flex:0 0 auto">Join</button>
           </div>
         </form>
@@ -587,15 +713,17 @@
     }
     const teamEarned = A.team.filter((a) => a.earned).length;
     const mineEarned = A.personal.filter((a) => a.earned).length;
+    const hero = A.hero || 'Elf';
+    const solo = isSolo();
     const lastWeek = A.elfOfLastWeek && A.elfOfLastWeek.names.length
-      ? `Last week's Elf of the Week: <strong>${esc(listNames(A.elfOfLastWeek.names))}</strong>`
-      : `Last week's Elf of the Week: <strong>nobody logged last week</strong>`;
+      ? `Last week's ${esc(hero)} of the Week: <strong>${esc(listNames(A.elfOfLastWeek.names))}</strong>`
+      : `Last week's ${esc(hero)} of the Week: <strong>nobody logged last week</strong>`;
     return `
       ${routeNotice()}
       <div class="page">
-        <h2>Team Awards</h2>
-        <p class="muted small">Everyone on the team sees these the same way. ${teamEarned} of ${A.team.length} earned.</p>
-        <p class="small elf-week">${lastWeek}</p>
+        <h2>${solo ? 'Journey Awards' : 'Team Awards'}</h2>
+        <p class="muted small">${solo ? 'Earned by reaching each stop on the trail.' : 'Everyone on the team sees these the same way.'} ${teamEarned} of ${A.team.length} earned.</p>
+        ${solo ? '' : `<p class="small elf-week">${lastWeek}</p>`}
         <ul class="badges">${A.team.map(badgeCard).join('')}</ul>
       </div>
       <div class="page">
@@ -627,7 +755,7 @@
     $awardPop.innerHTML = `
       <div class="award-pop-card page" role="dialog" aria-live="assertive" aria-label="New award: ${esc(a.title)}">
         <div class="badge-frame earned">${badgeIcon(a.icon)}</div>
-        <p class="award-pop-kicker">New ${a.section === 'team' ? 'team ' : ''}award!</p>
+        <p class="award-pop-kicker">New ${a.section === 'team' ? (isSolo() ? 'journey ' : 'team ') : ''}award!</p>
         <h2>${esc(a.title)}</h2>
         <p class="small muted">${popQueue.length ? 'Tap for the next one' : 'Tap to continue'}</p>
       </div>`;
@@ -648,8 +776,12 @@
   let celebrationFrame = null;
   function showCelebration() {
     const p = progress();
-    document.getElementById('celebration-text').textContent =
-      `${fmt(p.total, 0)} miles, walked together by ${state.journey.members.length} ${state.journey.members.length === 1 ? 'person' : 'people'}.`;
+    const arrival = p.J.arrival || { title: `You made it to ${p.J.end}!`, text: '' };
+    const n = state.journey.members.length;
+    document.getElementById('celebration-title').textContent = arrival.title;
+    document.getElementById('celebration-text').textContent = isSolo()
+      ? `${fmt(p.total, 0)} miles, every one of them yours. ${arrival.text}`.trim()
+      : `${fmt(p.total, 0)} miles, walked together by ${n} ${n === 1 ? 'person' : 'people'}. ${arrival.text}`.trim();
     $celebration.hidden = false;
 
     const canvas = document.getElementById('celebration-canvas');
@@ -711,6 +843,19 @@
 
     if (action === 'tab') { state.tab = el.dataset.tab; renderScreen(); }
 
+    if (action === 'pick-open') renderPick();
+    if (action === 'pick-back') { state.picking = null; renderMain(); }
+    if (action === 'pick-destination') renderDestination(JOURNEYS[el.dataset.journey]);
+    if (action === 'pick-destination-back') renderPick();
+    if (action === 'show-group-form') {
+      const form = document.querySelector('form[data-form="create-team"]');
+      if (form) { form.hidden = false; el.hidden = true; form.querySelector('input[name="name"]').focus(); }
+    }
+    if (action === 'start-solo') withBusy(async () => {
+      el.disabled = true;
+      try { await startWalk(el.dataset.journey, 'solo'); } finally { el.disabled = false; }
+    });
+
     if (action === 'sign-out') withBusy(async () => {
       await api('/api/auth/logout', { method: 'POST' });
       localStorage.removeItem('teamId');
@@ -725,7 +870,7 @@
     }
 
     if (action === 'share-link') {
-      navigator.share({ title: 'Walk with us to the North Pole', text: `Join ${el.dataset.team} on the walk to the North Pole`, url: el.dataset.link }).catch(() => {});
+      navigator.share({ title: `Walk with me to ${el.dataset.end}`, text: `Join ${el.dataset.team} on the walk to ${el.dataset.end}`, url: el.dataset.link }).catch(() => {});
     }
 
     if (action === 'delete-entry') withBusy(async () => {
@@ -783,16 +928,7 @@
       button.disabled = true;
       try {
         if (kind === 'create-team') {
-          const made = await api('/api/teams', { method: 'POST', body: JSON.stringify({ name: fields.name }) });
-          const me = await api('/api/me');
-          state.teams = me.teams;
-          state.teamId = made.team.id;
-          localStorage.setItem('teamId', state.teamId);
-          state.lastShownMile = null;
-          state.tab = 'team';
-          await loadJourney();
-          renderMain();
-          toast(`${made.team.name} is ready. Share the invite link.`);
+          await startWalk(form.dataset.journey || 'north-pole', 'team', fields.name);
         }
 
         if (kind === 'join-team') {
@@ -802,6 +938,7 @@
           state.teamId = joined.team.id;
           localStorage.setItem('teamId', state.teamId);
           state.lastShownMile = null;
+          state.picking = null;
           state.tab = 'journey';
           await loadJourney();
           renderMain();
