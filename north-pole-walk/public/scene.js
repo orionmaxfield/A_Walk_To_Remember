@@ -407,7 +407,7 @@
       ? `<path transform="translate(-4 ${top - 9})" d="M0 -8 L2.4 -2.5 L8 -2 L3.8 1.8 L5 7.5 L0 4.5 L-5 7.5 L-3.8 1.8 L-8 -2 L-2.4 -2.5Z" fill="#e2b04c" stroke="#b98624" stroke-width="1"/>`
       : '';
     const x = signX(wp.mile, maxW, passed);
-    return `<g class="sign" data-mile="${wp.mile}" data-passed="${passed ? 1 : 0}" transform="translate(${x.toFixed(1)} 0)">
+    return `<g class="sign" data-mile="${wp.mile}" data-passed="${passed ? 1 : 0}" data-w="${maxW}" data-x="${x.toFixed(1)}" transform="translate(${x.toFixed(1)} 0)">
       <rect class="post" x="-3.5" y="${top + 6}" width="7" height="${SIGN_BASE - top - 6}" rx="1"/>
       <rect x="-4" y="${SIGN_BASE - 3}" width="8" height="5" rx="2" fill="#fbfbf7" opacity="0.9"/>
       ${star}${out}
@@ -1502,6 +1502,7 @@
       const s = Number(layers[i].getAttribute('data-speed'));
       layers[i].setAttribute('transform', `translate(${(VW / 2 - worldX(mile) * s).toFixed(2)} 0)`);
     }
+    fadeSigns(svg, VW, mile);
   }
 
   // Once the web font has loaded, size each plank to its painted text and keep
@@ -1525,7 +1526,25 @@
       }
       if (!maxW) continue;
       const x = signX(Number(g.getAttribute('data-mile')), maxW, g.getAttribute('data-passed') === '1');
+      g.setAttribute('data-w', String(maxW));
+      g.setAttribute('data-x', x.toFixed(1));
       g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    }
+  }
+
+  // Signs near the edge of the frame fade out instead of being cut in half.
+  const FADE_EDGE = 44;
+  function signOpacity(x, w, offset, VW) {
+    const left = offset + x - w / 2 - 6, right = offset + x + w / 2 + 6;
+    return clamp(Math.min((VW - right) / FADE_EDGE, left / FADE_EDGE), 0, 1);
+  }
+  function fadeSigns(svg, VW, mile) {
+    const offset = VW / 2 - worldX(mile);
+    const signs = svg.querySelectorAll('.sign');
+    for (let i = 0; i < signs.length; i++) {
+      const g = signs[i];
+      const op = signOpacity(Number(g.getAttribute('data-x')), Number(g.getAttribute('data-w')), offset, VW);
+      g.setAttribute('opacity', op.toFixed(2));
     }
   }
 
@@ -1576,6 +1595,9 @@
     let svg = render(J, mile, VW, { still: true, label: '' });
     // Slide the layers into place, as mount() would, by baking the transforms in.
     svg = svg.replace(/<g class="layer" data-speed="([\d.]+)">/g, (m, s) => `<g class="layer" data-speed="${s}" transform="translate(${(VW / 2 - worldX(mile) * Number(s)).toFixed(2)} 0)">`);
+    const offset = VW / 2 - worldX(mile);
+    svg = svg.replace(/<g class="sign" data-mile="([^"]+)" data-passed="([^"]+)" data-w="([^"]+)" data-x="([^"]+)"/g,
+      (m, mi, p, w, x) => `${m} opacity="${signOpacity(Number(x), Number(w), offset, VW).toFixed(2)}"`);
     UID = 'sc';
     return svg;
   }
