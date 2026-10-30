@@ -601,3 +601,55 @@ form select[data-action="custom-choose"] {
 .cal-cell.empty { visibility: hidden; }
 .day-head { display: flex; justify-content: space-between; font-size: 15px; margin: 12px 0 2px; padding-bottom: 4px; border-bottom: 2px solid var(--paper-2); }
 .day-head span { font-family: var(--font-body); color: var(--ink-2); font-size: 13px; font-weight: 700; }
+
+/* ---------- Wide screens: tablet and desktop ---------- */
+@media (min-width: 900px) {
+  body {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 320' preserveAspectRatio='xMidYMax slice'%3E%3Cpath d='M0 200 L120 150 L220 190 L340 110 L430 170 L560 90 L640 160 L760 120 L880 180 L1000 100 L1120 170 L1240 130 L1360 190 L1480 140 L1600 180 L1600 320 L0 320Z' fill='%23101d33'/%3E%3Cpath d='M0 250 Q140 200 260 240 T520 230 T780 250 T1040 225 T1300 250 T1600 235 L1600 320 L0 320Z' fill='%230c1628'/%3E%3Cg fill='%23091220'%3E%3Cpath d='M60 290 l16 -40 l16 40z M110 292 l12 -30 l12 30z M300 288 l18 -46 l18 46z M340 292 l12 -32 l12 32z M700 290 l14 -36 l14 36z M1180 288 l18 -46 l18 46z M1220 292 l12 -30 l12 30z M1500 290 l16 -40 l16 40z M1540 292 l12 -30 l12 30z%3C/path%3E%3C/g%3E%3Cpath d='M0 300 Q400 280 800 300 T1600 300 L1600 320 L0 320Z' fill='%23070e1b'/%3E%3C/svg%3E"),
+      radial-gradient(1px 1px at 12% 18%, var(--star) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 78% 9%, var(--star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 55% 31%, var(--star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 88% 44%, var(--star) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 30% 62%, var(--star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 66% 73%, var(--star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 8% 86%, var(--star) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 92% 91%, var(--star) 50%, transparent 51%),
+      radial-gradient(ellipse 120% 50% at 50% -10%, rgba(111, 227, 180, 0.22), transparent 60%),
+      linear-gradient(180deg, var(--night) 0%, var(--night-2) 100%);
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    background-size: 160px 160px, 100% 320px, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto;
+    background-position: 0 0, center bottom, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+    background-blend-mode: soft-light, normal, normal, normal, normal, normal, normal, normal, normal, normal, normal, normal;
+    background-attachment: fixed;
+  }
+  #app { max-width: 1040px; padding: 28px 24px calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 40px); }
+  .header h1 { font-size: 28px; }
+  .header select { max-width: 320px; }
+  #screen, #app > section {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start;
+  }
+  #screen > *, #app > section > * { margin-bottom: 0; }
+  #screen > .scene-page, #screen > .moment, #screen > .notice, #screen > .rhythm,
+  #app > section > .header, #app > section > .destinations, #app > section > .destination-preview, #app > section > .scene-page { grid-column: 1 / -1; }
+  .scene { height: 380px; }
+  .destination-preview { height: 300px; }
+  .destinations { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .destination-art { height: 170px; }
+  .cover { padding-top: 12vh; }
+  .milepost-page { min-height: 100%; }
+}
+@media (min-width: 1280px) {
+  #app { max-width: 1180px; }
+  .scene { height: 420px; }
+}
+
+/* ---------- Quick add on the Journey tab; first-step states ---------- */
+.rhythm .quick-row.in-rhythm { flex-basis: 100%; border-top: 1px solid rgba(43, 36, 31, 0.12); padding-top: 12px; }
+.rhythm .quick { min-height: 54px; font-size: 20px; }
+.progress-bar div { min-width: 10px; }
+.first-step { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.first-step p { flex: 1 1 200px; margin: 0; }
+.moment.first { background: linear-gradient(135deg, #1b2b4a, var(--night-2)); border-color: var(--gold); }
+.moment.first b { color: var(--gold); }

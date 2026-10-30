@@ -586,8 +586,8 @@
         <div class="progress-copy">
           <h2>${fmt(p.total, 0)} of ${fmt(p.goal, 0)} miles</h2>
           <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
-          <p class="small">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% there, ${fmt(p.goal - p.total, 0)} miles to go`}</p>
-          <p class="small muted">${where}</p>
+          <p class="small">${p.arrived ? 'Journey complete' : p.total <= 0 ? `<strong>Take your first step.</strong> ${fmt(p.goal, 0)} miles to ${esc(p.J.end)}` : `${Math.floor(p.pct)}% there, ${fmt(p.goal - p.total, 0)} miles to go`}</p>
+          <p class="small muted">${p.total <= 0 ? `The marker is waiting at ${esc(p.J.start)}. Your first walk moves it.` : where}</p>
           ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:6px">Replay the celebration</button>` : ''}
         </div>
       </div>
@@ -618,7 +618,7 @@
         <h2>Latest on the trail</h2>
         ${!isSolo() && state.journey.features && state.journey.features.cheers ? `<p class="small muted">Tap the heart to cheer someone on.</p>` : ''}
         ${recent.length ? `<ul class="list">${recent.map(entryRow).join('')}</ul>`
-          : `<p class="muted">${isSolo() ? 'No miles yet. Take the first step.' : 'No miles yet. Be the first to take a step.'}</p>`}
+          : `<div class="first-step"><p class="muted">${isSolo() ? 'No miles yet. Even a walk around the block counts.' : 'No miles yet. Be the first to take a step.'}</p><button class="button" data-action="tab" data-tab="log">Log your first walk</button></div>`}
         ${all.length > 6 && !state.feedOpen ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show more</button>` : ''}
       </div>`;
   }
@@ -631,7 +631,12 @@
     state.moment = null; // shows once
     const next = p.arrived ? `You have arrived at ${esc(p.J.end)}.`
       : p.next ? `${fmt(p.next.mile - p.mile, 1)} mi to ${esc(p.next.name)}.` : '';
-    setTimeout(() => { const el = document.getElementById('moment'); if (el) el.classList.add('gone'); }, 4200);
+    setTimeout(() => { const el = document.getElementById('moment'); if (el) el.classList.add('gone'); }, m.first ? 7000 : 4200);
+    if (m.first) {
+      return `<div id="moment" class="moment first" role="status">
+        <strong>+${fmt(m.miles)} mi</strong><span><b>Your first step!</b> The journey to ${esc(p.J.end)} has begun. ${next}</span>
+      </div>`;
+    }
     return `<div id="moment" class="moment" role="status">
       <strong>+${fmt(m.miles)} mi</strong><span>You are here. ${next}</span>
     </div>`;
@@ -684,6 +689,7 @@
           ${!state.goalOpen ? `<button type="button" class="button link" data-action="toggle-goal">${target ? 'Change goal' : (R.features && R.features.goal ? 'Set a daily goal' : '')}</button>` : ''}
         </div>
         ${goalForm}
+        ${!p.arrived ? `<div class="quick-row in-rhythm" aria-label="Quick add">${QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-miles="${m}">+${m}<small>mi</small></button>`).join('')}</div>` : ''}
       </div>`;
   }
 
@@ -1128,7 +1134,7 @@
   function nextAwardPop() {
     const a = popQueue.shift();
     if (!a) { $awardPop.hidden = true; stopBurst(); return; }
-    if (a.section === 'team' && (a.kind === 'stop' || a.kind === 'milestone' || a.kind === 'border')) burst(); else stopBurst();
+    if (a.section === 'team' && (a.kind === 'stop' || a.kind === 'milestone' || a.kind === 'border')) burst();
     $awardPop.innerHTML = `
       <div class="award-pop-card page" role="dialog" aria-live="assertive" aria-label="New award: ${esc(a.title)}">
         <div class="badge-frame earned">${badgeIcon(a.icon)}</div>
@@ -1243,11 +1249,13 @@
   /* ---------- Adding miles (form and quick-add share this) ---------- */
 
   async function addMiles(miles, note, date, label) {
+    const firstEver = state.journey && state.journey.teamTotal <= 0;
     const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note, date }) });
     await loadJourney();
     state.tab = 'journey';
-    state.moment = { miles: added.miles };
+    state.moment = { miles: added.miles, first: firstEver };
     renderScreen();
+    if (firstEver) burst();
     showAwardPops(added.newAwards);
     toast(label || (date ? `Added ${fmt(added.miles)} miles for ${esc(whenText(added.entry.logged_at))}` : `Added ${fmt(added.miles)} miles`), {
       label: 'Undo',
