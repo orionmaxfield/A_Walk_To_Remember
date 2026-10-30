@@ -54,6 +54,31 @@
     return Number(n).toLocaleString('en-US', { maximumFractionDigits: digits });
   }
 
+  /* ---------- Units: miles are stored; kilometers are a display preference ---------- */
+  const KM_PER_MILE = 1.609344;
+  function units() {
+    try { return localStorage.getItem('units') === 'km' ? 'km' : 'mi'; } catch (e) { return 'mi'; }
+  }
+  function setUnits(u) {
+    try { localStorage.setItem('units', u === 'km' ? 'km' : 'mi'); } catch (e) { /* stays for this visit only */ }
+  }
+  const isKm = () => units() === 'km';
+  // A stored mile value as the number the walker sees.
+  function dnum(miles) { return isKm() ? Number(miles) * KM_PER_MILE : Number(miles); }
+  // "2.5 mi" / "4 km"
+  function fmtDist(miles, digits = 1) { return `${fmt(dnum(miles), digits)} ${units()}`; }
+  // The long unit word: "miles" / "kilometers"
+  function unitWord() { return isKm() ? 'km' : 'miles'; }
+  // A typed number in the walker's unit, as miles for the server.
+  function toMiles(n) { return isKm() ? Number(n) / KM_PER_MILE : Number(n); }
+  // Awards progress text comes from the server in miles; swap it when showing km.
+  function progressText(a) {
+    const t = a.progress && a.progress.text ? a.progress.text : '';
+    if (!isKm()) return t;
+    const m = t.match(/^(.*?)([\d,.]+) \/ ([\d,.]+) miles$/);
+    return m ? `${m[1]}${fmt(dnum(a.progress.value), 1)} / ${fmt(dnum(a.progress.goal), 0)} km` : t;
+  }
+
   function whenText(sqlDate) {
     if (!sqlDate) return '';
     const d = new Date(sqlDate.replace(' ', 'T') + 'Z');
@@ -91,7 +116,7 @@
   function dailyHint(J) {
     const perDay = J.totalMiles / 365;
     if (perDay < 1) return `About ${fmt(Math.round(perDay * STEPS_PER_MILE / 100) * 100, 0)} steps a day gets you there in a year.`;
-    return `About ${fmt(perDay, 1)} miles a day gets you there in a year.`;
+    return `About ${fmtDist(perDay, 1)} a day gets you there in a year.`;
   }
 
   // The card under the mile post: the office poster's "Remember" note, a "Did you know?" fact, or road lore.
@@ -152,6 +177,9 @@
 
   async function boot() {
     $app.innerHTML = '<p class="loading">Opening the map…</p>';
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      navigator.serviceWorker.register('/sw.js').catch(() => { /* the app works without it */ });
+    }
     rememberPendingJoin();
 
     try { state.config = await api('/api/config'); } catch (e) { /* keep defaults */ }
@@ -355,7 +383,7 @@
         <span class="destination-art" aria-hidden="true">${destinationArt(J)}</span>
         <span class="destination-copy">
           <strong>${esc(J.title)}</strong>
-          <span class="destination-miles">${fmt(J.totalMiles, 0)} miles · ${esc(J.start)} to ${esc(J.end)}</span>
+          <span class="destination-miles">${fmtDist(J.totalMiles, 0)} · ${esc(J.start)} to ${esc(J.end)}</span>
           <span class="destination-blurb">${esc(J.blurb)}</span>
         </span>
       </button>
@@ -376,7 +404,7 @@
         <div class="header">
           <div>
             <h1>${esc(J.title)}</h1>
-            <div class="team-name">${fmt(J.totalMiles, 0)} miles · ${esc(J.start)} to ${esc(J.end)}</div>
+            <div class="team-name">${fmtDist(J.totalMiles, 0)} · ${esc(J.start)} to ${esc(J.end)}</div>
           </div>
           <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
         </div>
@@ -397,7 +425,7 @@
         <div class="page">
           <h2>Along the way</h2>
           <ol class="stops">
-            ${stops.map((w) => `<li><span class="stop-mile">${fmt(w.mile, 0)}</span><span>${esc(capitalize(w.name))}</span></li>`).join('')}
+            ${stops.map((w) => `<li><span class="stop-mile">${fmt(dnum(w.mile), 0)}</span><span>${esc(capitalize(w.name))}</span></li>`).join('')}
           </ol>
         </div>
       </section>`;
@@ -438,7 +466,7 @@
           </form>
           ${miles ? `
           <div class="route-summary">
-            <h2>${fmt(miles, 0)} miles</h2>
+            <h2>${fmtDist(miles, 0)}</h2>
             <p class="small muted">${esc(f.start.name)} to ${esc(f.end.name)}, as the roads run (straight-line distance plus a fifth). ${esc(dailyHint({ totalMiles: miles }))}</p>
           </div>
           <div class="start-buttons">
@@ -503,12 +531,17 @@
           <h1>${esc(J.title)}</h1>
           <div class="team-name">${solo ? `Your own journey · ${esc(team.name)}` : esc(team.name)}</div>
         </div>
-        ${switcher}
+        <div class="header-tools">
+          ${switcher}
+          <button type="button" class="gear" data-action="open-settings" aria-label="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
       </div>
       <div id="screen"></div>
       <nav class="nav" aria-label="Sections"><div class="nav-inner">
         ${navButton('journey', 'Journey', '<path d="M4 18c4-6 6-6 8 0s4 6 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="6" r="2.5" fill="currentColor"/>')}
-        ${navButton('log', 'Add miles', '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
+        ${navButton('log', isKm() ? 'Add km' : 'Add miles', '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
         ${navButton('team', solo ? 'Friends' : 'Team', '<circle cx="9" cy="9" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 5 1.5 5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
         ${navButton('awards', 'Awards', '<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1.1 5.8L12 16.3 6.7 19.1l1.1-5.8L3.5 9.2l5.9-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>')}
         ${navButton('you', 'You', '<rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M9 3v4M15 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/>')}
@@ -529,6 +562,7 @@
     if (state.tab === 'team') $screen.innerHTML = teamScreen();
     if (state.tab === 'awards') $screen.innerHTML = awardsScreen();
     if (state.tab === 'you') $screen.innerHTML = youScreen();
+    if (state.tab === 'settings') $screen.innerHTML = settingsScreen();
     document.querySelectorAll('.nav button').forEach((b) => {
       const active = b.dataset.tab === state.tab;
       b.classList.toggle('active', active);
@@ -564,7 +598,7 @@
     const who = isSolo() ? 'You are' : 'Your team is';
     const where = p.arrived
       ? `${who} ${esc(p.J.waypoints[p.J.waypoints.length - 1].region)}.`
-      : `${who} ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(capitalize(p.next.name))}, ${fmt(p.next.mile - p.mile, 0)} miles ahead.` : ''}`;
+      : `${who} ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(capitalize(p.next.name))}, ${fmtDist(p.next.mile - p.mile, 0)} ahead.` : ''}`;
     const card = stopCard(p.here);
     const inviteLink = `${location.origin}/join/${state.journey.team.invite_code}`;
 
@@ -575,18 +609,19 @@
       </div>
 
       ${momentBanner(p)}
+      ${installHint()}
       ${rhythmCard(p)}
 
       <div class="page milepost-page">
         <div class="milepost" aria-hidden="true">
-          <div class="board"><div class="label">MILE</div><div class="number">${fmt(Math.floor(p.mile), 0)}</div></div>
+          <div class="board"><div class="label">${isKm() ? 'KM' : 'MILE'}</div><div class="number">${fmt(Math.floor(dnum(p.mile)), 0)}</div></div>
           <div class="post"></div>
           <div class="ground"></div>
         </div>
         <div class="progress-copy">
-          <h2>${fmt(p.total, 0)} of ${fmt(p.goal, 0)} miles</h2>
+          <h2>${fmt(dnum(p.total), 0)} of ${fmtDist(p.goal, 0)}</h2>
           <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
-          <p class="small">${p.arrived ? 'Journey complete' : p.total <= 0 ? `<strong>Take your first step.</strong> ${fmt(p.goal, 0)} miles to ${esc(p.J.end)}` : `${Math.floor(p.pct)}% there, ${fmt(p.goal - p.total, 0)} miles to go`}</p>
+          <p class="small">${p.arrived ? 'Journey complete' : p.total <= 0 ? `<strong>Take your first step.</strong> ${fmtDist(p.goal, 0)} to ${esc(p.J.end)}` : `${Math.floor(p.pct)}% there, ${fmtDist(p.goal - p.total, 0)} to go`}</p>
           <p class="small muted">${p.total <= 0 ? `The marker is waiting at ${esc(p.J.start)}. Your first walk moves it.` : where}</p>
           ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:6px">Replay the celebration</button>` : ''}
         </div>
@@ -595,7 +630,7 @@
       <div class="page fact remember">
         <h2>${esc(card.heading)}</h2>
         <p>${esc(card.text)}</p>
-        <p class="remember-from">${esc(capitalize(p.here.name))} · mile ${fmt(p.here.mile, 0)}</p>
+        <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile), 0)}</p>
       </div>
 
       ${isSolo() ? `
@@ -608,9 +643,9 @@
         </div>
       </div>` : `
       <div class="page">
-        <h2>Your miles</h2>
-        <div class="big-number">${fmt(state.journey.myTotal)}<small>miles so far</small></div>
-        <p class="small muted" style="margin-top:8px">Every mile you add moves the whole team along the trail.</p>
+        <h2>Your ${unitWord()}</h2>
+        <div class="big-number">${fmt(dnum(state.journey.myTotal))}<small>${unitWord()} so far</small></div>
+        <p class="small muted" style="margin-top:8px">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team along the trail.</p>
         <button class="button" data-action="tab" data-tab="log" style="margin-top:8px">Add miles</button>
       </div>`}
 
@@ -630,15 +665,15 @@
     if (!m) return '';
     state.moment = null; // shows once
     const next = p.arrived ? `You have arrived at ${esc(p.J.end)}.`
-      : p.next ? `${fmt(p.next.mile - p.mile, 1)} mi to ${esc(p.next.name)}.` : '';
+      : p.next ? `${fmtDist(p.next.mile - p.mile, 1)} to ${esc(p.next.name)}.` : '';
     setTimeout(() => { const el = document.getElementById('moment'); if (el) el.classList.add('gone'); }, m.first ? 7000 : 4200);
     if (m.first) {
       return `<div id="moment" class="moment first" role="status">
-        <strong>+${fmt(m.miles)} mi</strong><span><b>Your first step!</b> The journey to ${esc(p.J.end)} has begun. ${next}</span>
+        <strong>+${fmtDist(m.miles)}</strong><span><b>Your first step!</b> The journey to ${esc(p.J.end)} has begun. ${next}</span>
       </div>`;
     }
     return `<div id="moment" class="moment" role="status">
-      <strong>+${fmt(m.miles)} mi</strong><span>You are here. ${next}</span>
+      <strong>+${fmtDist(m.miles)}</strong><span>You are here. ${next}</span>
     </div>`;
   }
 
@@ -652,20 +687,20 @@
     const done = period === 'week' ? R.weekMiles : R.todayMiles;
     const target = goal ? goal.miles : null;
     const pct = target ? Math.min(100, (done / target) * 100) : 0;
-    const nextStop = !p.arrived && p.next ? `${fmt(p.next.mile - p.mile, 1)} mi to ${esc(p.next.name)}` : p.arrived ? 'Journey complete' : '';
+    const nextStop = !p.arrived && p.next ? `${fmtDist(p.next.mile - p.mile, 1)} to ${esc(p.next.name)}` : p.arrived ? 'Journey complete' : '';
     const streakText = R.streak >= 2 ? `${R.streak}-day streak${R.walkedToday ? '' : ' · walk today to keep it'}`
       : R.streak === 1 ? (R.walkedToday ? 'Day 1 of a streak' : 'Walked yesterday · walk today to start a streak')
       : 'Walk today to start a streak';
     const ringLabel = target
-      ? `${fmt(done, 1)} of ${fmt(target, 1)} mi ${period === 'week' ? 'this week' : 'today'}`
-      : `${fmt(done, 1)} mi ${period === 'week' ? 'this week' : 'today'}`;
+      ? `${fmt(dnum(done), 1)} of ${fmtDist(target, 1)} ${period === 'week' ? 'this week' : 'today'}`
+      : `${fmtDist(done, 1)} ${period === 'week' ? 'this week' : 'today'}`;
     const goalForm = state.goalOpen ? `
         <form data-form="set-goal" class="goal-form">
           <div class="row">
-            <label class="field" style="margin:0"><span class="visually-hidden">Miles</span><input name="miles" type="number" inputmode="decimal" step="0.1" min="0" max="500" value="${goal ? esc(goal.miles) : '2'}" required aria-label="Goal in miles"></label>
+            <label class="field" style="margin:0"><span class="visually-hidden">Distance</span><input name="miles" type="number" inputmode="decimal" step="0.1" min="0" max="800" value="${goal ? fmt(dnum(goal.miles), 1).replace(/,/g, '') : isKm() ? '3' : '2'}" required aria-label="Goal distance"></label>
             <select name="period" aria-label="Per day or per week">
-              <option value="day" ${period === 'day' ? 'selected' : ''}>miles a day</option>
-              <option value="week" ${period === 'week' ? 'selected' : ''}>miles a week</option>
+              <option value="day" ${period === 'day' ? 'selected' : ''}>${unitWord()} a day</option>
+              <option value="week" ${period === 'week' ? 'selected' : ''}>${unitWord()} a week</option>
             </select>
           </div>
           <div class="row" style="margin-top:8px">
@@ -680,7 +715,7 @@
             <circle class="ring-track" cx="40" cy="40" r="34"/>
             <circle class="ring-fill ${pct >= 100 ? 'done' : ''}" cx="40" cy="40" r="34" style="stroke-dashoffset:${(213.6 * (1 - pct / 100)).toFixed(1)}"/>
           </svg>
-          <span class="ring-number">${target ? Math.round(pct) + '%' : fmt(done, 1)}</span>
+          <span class="ring-number">${target ? Math.round(pct) + '%' : fmt(dnum(done), 1)}</span>
         </button>
         <div class="rhythm-copy">
           <strong>${ringLabel}</strong>
@@ -689,7 +724,7 @@
           ${!state.goalOpen ? `<button type="button" class="button link" data-action="toggle-goal">${target ? 'Change goal' : (R.features && R.features.goal ? 'Set a daily goal' : '')}</button>` : ''}
         </div>
         ${goalForm}
-        ${!p.arrived ? `<div class="quick-row in-rhythm" aria-label="Quick add">${QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-miles="${m}">+${m}<small>mi</small></button>`).join('')}</div>` : ''}
+        ${!p.arrived ? `<div class="quick-row in-rhythm" aria-label="Quick add">${QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-amount="${m}">+${m}<small>${units()}</small></button>`).join('')}</div>` : ''}
       </div>`;
   }
 
@@ -703,7 +738,7 @@
     return `<li data-entry="${e.id}">
       <span class="avatar">${esc((e.name || '?')[0].toUpperCase())}</span>
       <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span>${cheersOn ? cheerLine(e) : ''}</div>
-      <span class="miles">${fmt(e.miles)} mi</span>
+      <span class="miles">${fmtDist(e.miles)}</span>
       ${mine ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}" aria-label="Edit this entry">edit</button>`
         : cheersOn ? `<button type="button" class="cheer ${e.cheered ? 'on' : ''}" data-action="cheer" data-id="${e.id}" aria-pressed="${e.cheered ? 'true' : 'false'}" aria-label="${e.cheered ? 'Take back your cheer' : 'Cheer'}">${heartSvg()}<b>${e.cheers || ''}</b></button>` : ''}
     </li>`;
@@ -783,10 +818,11 @@
   ];
   const UNITS = {
     miles: { label: 'Miles', step: '0.01', min: '0.01', max: '100', placeholder: '2.5', inputmode: 'decimal' },
+    km: { label: 'Kilometers', step: '0.01', min: '0.01', max: '160', placeholder: '4', inputmode: 'decimal' },
     steps: { label: 'Steps', step: '1', min: '100', max: String(100 * STEPS_PER_MILE), placeholder: '4000', inputmode: 'numeric' },
     calories: { label: 'Calories burned', step: '1', min: '10', max: String(100 * CALORIES_PER_MILE), placeholder: '250', inputmode: 'numeric' },
   };
-  const QUICK_ADD = [0.5, 1, 2, 3];
+  const QUICK_ADD = [0.5, 1, 2, 3]; // in the walker's unit
 
   function savedUnit() {
     try { const u = localStorage.getItem('logUnit'); return UNITS[u] ? u : 'miles'; } catch (e) { return 'miles'; }
@@ -811,12 +847,14 @@
   }
 
   function logScreen() {
-    const unit = editing ? 'miles' : savedUnit();
+    const distUnit = isKm() ? 'km' : 'miles';
+    const saved = savedUnit();
+    const unit = editing ? distUnit : ((saved === 'miles' || saved === 'km') ? distUnit : saved);
     const u = UNITS[unit];
     const last = myLastEntry();
     const today = todayIso();
     const editDate = editing ? isoOf(editing.logged_at) : today;
-    const quick = QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-miles="${m}">+${m}<small>mi</small></button>`).join('');
+    const quick = QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-amount="${m}">+${m}<small>${units()}</small></button>`).join('');
     return `
       ${editing ? '' : `
       <div class="page">
@@ -826,18 +864,18 @@
       </div>`}
 
       <div class="page">
-        <h2>${editing ? 'Edit your entry' : 'Add your miles'}</h2>
+        <h2>${editing ? 'Edit your entry' : `Add your ${unitWord()}`}</h2>
         ${editing ? `<p class="muted small">Logged ${esc(whenText(editing.logged_at))}. Change the number, the note or the day, then save.</p>`
           : `<p class="muted small">Walked or ran? Log miles or steps. Did yoga, swam, biked or lifted? Log the calories you burned: every 100 calories counts as 1 mile.</p>`}
         <form data-form="add-miles" ${editing ? `data-edit="${editing.id}"` : ''}>
           ${editing ? '' : `
           <div class="unit-toggle" role="radiogroup" aria-label="What are you logging?">
-            <label><input type="radio" name="unit" value="miles" ${unit === 'miles' ? 'checked' : ''}><span>Miles</span></label>
+            <label><input type="radio" name="unit" value="${distUnit}" ${unit === distUnit ? 'checked' : ''}><span>${isKm() ? 'Km' : 'Miles'}</span></label>
             <label><input type="radio" name="unit" value="steps" ${unit === 'steps' ? 'checked' : ''}><span>Steps</span></label>
             <label><input type="radio" name="unit" value="calories" ${unit === 'calories' ? 'checked' : ''}><span>Calories</span></label>
           </div>`}
-          <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" value="${editing ? esc(editing.miles) : ''}" required aria-describedby="conversion"></label>
-          <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, editing ? String(editing.miles) : '')}</p>
+          <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" value="${editing ? fmt(dnum(editing.miles), 2).replace(/,/g, '') : ''}" required aria-describedby="conversion"></label>
+          <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, editing ? fmt(dnum(editing.miles), 2).replace(/,/g, '') : '')}</p>
           <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building" value="${editing ? esc(editing.note || '') : ''}"></label>
           <details class="when" ${editing && editDate !== today ? 'open' : ''}>
             <summary>${editing ? 'Change the day' : 'Missed a day? Log it for another date'}</summary>
@@ -852,7 +890,7 @@
       <div class="page last-entry">
         <h2>Your last entry</h2>
         <ul class="list"><li>
-          <div class="who"><strong>${fmt(last.miles)} mi</strong><span>${esc(whenText(last.logged_at))}${last.note ? ' · ' + esc(last.note) : ''}</span></div>
+          <div class="who"><strong>${fmtDist(last.miles)}</strong><span>${esc(whenText(last.logged_at))}${last.note ? ' · ' + esc(last.note) : ''}</span></div>
           <button type="button" class="button quiet small-btn" data-action="edit-entry" data-id="${last.id}">Edit</button>
           <button type="button" class="button quiet small-btn" data-action="delete-entry" data-id="${last.id}">Remove</button>
         </li></ul>
@@ -875,8 +913,9 @@
   function conversionText(unit, raw) {
     const n = Number(raw);
     if (raw === '' || !Number.isFinite(n) || n <= 0) {
-      return unit === 'calories' ? 'Every 100 calories counts as 1 mile.' : 'About 2,000 steps is one mile.';
+      return unit === 'calories' ? 'Every 100 calories counts as 1 mile.' : unit === 'km' ? 'About 1,250 steps is one kilometer.' : 'About 2,000 steps is one mile.';
     }
+    if (unit === 'km') return `${fmt(n, 2)} km is about ${fmt(n / KM_PER_MILE * STEPS_PER_MILE, 0)} steps`;
     if (unit === 'steps') {
       const miles = Math.round(n) / STEPS_PER_MILE;
       return `${fmt(Math.round(n), 0)} steps = <strong>${fmt(miles, 2)} miles</strong>`;
@@ -909,10 +948,14 @@
     const members = state.journey.members;
     const solo = isSolo();
     const invite = `
-        <div class="invite-box"><code>${esc(link)}</code><button class="button" type="button" data-action="copy-link" data-link="${esc(link)}" style="flex:0 0 auto;min-height:40px;padding:6px 14px">Copy</button></div>
-        <p class="small muted" style="margin-bottom:2px">Or share the code</p>
-        <p class="invite-code">${esc(team.invite_code)}</p>
-        ${navigator.share ? `<button class="button quiet wide" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(solo ? J.title : team.name)}" data-end="${esc(J.end)}">Share invite</button>` : ''}`;
+        <div class="invite-card">
+          <div><p class="small muted" style="margin-bottom:2px">Invite code</p><p class="invite-code">${esc(team.invite_code)}</p></div>
+          <div class="invite-actions">
+            <button class="button" type="button" data-action="copy-link" data-link="${esc(link)}">Copy link</button>
+            ${navigator.share ? `<button class="button quiet" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(solo ? J.title : team.name)}" data-end="${esc(J.end)}">Share</button>` : ''}
+          </div>
+        </div>
+        <p class="small muted">Friends open the link, sign in with Google, and they're on the walk. Or they type the code under "Have an invite?".</p>`;
     return `
       ${solo ? `
       <div class="page">
@@ -959,10 +1002,7 @@
             <button class="button quiet" type="submit" style="flex:0 0 auto">Join</button>
           </div>
         </form>
-      </div>
-
-      <button class="button quiet on-night wide" data-action="sign-out">Sign out</button>
-      <p class="small" style="text-align:center;margin-top:14px"><button class="button link on-night" type="button" data-action="delete-account">Delete my account</button></p>`;
+      </div>`;
   }
 
   function standingsCard() {
@@ -978,8 +1018,8 @@
     const rows = (J.standings || []).map((m, i) => `<li class="${m.id === state.user.id ? 'me' : ''}">
         <span class="rank">${i < 3 && m.total > 0 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
         ${m.picture ? `<img class="avatar" src="${esc(m.picture)}" alt="" referrerpolicy="no-referrer">` : `<span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>`}
-        <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>${fmt(m.week)} mi this week</span></div>
-        <span class="miles">${fmt(m.total)} mi</span>
+        <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>${fmtDist(m.week)} this week</span></div>
+        <span class="miles">${fmtDist(m.total)}</span>
       </li>`).join('');
     return `<div class="page">
         <h2>Leaderboard</h2>
@@ -1013,7 +1053,7 @@
         ? `<p class="badge-status">${esc(earnedText(a.earnedAt))}</p>`
         : `<p class="badge-status">${esc(a.how)}</p>
            ${a.progress ? `<div class="badge-progress" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct.toFixed(0)}%"></div></div>
-           <p class="badge-progress-text">${esc(a.progress.text)}</p>` : ''}`}
+           <p class="badge-progress-text">${esc(progressText(a))}</p>` : ''}`}
     </li>`;
   }
 
@@ -1044,6 +1084,60 @@
       </div>`;
   }
 
+  /* ---------- Settings ---------- */
+
+  let deferredInstall = null; // Chrome's install prompt, if the browser offers one
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
+  const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  function installHelp() {
+    if (isStandalone()) return `<p class="small muted">Stroll is on your home screen already.</p>`;
+    if (deferredInstall) return `<button class="button" type="button" data-action="install">Add Stroll to your home screen</button>`;
+    if (isIOS()) return `<p class="small">In Safari, tap <strong>Share</strong> (the square with the arrow), then <strong>Add to Home Screen</strong>.</p>`;
+    return `<p class="small">In your browser's menu, choose <strong>Add to Home screen</strong> or <strong>Install app</strong>.</p>`;
+  }
+
+  function settingsScreen() {
+    return `
+      <div class="page">
+        <div class="cal-head"><h2>Settings</h2><button type="button" class="button quiet small-btn" data-action="close-settings">Done</button></div>
+        <p class="small muted">${esc(state.user.name)} · ${esc(state.user.email)}</p>
+      </div>
+      <div class="page">
+        <h2>Distances</h2>
+        <div class="unit-toggle" role="radiogroup" aria-label="Distance units">
+          <label><input type="radio" name="units" value="mi" data-action="set-units" ${!isKm() ? 'checked' : ''}><span>Miles</span></label>
+          <label><input type="radio" name="units" value="km" data-action="set-units" ${isKm() ? 'checked' : ''}><span>Kilometers</span></label>
+        </div>
+        <p class="small muted">Shown everywhere, and used when you type a distance. Miles are kept underneath, so friends can use either.</p>
+      </div>
+      <div class="page">
+        <h2>On your phone</h2>
+        <p class="small muted">Stroll works like an app from your home screen: full screen, one tap away.</p>
+        ${installHelp()}
+      </div>
+      <div class="page">
+        <h2>Account</h2>
+        <button class="button quiet wide" data-action="sign-out">Sign out</button>
+        <p class="small" style="text-align:center;margin-top:12px"><button class="button link" type="button" data-action="delete-account">Delete my account</button></p>
+        <p class="small muted" style="text-align:center;margin-top:8px"><a href="/privacy.html">Privacy</a></p>
+      </div>`;
+  }
+
+  // After the first entry, offer the home screen once (never inside the installed app).
+  function installHint() {
+    if (isStandalone()) return '';
+    let due = false, dismissed = false;
+    try { due = localStorage.getItem('installHintDue') === '1'; dismissed = localStorage.getItem('installHintDismissed') === '1'; } catch (e) { /* no storage */ }
+    if (!due || dismissed) return '';
+    return `<div class="page notice" role="status">
+      <p><strong>Keep Stroll one tap away.</strong> ${deferredInstall ? 'Add it to your home screen and it opens like an app.' : isIOS() ? 'In Safari, tap Share, then Add to Home Screen.' : 'In your browser menu, choose Add to Home screen.'}</p>
+      ${deferredInstall ? `<button class="button" type="button" data-action="install" style="min-height:40px;padding:6px 16px">Add</button>` : ''}
+      <button class="button quiet" type="button" data-action="dismiss-install" style="min-height:40px;padding:6px 16px">Not now</button>
+    </div>`;
+  }
+
   /* ---------- You: calendar and history ---------- */
 
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -1070,7 +1164,7 @@
       const today = isThisMonth && d === Hs.today.day;
       const size = mi ? (0.45 + 0.55 * Math.min(1, mi / maxDay)).toFixed(2) : 0;
       cells += `<span class="cal-cell ${mi ? 'walked' : ''} ${today ? 'today' : ''} ${future ? 'future' : ''}" title="${mi ? fmt(mi, 1) + ' mi' : ''}">
-        <i style="transform:scale(${size})"></i><b>${d}</b>${mi ? `<small>${fmt(mi, mi >= 10 ? 0 : 1)}</small>` : ''}</span>`;
+        <i style="transform:scale(${size})"></i><b>${d}</b>${mi ? `<small>${fmt(dnum(mi), dnum(mi) >= 10 ? 0 : 1)}</small>` : ''}</span>`;
     }
     const grouped = [];
     const shown = state.feedOpen ? Hs.entries : Hs.entries.slice(0, 30);
@@ -1082,7 +1176,7 @@
         <ul class="stat-row">
           <li><strong>${R.streak}</strong><span>day streak</span></li>
           <li><strong>${R.bestStreak}</strong><span>best streak</span></li>
-          <li><strong>${fmt(Hs.allTimeMiles, 0)}</strong><span>miles ever</span></li>
+          <li><strong>${fmt(dnum(Hs.allTimeMiles), 0)}</strong><span>${unitWord()} ever</span></li>
           <li><strong>${R.daysWalked}</strong><span>days walked</span></li>
         </ul>` : '';
     return `
@@ -1096,7 +1190,7 @@
           <h2>${MONTHS[Hs.month - 1]} ${Hs.year}</h2>
           <button type="button" class="button quiet small-btn" data-action="history-month" data-month="${shiftMonth(ym, 1)}" aria-label="Next month" ${isThisMonth ? 'disabled' : ''}>›</button>
         </div>
-        <p class="small muted">${fmt(Hs.total, 1)} miles this month · ${Object.keys(Hs.days).length} ${Object.keys(Hs.days).length === 1 ? 'day' : 'days'} walked</p>
+        <p class="small muted">${fmtDist(Hs.total, 1)} this month · ${Object.keys(Hs.days).length} ${Object.keys(Hs.days).length === 1 ? 'day' : 'days'} walked</p>
         <div class="cal-grid" role="grid" aria-label="Days walked this month">
           ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span class="cal-dow">${d}</span>`).join('')}
           ${cells}
@@ -1105,9 +1199,9 @@
       <div class="page">
         <h2>Walks this month</h2>
         ${grouped.length ? grouped.map((g) => `
-          <h3 class="day-head">${MONTHS[Hs.month - 1].slice(0, 3)} ${g.day}<span>${fmt(Hs.days[g.day] || 0, 1)} mi</span></h3>
+          <h3 class="day-head">${MONTHS[Hs.month - 1].slice(0, 3)} ${g.day}<span>${fmtDist(Hs.days[g.day] || 0, 1)}</span></h3>
           <ul class="list">${g.items.map((e) => `<li>
-            <div class="who"><strong>${fmt(e.miles)} mi${e.note ? ` · ${esc(e.note)}` : ''}</strong><span>${esc(e.team_id === state.teamId ? 'this walk' : e.team_name)}</span></div>
+            <div class="who"><strong>${fmtDist(e.miles)}${e.note ? ` · ${esc(e.note)}` : ''}</strong><span>${esc(e.team_id === state.teamId ? 'this walk' : e.team_name)}</span></div>
             ${e.team_id === state.teamId ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}">edit</button>` : ''}
           </li>`).join('')}</ul>`).join('')
           : `<p class="muted">No walks logged this month${isThisMonth ? ' yet. Today is a good day for one.' : '.'}</p>`}
@@ -1254,10 +1348,11 @@
     await loadJourney();
     state.tab = 'journey';
     state.moment = { miles: added.miles, first: firstEver };
+    try { if (!localStorage.getItem('installHintDue')) localStorage.setItem('installHintDue', '1'); } catch (e) { /* no storage */ }
     renderScreen();
     if (firstEver) burst();
     showAwardPops(added.newAwards);
-    toast(label || (date ? `Added ${fmt(added.miles)} miles for ${esc(whenText(added.entry.logged_at))}` : `Added ${fmt(added.miles)} miles`), {
+    toast(label || (date ? `Added ${fmtDist(added.miles)} for ${esc(whenText(added.entry.logged_at))}` : `Added ${fmtDist(added.miles)}`), {
       label: 'Undo',
       run: () => withBusy(async () => {
         await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: added.id }) });
@@ -1308,6 +1403,14 @@
     });
 
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
+    if (action === 'open-settings') { state.tab = 'settings'; renderScreen(); }
+    if (action === 'close-settings') { state.tab = 'journey'; renderScreen(); }
+    if (action === 'dismiss-install') { try { localStorage.setItem('installHintDismissed', '1'); } catch (e) { /* ok */ } document.querySelectorAll('.notice').forEach((n) => n.remove()); }
+    if (action === 'install' && deferredInstall) {
+      const p = deferredInstall; deferredInstall = null;
+      p.prompt();
+      p.userChoice.then(() => { try { localStorage.setItem('installHintDismissed', '1'); } catch (e) { /* ok */ } renderScreen(); }).catch(() => {});
+    }
     if (action === 'toggle-goal') { state.goalOpen = !state.goalOpen; renderScreen(); }
     if (action === 'history-month') { state.history = null; state.historyMonth = el.dataset.month; renderScreen(); }
     if (action === 'clear-goal') withBusy(async () => {
@@ -1357,7 +1460,7 @@
 
     if (action === 'quick-add') withBusy(async () => {
       el.disabled = true;
-      try { await addMiles(Number(el.dataset.miles), '', undefined); } finally { el.disabled = false; }
+      try { await addMiles(toMiles(el.dataset.amount), '', undefined); } finally { el.disabled = false; }
     });
 
     if (action === 'edit-entry') {
@@ -1386,6 +1489,7 @@
 
   document.addEventListener('change', (ev) => {
     if (ev.target.name === 'unit' && ev.target.form) { applyUnit(ev.target.form, ev.target.value); return; }
+    if (ev.target.dataset.action === 'set-units') { setUnits(ev.target.value); state.lastShownMile = null; toast(ev.target.value === 'km' ? 'Showing kilometers' : 'Showing miles'); renderScreen(); return; }
     if (ev.target.dataset.action === 'custom-choose') {
       const f = customForm;
       const list = ev.target.dataset.field === 'start' ? f.starts : f.ends;
@@ -1460,7 +1564,7 @@
         }
 
         if (kind === 'set-goal') {
-          await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: fields.miles, period: fields.period }) });
+          await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: toMiles(fields.miles), period: fields.period }) });
           state.goalOpen = false;
           await loadJourney();
           renderScreen();
@@ -1492,9 +1596,9 @@
 
         if (kind === 'add-miles') {
           // Steps and calories are logged as miles: 2,000 steps or 100 calories is 1 mile.
-          const unit = form.dataset.edit ? 'miles' : (fields.unit || 'miles');
+          const unit = form.dataset.edit ? (isKm() ? 'km' : 'miles') : (fields.unit || 'miles');
           const raw = Math.round(Number(fields.amount));
-          const miles = unit === 'calories' ? raw / CALORIES_PER_MILE : unit === 'steps' ? raw / STEPS_PER_MILE : fields.amount;
+          const miles = unit === 'calories' ? raw / CALORIES_PER_MILE : unit === 'steps' ? raw / STEPS_PER_MILE : unit === 'km' ? Number(fields.amount) / KM_PER_MILE : fields.amount;
           let note = String(fields.note || '').trim();
           if (unit === 'calories') note = `${fmt(raw, 0)} calories${note ? ' · ' + note : ''}`;
           if (unit === 'steps') note = `${fmt(raw, 0)} steps${note ? ' · ' + note : ''}`;
@@ -1506,9 +1610,9 @@
             state.tab = 'journey';
             renderScreen();
             showAwardPops(saved.newAwards);
-            toast(`Saved: ${fmt(saved.miles)} miles`);
+            toast(`Saved: ${fmtDist(saved.miles)}`);
           } else {
-            await addMiles(miles, note, date, unit === 'calories' ? `Added ${fmt(raw, 0)} calories (${fmt(miles, 2)} miles)` : unit === 'steps' ? `Added ${fmt(raw, 0)} steps (${fmt(miles, 2)} miles)` : null);
+            await addMiles(miles, note, date, unit === 'calories' ? `Added ${fmt(raw, 0)} calories (${fmtDist(miles, 2)})` : unit === 'steps' ? `Added ${fmt(raw, 0)} steps (${fmtDist(miles, 2)})` : null);
           }
         }
       } finally {

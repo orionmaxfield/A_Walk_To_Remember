@@ -653,3 +653,15 @@ form select[data-action="custom-choose"] {
 .first-step p { flex: 1 1 200px; margin: 0; }
 .moment.first { background: linear-gradient(135deg, #1b2b4a, var(--night-2)); border-color: var(--gold); }
 .moment.first b { color: var(--gold); }
+
+/* ---------- Header tools, invite card, settings ---------- */
+.header-tools { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 62%; }
+.gear { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.08); color: var(--snow); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.gear svg { width: 22px; height: 22px; }
+.header-tools select { flex: 1 1 auto; min-width: 0; max-width: 100%; }
+.header > div:first-child { min-width: 0; }
+.invite-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: var(--snow); border: 2px dashed rgba(43, 36, 31, 0.3); border-radius: 12px; padding: 12px 14px; margin: 10px 0 10px; }
+.invite-card .invite-code { margin: 0; font-size: 28px; }
+.invite-actions { display: flex; gap: 8px; }
+.invite-actions .button { min-height: 44px; padding: 8px 16px; }
+.page a { color: var(--gold-text); font-weight: 700; }
