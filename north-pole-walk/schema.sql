@@ -1,10 +1,13 @@
--- Run this once in your D1 database (Cloudflare dashboard > D1 > your database > Console).
+-- Run this once in a NEW D1 database (Cloudflare dashboard > D1 > your database > Console).
+-- An existing database that already has these tables gets updated with the files in migrations/ instead.
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,              -- Google account id
   email TEXT NOT NULL,
   name TEXT NOT NULL,
   picture TEXT,
+  goal_miles REAL,                        -- personal goal; NULL = not set
+  goal_period TEXT NOT NULL DEFAULT 'day', -- 'day' or 'week'
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -19,6 +22,9 @@ CREATE TABLE IF NOT EXISTS teams (
   name TEXT NOT NULL,
   invite_code TEXT NOT NULL UNIQUE,
   journey_id TEXT NOT NULL DEFAULT 'north-pole',
+  kind TEXT NOT NULL DEFAULT 'team',  -- 'team' (a group walk) or 'solo' (one person's own journey)
+  leaderboard INTEGER NOT NULL DEFAULT 1,  -- 1 shows the leaderboard; 0 = the organizer switched it off
+  custom_json TEXT,                   -- for journey_id 'custom': {"start":{name,lat,lon},"end":{...},"miles":N}
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -37,6 +43,13 @@ CREATE TABLE IF NOT EXISTS mile_entries (
   miles REAL NOT NULL,
   note TEXT,
   logged_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cheers (
+  entry_id INTEGER NOT NULL,        -- the mile entry being cheered
+  user_id TEXT NOT NULL,            -- who cheered
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (entry_id, user_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_team ON mile_entries (team_id, id);

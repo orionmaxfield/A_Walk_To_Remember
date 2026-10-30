@@ -1,27 +1,38 @@
-// The journey: "Elves on a Self-Care Journey," from the office poster.
-// The route follows the poster's stops from Layton, Utah up through Montana, Alberta,
-// British Columbia, the Yukon and the Northwest Territories, then across the sea ice
-// to the North Pole.
+// Every destination Stroll can walk to. One object per journey.
 //
-// Miles are measured the same way as the 3,381-mile total: how far due north of
-// Layton (41.06° N) each stop sits, at 69.09 miles per degree of latitude. That keeps
-// every stop in true north-to-south order and makes the last stop land on 3,381.
-// Mount Doom and the Last Stretch are made up, so they keep the poster's miles.
+// The office's journey ('north-pole') follows the "Elves on a Self-Care Journey" poster:
+// each stop's mileage is how far due north of Layton (41.06° N) it sits, at 69.09 miles
+// per degree of latitude, so the last stop lands on 3,381. Mount Doom and the Last
+// Stretch are made up, so they keep the poster's miles.
 //
-// To add a new destination later, add another object to JOURNEYS with the same shape.
-// Each waypoint has:
-//   mile     — where the stop sits on the trail
-//   name     — used in sentences ("Next up: Ogden, Utah")
-//   region   — finishes the sentence "Your team is …"
-//   remember — the "Remember" card for this stretch (the poster's message for the stop)
-//   sign     — (optional) the lines painted on the wooden signpost; defaults to the name
-//   scene    — (optional) a hint for the storybook scene. Scenery it draws:
-//              'start', 'halfway', 'arctic', 'volcano', 'finish', 'lake'
-//              Seasons it keys on: 'canada', 'edmonton', 'north60', 'coast'
-//   badge    — (optional) the team award for reaching this stop: { id, title, icon }
-//              (icons are drawn in badges.js)
-// Each journey can also list milestones: team awards at a mile with no signpost
-// (a border crossing, the halfway point). kind is 'border' or 'milestone'.
+// The public destinations are either public-domain stories (Oz, Neverland, Camelot,
+// Atlantis), real routes (the Camino, the Appalachian Trail) or our own invention
+// (the Dark Mountain). Nothing here uses a trademarked name. Real-route mileages
+// are approximate.
+//
+// Each journey has:
+//   id, title       — the id is stored on each team; the title heads the app
+//   start, end      — used in sentences and on the destination card
+//   totalMiles      — the length of the trail
+//   public          — false hides it from the "choose a destination" screen
+//   theme           — which storybook scenery scene.js draws:
+//                     'arctic', 'oz', 'neverland', 'camelot', 'atlantis', 'volcano', 'camino', 'appalachian'
+//   hero, heroName  — who walks ('elf' or 'hiker') and what the awards call them ('Elf', 'Walker')
+//   blurb           — one or two sentences for the destination card
+//   arrival         — { title, text } for the celebration when the trail is done
+//   waypoints       — the stops, in order. Each has:
+//     mile          — where the stop sits on the trail
+//     name          — used in sentences ("Next up: Ogden, Utah")
+//     region        — finishes the sentence "You are …" / "Your team is …"
+//     remember      — the office poster's "Remember" card for this stretch, OR
+//     fact          — a "Did you know?" card for this stretch, OR
+//     lore          — a "Road lore" card (for made-up worlds)
+//     sign          — (optional) the lines painted on the wooden signpost; defaults to the name
+//     scene         — (optional) a hint for the scenery; each theme reads its own keys
+//     badge         — (optional) the award for reaching this stop: { id, title, icon }
+//                     (icons are drawn in badges.js)
+//   milestones      — awards at a mile with no signpost (a border, the halfway point).
+//                     kind is 'border' or 'milestone'.
 
 const JOURNEYS = {
   'north-pole': {
@@ -30,6 +41,14 @@ const JOURNEYS = {
     start: 'Layton, Utah',
     end: 'The North Pole',
     totalMiles: 3381,
+    // The office edition: the poster's "Remember" self-care notes along the way.
+    // Not offered in the public destination picker (see `public` below).
+    public: false,
+    theme: 'arctic',
+    hero: 'elf',
+    heroName: 'Elf',
+    blurb: "The office's walk: 3,381 miles due north from Layton, following the stops on the Elves on a Self-Care Journey poster.",
+    arrival: { title: 'You made it to the North Pole!', text: 'Every mile counted. Every step was yours together.' },
     waypoints: [
       {
         mile: 0,
@@ -215,8 +234,381 @@ const JOURNEYS = {
       { mile: 2690, name: '80° North', kind: 'milestone', badge: { id: 'stop-80', title: 'Eighty Degrees North', icon: 'globe' } },
     ],
   },
+
+  /* ---------- The Yellow Brick Road (L. Frank Baum, 1900; public domain) ---------- */
+  oz: {
+    id: 'oz',
+    title: 'The Yellow Brick Road',
+    start: 'where the house landed',
+    end: 'the Emerald City',
+    totalMiles: 450,
+    public: true,
+    theme: 'oz',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: 'Follow the yellow bricks from the Munchkin farmland to the Emerald City, past cornfields, a rusty woodman and a very sleepy poppy field.',
+    arrival: { title: 'Welcome to the Emerald City!', text: 'You walked the whole yellow brick road. The Wizard would be impressed, and he is hard to impress.' },
+    waypoints: [
+      { mile: 0, name: 'the Munchkin farmland', region: 'setting off from where the house landed', sign: ['Munchkin', 'Country'], scene: 'start',
+        fact: "In L. Frank Baum's 1900 book, Dorothy's magic shoes are silver. They only turned ruby in the 1939 film." },
+      { mile: 30, name: "the Scarecrow's cornfield", region: "passing the Scarecrow's cornfield", sign: ['Cornfield'], scene: 'corn',
+        badge: { id: 'oz-scarecrow', title: 'Met the Scarecrow', icon: 'scarecrow' },
+        fact: 'The Scarecrow was only two days old when Dorothy lifted him off his pole, and he had never taken a single step.' },
+      { mile: 75, name: "the Tin Woodman's forest", region: "in the Tin Woodman's forest", sign: ['Tin Woodman', 'Forest'], scene: 'forest',
+        badge: { id: 'oz-tin', title: 'Oiled the Joints', icon: 'oilcan' },
+        fact: 'The Tin Woodman rusted mid-swing and stood frozen in the forest for a whole year before Dorothy found his oil can.' },
+      { mile: 130, name: "the Lion's clearing", region: "in the Lion's clearing", sign: ["Lion's", 'Clearing'],
+        badge: { id: 'oz-lion', title: 'Found Some Courage', icon: 'lion' },
+        fact: 'The Cowardly Lion roared at everyone he met because he was afraid of them. By the end of the book he is king of the forest.' },
+      { mile: 190, name: 'the Kalidah gulch', region: 'crossing the Kalidah gulch', sign: ['Kalidah', 'Gulch'],
+        badge: { id: 'oz-gulch', title: 'Leapt the Gulch', icon: 'bridge' },
+        fact: 'To cross the gulch, the Lion jumped it with one friend on his back at a time. Then the Tin Woodman chopped the log bridge so the Kalidahs fell.' },
+      { mile: 250, name: 'the river crossing', region: 'at the river crossing', sign: ['The River'],
+        badge: { id: 'oz-river', title: 'Rescued by a Stork', icon: 'stork' },
+        fact: 'The Scarecrow was left clinging to a pole in the middle of the river. A passing stork plucked him off and flew him to shore.' },
+      { mile: 300, name: 'the poppy field', region: 'in the deadly poppy field', sign: ['Poppy Field'], scene: 'poppies',
+        badge: { id: 'oz-poppies', title: 'Stayed Awake', icon: 'poppy' },
+        fact: 'The scent of the poppies put Dorothy, Toto and the Lion to sleep. The Scarecrow and the Tin Woodman, not being made of flesh, carried them out.' },
+      { mile: 350, name: 'the field mice', region: 'among the field mice', sign: ['Field Mice'],
+        badge: { id: 'oz-mice', title: 'Friend of the Mice', icon: 'mouse' },
+        fact: 'The Queen of the Field Mice sent thousands of mice, each pulling a thread, to tow the sleeping Lion out of the poppies on a cart.' },
+      { mile: 400, name: 'the city gates', region: 'at the gates of the Emerald City', sign: ['City Gates'], scene: 'gates',
+        badge: { id: 'oz-gates', title: 'Green Spectacles', icon: 'spectacles' },
+        fact: 'Everyone entering the Emerald City had green spectacles locked over their eyes, so the whole city looked emerald whether it was or not.' },
+      { mile: 450, name: 'the Emerald City', region: 'inside the Emerald City', sign: ['EMERALD CITY'], scene: 'finish',
+        badge: { id: 'oz-emerald', title: 'Reached the Emerald City', icon: 'emerald' },
+        fact: 'The Wizard turned out to be an ordinary man from Omaha who arrived in a hot-air balloon. The people of Oz had never guessed.' },
+    ],
+    milestones: [
+      { mile: 225, name: 'the halfway brick', kind: 'milestone', badge: { id: 'oz-halfway', title: 'Halfway Down the Road', icon: 'star' } },
+    ],
+  },
+
+  /* ---------- Second Star to the Right (J. M. Barrie, 1911; public domain in the US) ---------- */
+  neverland: {
+    id: 'neverland',
+    title: 'Second Star to the Right',
+    start: 'the nursery window',
+    end: 'Neverland',
+    totalMiles: 650,
+    public: true,
+    theme: 'neverland',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: 'Out of the nursery window, over the rooftops and straight on till morning: a walk through the clouds to the island where nobody grows up.',
+    arrival: { title: 'Straight on till morning: Neverland!', text: 'You flew the whole way on your own two feet.' },
+    waypoints: [
+      { mile: 0, name: 'the nursery window', region: 'climbing out of the nursery window', sign: ['Nursery', 'Window'], scene: 'start',
+        fact: "J. M. Barrie set the Darlings' home in Bloomsbury, London. Peter Pan first appeared in his 1902 novel The Little White Bird." },
+      { mile: 60, name: 'the rooftops', region: 'over the rooftops of London', sign: ['Rooftops'], scene: 'rooftops',
+        badge: { id: 'nl-rooftops', title: 'Over the Rooftops', icon: 'chimney' },
+        fact: "Peter's directions were simple: 'Second to the right, and straight on till morning.' He admitted later he made them up." },
+      { mile: 150, name: 'the clouds', region: 'high above the clouds', sign: ['Above the', 'Clouds'], scene: 'clouds',
+        badge: { id: 'nl-clouds', title: 'Head in the Clouds', icon: 'cloud' },
+        fact: 'The flight took days. The children kept dozing off mid-air and dropping, and Peter would swoop down to catch them, mostly for fun.' },
+      { mile: 260, name: 'the island in sight', region: 'with the island in sight', sign: ['Island', 'in Sight'], scene: 'sea',
+        badge: { id: 'nl-island', title: 'Land Ho', icon: 'spyglass' },
+        fact: "Barrie wrote that every child's Neverland is different, yet they all have a family resemblance, like faces in one family." },
+      { mile: 340, name: "the Mermaids' Lagoon", region: "beside the Mermaids' Lagoon", sign: ["Mermaids'", 'Lagoon'], scene: 'lagoon',
+        badge: { id: 'nl-lagoon', title: 'Lagoon Visitor', icon: 'shell' },
+        fact: 'Wendy never got a civil word out of a mermaid. They splashed her and, if they could, pulled her under.' },
+      { mile: 420, name: "Marooners' Rock", region: "near Marooners' Rock", sign: ["Marooners'", 'Rock'],
+        badge: { id: 'nl-rock', title: 'Beat the Tide', icon: 'rock' },
+        fact: "Marooners' Rock vanishes under the tide. Peter and Wendy were stranded on it as the water rose, and the Never bird's nest carried Peter off." },
+      { mile: 500, name: 'the Home Under the Ground', region: 'at the Home Under the Ground', sign: ['Home Under', 'the Ground'],
+        badge: { id: 'nl-home', title: 'Lost Boy', icon: 'tree' },
+        fact: "The Lost Boys came and went through hollow trees. Each boy's tree had to fit him exactly, so Peter trimmed the boys to fit if he had to." },
+      { mile: 570, name: 'the Neverwood', region: 'deep in the Neverwood', sign: ['Neverwood'], scene: 'wood',
+        badge: { id: 'nl-wood', title: 'Through the Neverwood', icon: 'feather' },
+        fact: 'In the book, Tinker Bell is a fairy who mends pots and kettles, which is what a tinker does. That is where her name comes from.' },
+      { mile: 620, name: 'the pirate ship', region: 'alongside the pirate ship', sign: ['Pirate', 'Ship'], scene: 'ship',
+        badge: { id: 'nl-ship', title: 'Boarded the Ship', icon: 'ship' },
+        fact: "Captain Hook's ship lay in Kidd's Creek. Barrie named it the Jolly Roger, the old sailors' name for a pirate flag." },
+      { mile: 650, name: 'Neverland', region: 'standing on Neverland at last', sign: ['NEVERLAND'], scene: 'finish',
+        badge: { id: 'nl-neverland', title: 'Straight On Till Morning', icon: 'secondstar' },
+        fact: "Peter Pan has a statue in Kensington Gardens that Barrie had put up overnight in 1912, so it would look as if it had arrived by magic." },
+    ],
+    milestones: [
+      { mile: 325, name: 'the halfway star', kind: 'milestone', badge: { id: 'nl-halfway', title: 'Halfway to Morning', icon: 'star' } },
+    ],
+  },
+
+  /* ---------- The Road to Camelot (Arthurian legend; public domain) ---------- */
+  camelot: {
+    id: 'camelot',
+    title: 'The Road to Camelot',
+    start: 'Tintagel',
+    end: 'Camelot',
+    totalMiles: 800,
+    public: true,
+    theme: 'camelot',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: 'From the sea cliffs of Tintagel to the Round Table: a quest through the oldest stories in Britain, with a sword, a lake and a grail along the way.',
+    arrival: { title: 'You reached Camelot!', text: 'Pull up a chair at the Round Table. Nobody sits at the head, so every seat is the best one.' },
+    waypoints: [
+      { mile: 0, name: 'Tintagel', region: 'leaving the cliffs of Tintagel', sign: ['Tintagel'], scene: 'start',
+        fact: "Legend places Arthur's birth at Tintagel on the Cornish coast. Geoffrey of Monmouth wrote the story down around 1136." },
+      { mile: 90, name: 'the Sword in the Stone', region: 'at the churchyard with the sword in the stone', sign: ['Sword in', 'the Stone'],
+        badge: { id: 'cm-sword', title: 'Drew the Sword', icon: 'sword' },
+        fact: "In Malory's telling, the sword stood in an anvil on a stone in a London churchyard, and only the rightful king could pull it free." },
+      { mile: 180, name: "Merlin's wood", region: "in Merlin's wood", sign: ["Merlin's", 'Wood'], scene: 'wood',
+        badge: { id: 'cm-merlin', title: "Merlin's Pupil", icon: 'owl' },
+        fact: 'Merlin began as a prophet in Geoffrey of Monmouth. The French romances a few decades later made him Arthur\'s tutor and magician.' },
+      { mile: 280, name: 'the Lake', region: 'on the shore of the Lake', sign: ['The Lake'], scene: 'lake',
+        badge: { id: 'cm-lake', title: 'Lady of the Lake', icon: 'armsword' },
+        fact: 'In most versions, Excalibur came from the Lady of the Lake, whose arm rose from the water holding it. The sword in the stone was a different sword.' },
+      { mile: 380, name: 'the Forest of Brocéliande', region: 'in the enchanted Forest of Brocéliande', sign: ['Brocéliande'], scene: 'wood',
+        badge: { id: 'cm-forest', title: 'Enchanted Forest', icon: 'tree' },
+        fact: 'The French romances set Merlin\'s enchanted forest at Brocéliande. The real forest of Paimpont in Brittany still carries the name.' },
+      { mile: 480, name: 'the Green Chapel', region: 'at the Green Chapel', sign: ['Green', 'Chapel'],
+        badge: { id: 'cm-gawain', title: "Gawain's Bargain", icon: 'holly' },
+        fact: 'Sir Gawain and the Green Knight was written around 1400 by an unknown poet. It survives in a single manuscript in the British Library.' },
+      { mile: 580, name: 'the Grail Castle', region: 'at the Grail Castle', sign: ['Grail', 'Castle'], scene: 'castle',
+        badge: { id: 'cm-grail', title: 'Glimpsed the Grail', icon: 'grail' },
+        fact: "The Grail entered the legend in Chrétien de Troyes's unfinished Perceval, around 1190. In that first version it was a serving dish." },
+      { mile: 680, name: 'Glastonbury', region: 'at Glastonbury, the Isle of Avalon', sign: ['Glastonbury'], scene: 'tor',
+        badge: { id: 'cm-avalon', title: 'Isle of Avalon', icon: 'apple' },
+        fact: "In 1191, monks at Glastonbury Abbey claimed to have dug up Arthur and Guinevere's grave. Glastonbury has been Avalon ever since." },
+      { mile: 760, name: 'the Round Table', region: 'within sight of the Round Table', sign: ['Round', 'Table'],
+        badge: { id: 'cm-table', title: 'Knight of the Round Table', icon: 'roundtable' },
+        fact: 'The Round Table first appears in Wace\'s Roman de Brut in 1155. It was round so no knight could sit at the head and quarrel about rank.' },
+      { mile: 800, name: 'Camelot', region: 'inside the walls of Camelot', sign: ['CAMELOT'], scene: 'finish',
+        badge: { id: 'cm-camelot', title: 'Reached Camelot', icon: 'castle' },
+        fact: "Camelot is first named in Chrétien de Troyes's Lancelot, the Knight of the Cart. Where it stood, nobody has ever agreed." },
+    ],
+    milestones: [
+      { mile: 400, name: 'the halfway milestone', kind: 'milestone', badge: { id: 'cm-halfway', title: 'Half the Quest', icon: 'star' } },
+    ],
+  },
+
+  /* ---------- Across the Sea to Atlantis (Plato's myth; public domain) ---------- */
+  atlantis: {
+    id: 'atlantis',
+    title: 'Across the Sea to Atlantis',
+    start: 'the Pillars of Heracles',
+    end: 'Atlantis',
+    totalMiles: 1000,
+    public: true,
+    theme: 'atlantis',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: "A thousand miles out past the Pillars of Heracles to the island Plato said sank in a single day and night. Bring a towel.",
+    arrival: { title: 'You found Atlantis!', text: 'Plato said it was lost forever. Plato had not met you.' },
+    waypoints: [
+      { mile: 0, name: 'the Pillars of Heracles', region: 'passing the Pillars of Heracles', sign: ['Pillars of', 'Heracles'], scene: 'start',
+        fact: "Plato placed Atlantis 'beyond the Pillars of Heracles', the ancient name for the Strait of Gibraltar, in two dialogues written around 360 BC." },
+      { mile: 110, name: 'the open ocean', region: 'out on the open ocean', sign: ['Open', 'Ocean'], scene: 'sea',
+        badge: { id: 'at-ocean', title: 'Sea Legs', icon: 'wave' },
+        fact: "Plato said Atlantis was 'larger than Libya and Asia together', which to him meant North Africa and what is now Turkey." },
+      { mile: 230, name: 'the Sargasso drift', region: 'drifting through the Sargasso Sea', sign: ['Sargasso'],
+        badge: { id: 'at-sargasso', title: 'Sargasso Drifter', icon: 'seaweed' },
+        fact: 'The Sargasso Sea is the only sea on Earth with no coastline. It is bounded entirely by ocean currents.' },
+      { mile: 350, name: 'the Isle of Brass', region: 'at the Isle of Brass', sign: ['Isle of', 'Brass'], scene: 'isle',
+        badge: { id: 'at-brass', title: 'Isle of Brass', icon: 'anchor' },
+        fact: "Plato's Atlantis had rings of water and land, with walls plated in brass, tin and a mysterious red metal he called orichalcum." },
+      { mile: 480, name: "the dolphins' run", region: "swimming with the dolphins", sign: ["Dolphins'", 'Run'],
+        badge: { id: 'at-dolphins', title: 'Dolphin Escort', icon: 'dolphin' },
+        fact: 'Bottlenose dolphins can sprint at around 20 miles an hour. Your steady pace will get you there just the same.' },
+      { mile: 600, name: 'the coral shallows', region: 'over the coral shallows', sign: ['Coral', 'Shallows'], scene: 'shallows',
+        badge: { id: 'at-coral', title: 'Coral Shallows', icon: 'coral' },
+        fact: 'Plato wrote that the Atlanteans had hot and cold springs, gardens, gymnasiums and a racecourse a full stade wide, about 600 feet.' },
+      { mile: 720, name: 'the sunken road', region: 'along the sunken road', sign: ['Sunken', 'Road'],
+        badge: { id: 'at-sunken', title: 'The Sunken Road', icon: 'column' },
+        fact: "Atlantis sank 'in a single day and night of misfortune', Plato wrote: an earthquake and a flood, 9,000 years before his time." },
+      { mile: 850, name: 'the Outer Ring', region: 'crossing the Outer Ring', sign: ['Outer', 'Ring'], scene: 'rings',
+        badge: { id: 'at-ring', title: 'The Outer Ring', icon: 'rings' },
+        fact: "Plato's city was three rings of water around a central island. A great canal, deep enough for ships, cut through all of them to the sea." },
+      { mile: 950, name: 'the Temple of Poseidon', region: 'at the Temple of Poseidon', sign: ['Temple of', 'Poseidon'], scene: 'temple',
+        badge: { id: 'at-temple', title: 'Temple of Poseidon', icon: 'trident' },
+        fact: "At the center stood a temple to Poseidon a stade long, Plato said, its outside covered in silver and its pinnacles in gold." },
+      { mile: 1000, name: 'Atlantis', region: 'in the heart of Atlantis', sign: ['ATLANTIS'], scene: 'finish',
+        badge: { id: 'at-atlantis', title: 'Found Atlantis', icon: 'pearl' },
+        fact: 'Most historians think Plato invented Atlantis as a parable about pride. You walked a thousand miles to it anyway.' },
+    ],
+    milestones: [
+      { mile: 500, name: 'the halfway buoy', kind: 'milestone', badge: { id: 'at-halfway', title: 'Halfway Across', icon: 'star' } },
+    ],
+  },
+
+  /* ---------- The Quest to the Dark Mountain (our own world) ---------- */
+  'dark-mountain': {
+    id: 'dark-mountain',
+    title: 'The Quest to the Dark Mountain',
+    start: 'Hollowmere',
+    end: 'the Dark Mountain',
+    totalMiles: 1500,
+    public: true,
+    theme: 'volcano',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: 'Leave a quiet village, cross the High Pass and the Ash Plains, and climb the fiery mountain at the end of the world. Fifteen hundred miles of proper quest.',
+    arrival: { title: 'You reached the Dark Mountain!', text: 'Whatever you carried all this way, you can set it down now.' },
+    waypoints: [
+      { mile: 0, name: 'Hollowmere', region: 'leaving the village of Hollowmere', sign: ['Hollowmere'], scene: 'start',
+        lore: 'Every great quest starts at a front door. Yours just did.' },
+      { mile: 120, name: 'the Last Inn', region: 'at the Last Inn', sign: ['The Last', 'Inn'], scene: 'inn',
+        badge: { id: 'dm-inn', title: 'The Last Inn', icon: 'lantern' },
+        lore: "The sign over the door reads 'Rest here; the road remembers.' Travelers leave a pebble on the hearth for every mile behind them." },
+      { mile: 280, name: 'Thornwood', region: 'under the leaning trees of Thornwood', sign: ['Thornwood'], scene: 'wood',
+        badge: { id: 'dm-thornwood', title: 'Through Thornwood', icon: 'thorn' },
+        lore: 'The trees of Thornwood lean toward the road as if listening. Keep talking. They like the company.' },
+      { mile: 450, name: 'the High Pass', region: 'high on the High Pass', sign: ['High Pass'], scene: 'pass',
+        badge: { id: 'dm-pass', title: 'Over the High Pass', icon: 'mountain' },
+        lore: 'Snow sits on the High Pass all year. The wind there has a name, Old Whistler, and every traveler hears it say something different.' },
+      { mile: 620, name: 'the Ferry at Dunmere', region: 'crossing at the Ferry at Dunmere', sign: ['Dunmere', 'Ferry'], scene: 'river',
+        badge: { id: 'dm-ferry', title: 'Paid the Ferryman', icon: 'canoe' },
+        lore: 'The ferryman at Dunmere takes no coin. The fare is one true story from your road so far.' },
+      { mile: 800, name: 'the Lake of Reflections', region: 'beside the Lake of Reflections', sign: ['Lake of', 'Reflections'], scene: 'lake',
+        badge: { id: 'dm-lake', title: 'Lake of Reflections', icon: 'lake' },
+        lore: "On a still morning the lake shows you not your face but the road you've already walked. It is longer than you think." },
+      { mile: 980, name: 'the Marsh Lights', region: 'picking through the Marsh Lights', sign: ['Marsh', 'Lights'], scene: 'marsh',
+        badge: { id: 'dm-marsh', title: 'Not Led Astray', icon: 'wisp' },
+        lore: 'The marsh lights wander and want you to follow. Keep your eyes on the mountain and your feet on the planks.' },
+      { mile: 1150, name: 'the Ash Plains', region: 'out on the Ash Plains', sign: ['Ash Plains'], scene: 'ash',
+        badge: { id: 'dm-ash', title: 'Crossed the Ash Plains', icon: 'thistle' },
+        lore: "Nothing grows on the Ash Plains but one stubborn purple thistle. It's a lot like you." },
+      { mile: 1320, name: 'the Watchfires', region: 'climbing past the Watchfires', sign: ['Watchfires'], scene: 'fires',
+        badge: { id: 'dm-fires', title: 'Lit a Watchfire', icon: 'flame' },
+        lore: 'The watchfires on the ridge were lit by those who came before you. Someone will see yours and keep going.' },
+      { mile: 1450, name: 'the Mountain Gate', region: 'at the Mountain Gate', sign: ['Mountain', 'Gate'], scene: 'gate',
+        badge: { id: 'dm-gate', title: 'The Mountain Gate', icon: 'gate' },
+        lore: 'The gate is open. It always was. The hard part was the road, and the road is nearly done.' },
+      { mile: 1500, name: 'the Dark Mountain', region: 'at the summit of the Dark Mountain', sign: ['DARK MOUNTAIN'], scene: 'finish',
+        badge: { id: 'dm-summit', title: 'Climbed the Dark Mountain', icon: 'volcano' },
+        lore: 'From the top you can see Hollowmere, very small and very far away. You walked every step between.' },
+    ],
+    milestones: [
+      { mile: 750, name: 'the halfway cairn', kind: 'milestone', badge: { id: 'dm-halfway', title: 'Halfway There and Back Again', icon: 'star' } },
+    ],
+  },
+
+  /* ---------- The Camino de Santiago (a real pilgrimage route; miles approximate) ---------- */
+  camino: {
+    id: 'camino',
+    title: 'The Camino de Santiago',
+    start: 'Saint-Jean-Pied-de-Port',
+    end: 'Santiago de Compostela',
+    totalMiles: 485,
+    public: true,
+    theme: 'camino',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: 'The classic French Way: over the Pyrenees, across the wine country and the high plains of Spain, to the cathedral at Santiago. About 485 miles.',
+    arrival: { title: 'Buen Camino: you reached Santiago!', text: 'Pilgrims have walked this road for over a thousand years. Now you have too.' },
+    waypoints: [
+      { mile: 0, name: 'Saint-Jean-Pied-de-Port', region: 'leaving Saint-Jean-Pied-de-Port', sign: ['Saint-Jean-', 'Pied-de-Port'], scene: 'start',
+        fact: "The French Way begins here in the Pyrenees. Pilgrims carry a 'credencial', a passport stamped at each stop along the route." },
+      { mile: 15, name: 'Roncesvalles', region: 'at Roncesvalles, over the Pyrenees', sign: ['Roncesvalles'], scene: 'pass',
+        badge: { id: 'ca-roncesvalles', title: 'Over the Pyrenees', icon: 'mountain' },
+        fact: "Roncesvalles is where Charlemagne's rearguard was ambushed in 778, the battle behind the medieval Song of Roland." },
+      { mile: 42, name: 'Pamplona', region: 'in Pamplona', sign: ['Pamplona'],
+        badge: { id: 'ca-pamplona', title: 'Pamplona', icon: 'bull' },
+        fact: 'Pamplona is the first city on the route. Hemingway made its San Fermín festival, with its running of the bulls, famous in The Sun Also Rises.' },
+      { mile: 57, name: 'Puente la Reina', region: 'crossing the bridge at Puente la Reina', sign: ['Puente', 'la Reina'],
+        badge: { id: 'ca-puente', title: "The Queen's Bridge", icon: 'bridge' },
+        fact: "The town is named for its 11th-century bridge, built for pilgrims. Here two Camino routes from France merge into one." },
+      { mile: 99, name: 'Logroño', region: 'in Logroño, in the Rioja wine country', sign: ['Logroño'], scene: 'vines',
+        badge: { id: 'ca-logrono', title: 'Rioja Country', icon: 'grapes' },
+        fact: "Logroño is the capital of La Rioja, Spain's most famous wine region. Some of the vines along the road are older than you." },
+      { mile: 174, name: 'Burgos', region: 'in Burgos', sign: ['Burgos'], scene: 'meseta',
+        badge: { id: 'ca-burgos', title: 'Burgos Cathedral', icon: 'cathedral' },
+        fact: 'Burgos Cathedral took more than three centuries to finish, from 1221 to 1567, and is a UNESCO World Heritage Site.' },
+      { mile: 286, name: 'León', region: 'in León', sign: ['León'],
+        badge: { id: 'ca-leon', title: 'León', icon: 'stainedglass' },
+        fact: "León's cathedral has around 1,800 square meters of medieval stained glass, among the most of any Gothic church anywhere." },
+      { mile: 317, name: 'Astorga', region: 'in Astorga', sign: ['Astorga'],
+        badge: { id: 'ca-astorga', title: 'Astorga', icon: 'palace' },
+        fact: "Astorga's bishop's palace was designed by Antoni Gaudí, one of only three Gaudí buildings outside Catalonia." },
+      { mile: 351, name: 'Ponferrada', region: 'in Ponferrada', sign: ['Ponferrada'], scene: 'castle',
+        badge: { id: 'ca-ponferrada', title: 'Templar Castle', icon: 'castle' },
+        fact: "Ponferrada's castle belonged to the Knights Templar, who guarded pilgrims on the Camino in the 12th and 13th centuries." },
+      { mile: 385, name: 'O Cebreiro', region: 'up at O Cebreiro, entering Galicia', sign: ['O Cebreiro'], scene: 'galicia',
+        badge: { id: 'ca-cebreiro', title: 'Into Galicia', icon: 'hut' },
+        fact: 'O Cebreiro, about 1,300 meters up, has round thatched stone huts called pallozas, a design that goes back to pre-Roman times.' },
+      { mile: 413, name: 'Sarria', region: 'in Sarria', sign: ['Sarria'],
+        badge: { id: 'ca-sarria', title: 'The Last 100 km', icon: 'shell' },
+        fact: 'Sarria sits just over 100 km from Santiago, the minimum walk to earn the Compostela certificate, so many pilgrims start here.' },
+      { mile: 485, name: 'Santiago de Compostela', region: 'in the cathedral square at Santiago', sign: ['SANTIAGO'], scene: 'finish',
+        badge: { id: 'ca-santiago', title: 'Reached Santiago', icon: 'cathedral' },
+        fact: 'Pilgrims have walked to the cathedral, said to hold the remains of St. James, since the 9th century. The scallop shell is their symbol.' },
+    ],
+    milestones: [
+      { mile: 12, name: 'the Spanish border', kind: 'border', badge: { id: 'ca-spain', title: 'Into Spain', icon: 'roadsign' } },
+      { mile: 242, name: 'the halfway marker', kind: 'milestone', badge: { id: 'ca-halfway', title: 'Halfway to Santiago', icon: 'star' } },
+    ],
+  },
+
+  /* ---------- The Appalachian Trail (a real trail; miles approximate) ---------- */
+  appalachian: {
+    id: 'appalachian',
+    title: 'The Appalachian Trail',
+    start: 'Springer Mountain, Georgia',
+    end: 'Mount Katahdin, Maine',
+    totalMiles: 2190,
+    public: true,
+    theme: 'appalachian',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: 'Georgia to Maine through fourteen states: nearly 2,200 miles of green ridges, trail towns and one famous summit sign. A real thru-hike, at your own pace.',
+    arrival: { title: 'Katahdin! You finished the Appalachian Trail!', text: 'Touch the sign. You earned every one of these miles.' },
+    waypoints: [
+      { mile: 0, name: 'Springer Mountain', region: 'setting out from Springer Mountain, Georgia', sign: ['Springer', 'Mountain'], scene: 'start',
+        fact: 'About 3,000 people a year set out to hike the whole trail. Roughly one in four make it all the way.' },
+      { mile: 165, name: 'Fontana Dam', region: 'crossing Fontana Dam, North Carolina', sign: ['Fontana', 'Dam'],
+        badge: { id: 'ap-fontana', title: 'Fontana Dam', icon: 'dam' },
+        fact: 'At 480 feet, Fontana Dam is the tallest dam east of the Rockies. The trail walks straight across the top of it.' },
+      { mile: 200, name: 'Kuwohi', region: 'on top of Kuwohi in the Smokies', sign: ['Kuwohi'], scene: 'smokies',
+        badge: { id: 'ap-kuwohi', title: 'Highest Point', icon: 'mountain' },
+        fact: 'Kuwohi, long called Clingmans Dome, is 6,643 feet up and the highest point on the whole trail. It got its Cherokee name back in 2024.' },
+      { mile: 275, name: 'Hot Springs', region: 'in Hot Springs, North Carolina', sign: ['Hot Springs', 'NC'],
+        badge: { id: 'ap-hotsprings', title: 'Hot Springs', icon: 'hotspring' },
+        fact: 'Hot Springs is one of the few towns the trail walks right through, straight down the main street past the diner.' },
+      { mile: 470, name: 'Damascus', region: 'in Damascus, Virginia', sign: ['Damascus', 'VA'],
+        badge: { id: 'ap-damascus', title: 'Trail Town USA', icon: 'tent' },
+        fact: "Damascus calls itself 'Trail Town USA'. Its Trail Days festival every May draws thousands of hikers past and present." },
+      { mile: 860, name: 'Shenandoah', region: 'in Shenandoah National Park', sign: ['Shenandoah'], scene: 'shenandoah',
+        badge: { id: 'ap-shenandoah', title: 'Shenandoah', icon: 'bear' },
+        fact: 'Shenandoah has one of the densest black bear populations in the East. Hikers see them often; the bears are mostly after blueberries.' },
+      { mile: 1025, name: 'Harpers Ferry', region: 'in Harpers Ferry, West Virginia', sign: ['Harpers', 'Ferry'],
+        badge: { id: 'ap-harpers', title: 'Harpers Ferry', icon: 'camera' },
+        fact: "Harpers Ferry is the trail's 'psychological halfway point' and home of the Appalachian Trail Conservancy, where every thru-hiker gets a photo." },
+      { mile: 1100, name: 'Pine Grove Furnace', region: 'at Pine Grove Furnace, the true midpoint', sign: ['Pine Grove', 'Furnace'],
+        badge: { id: 'ap-halfgallon', title: 'Half Gallon Challenge', icon: 'icecream' },
+        fact: 'Pine Grove Furnace State Park marks the real midpoint. Tradition says you celebrate by eating a half gallon of ice cream in one sitting.' },
+      { mile: 1295, name: 'Delaware Water Gap', region: 'at the Delaware Water Gap', sign: ['Delaware', 'Water Gap'], scene: 'rocks',
+        badge: { id: 'ap-rocksylvania', title: 'Survived Rocksylvania', icon: 'rock' },
+        fact: "Hikers call Pennsylvania 'Rocksylvania' and swear the rocks are sharpened at night. The Delaware River marks the end of them." },
+      { mile: 1400, name: 'Bear Mountain', region: 'at Bear Mountain, New York', sign: ['Bear', 'Mountain'],
+        badge: { id: 'ap-bearmtn', title: 'Lowest Point', icon: 'footprints' },
+        fact: "The trail's lowest point, 124 feet above sea level, is inside the Trailside Museums and Zoo at Bear Mountain." },
+      { mile: 1590, name: 'Mount Greylock', region: 'on Mount Greylock, Massachusetts', sign: ['Mount', 'Greylock'], scene: 'autumn',
+        badge: { id: 'ap-greylock', title: 'Mount Greylock', icon: 'whale' },
+        fact: "Mount Greylock is the highest point in Massachusetts. Herman Melville could see it from his farm, and its snowy hump is said to have inspired Moby-Dick." },
+      { mile: 1750, name: 'Hanover', region: 'in Hanover, New Hampshire', sign: ['Hanover', 'NH'],
+        badge: { id: 'ap-hanover', title: 'Hanover', icon: 'book' },
+        fact: 'The trail runs straight through Dartmouth College in Hanover, along the sidewalks, past the library.' },
+      { mile: 1860, name: 'Mount Washington', region: 'on Mount Washington in the White Mountains', sign: ['Mount', 'Washington'], scene: 'whites',
+        badge: { id: 'ap-washington', title: 'Mount Washington', icon: 'wind' },
+        fact: 'In 1934, Mount Washington recorded a 231 mph gust, the fastest wind ever measured by people at the surface, a record that stood until 1996.' },
+      { mile: 2075, name: 'Monson', region: 'in Monson, Maine, at the edge of the 100-Mile Wilderness', sign: ['Monson', 'ME'], scene: 'wilderness',
+        badge: { id: 'ap-monson', title: '100-Mile Wilderness', icon: 'moose' },
+        fact: 'Monson is the last town before the 100-Mile Wilderness, the most remote stretch of the trail, with no resupply until Katahdin.' },
+      { mile: 2190, name: 'Mount Katahdin', region: 'on the summit of Katahdin', sign: ['KATAHDIN'], scene: 'finish',
+        badge: { id: 'ap-katahdin', title: 'Summited Katahdin', icon: 'summitsign' },
+        fact: "Katahdin means 'Greatest Mountain' in Penobscot. Its wooden summit sign is where thru-hikes end, with a photo and usually some tears." },
+    ],
+    milestones: [
+      { mile: 78, name: 'the North Carolina line', kind: 'border', badge: { id: 'ap-georgia', title: 'Out of Georgia', icon: 'roadsign' } },
+      { mile: 1460, name: 'the Connecticut line', kind: 'border', badge: { id: 'ap-newengland', title: 'Into New England', icon: 'mapleleaf' } },
+      { mile: 1910, name: 'the Maine line', kind: 'border', badge: { id: 'ap-maine', title: 'Into Maine', icon: 'pine' } },
+    ],
+  },
 };
 
-// The server-side code in functions/ imports this same file so the awards
-// use the very same stops. Browsers ignore this line.
-if (typeof globalThis !== 'undefined') globalThis.JOURNEYS = JOURNEYS;
+// The destinations offered on the "choose a destination" screen, in the order shown.
+const JOURNEY_ORDER = ['oz', 'camino', 'neverland', 'camelot', 'atlantis', 'dark-mountain', 'appalachian'];
+
+// The server-side code in functions/ imports this same file so the awards and the
+// team creation use the very same journeys. Browsers ignore this line.
+if (typeof globalThis !== 'undefined') { globalThis.JOURNEYS = JOURNEYS; globalThis.JOURNEY_ORDER = JOURNEY_ORDER; }
