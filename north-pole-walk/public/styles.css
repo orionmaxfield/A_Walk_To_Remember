@@ -627,12 +627,10 @@ form select[data-action="custom-choose"] {
   #app { max-width: 1040px; padding: 28px 24px calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 40px); }
   .header h1 { font-size: 28px; }
   .header select { max-width: 320px; }
-  #screen, #app > section {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start;
-  }
-  #screen > *, #app > section > * { margin-bottom: 0; }
-  #screen > .scene-page, #screen > .moment, #screen > .notice, #screen > .rhythm,
-  #app > section > .header, #app > section > .destinations, #app > section > .destination-preview, #app > section > .scene-page { grid-column: 1 / -1; }
+  #screen, #app > section:not(.cover) { display: block; columns: 2; column-gap: 18px; }
+  #screen > *, #app > section:not(.cover) > * { break-inside: avoid; margin-bottom: 18px; }
+  #screen > .scene-page, #screen > .moment, #screen > .notice, #screen > .rhythm, #screen > .recap, #screen > button,
+  #app > section > .header, #app > section > .destinations, #app > section > .destination-preview, #app > section > .scene-page { column-span: all; }
   .scene { height: 380px; }
   .destination-preview { height: 300px; }
   .destinations { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
@@ -665,3 +663,33 @@ form select[data-action="custom-choose"] {
 .invite-actions { display: flex; gap: 8px; }
 .invite-actions .button { min-height: 44px; padding: 8px 16px; }
 .page a { color: var(--gold-text); font-weight: 700; }
+
+/* A bouncier walk for the hiker (the elf keeps its original cycle) */
+@keyframes hiker-step { from { transform: rotate(-27deg); } to { transform: rotate(27deg); } }
+@keyframes hiker-bob { from { transform: translateY(0); } to { transform: translateY(-3.6px); } }
+.scene-svg .hiker .elf-leg-f { animation: hiker-step 0.46s ease-in-out infinite alternate; }
+.scene-svg .hiker .elf-leg-b { animation: hiker-step 0.46s ease-in-out infinite alternate-reverse; }
+.scene-svg .hiker .elf-arm-b { animation-duration: 0.46s; }
+.scene-svg .hiker .elf-walk { animation: hiker-bob 0.23s ease-in-out infinite alternate; }
+.scene.arrived .hiker .elf-leg-f, .scene.arrived .hiker .elf-leg-b, .scene.arrived .hiker .elf-walk { animation: none; }
+
+/* ---------- Round 2: avatars, starter goal, recap, header ---------- */
+.avatar.has-photo { position: relative; overflow: hidden; }
+.avatar.has-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.avatar.has-photo b { font-weight: 700; }
+.starter-goal { flex-basis: 100%; border-top: 1px solid rgba(43, 36, 31, 0.12); padding-top: 12px; }
+.starter-goal p { margin-bottom: 8px; }
+.starter-goal .row .button { min-height: 44px; }
+.recap { border-left: 4px solid var(--gold); }
+.recap .cal-head h2 { text-align: left; }
+.recap .cal-head .small-btn { min-width: 40px; font-size: 16px; }
+.header {
+  position: relative; padding: 14px 16px 16px; margin: -8px -4px 16px; border-radius: 16px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 60' preserveAspectRatio='none'%3E%3Cpath d='M0 42 Q80 22 160 38 T320 34 T480 40 T600 32 L600 60 L0 60Z' fill='%23101d33'/%3E%3Cpath d='M0 52 Q120 40 240 50 T480 48 T600 46 L600 60 L0 60Z' fill='%230c1628'/%3E%3C/svg%3E") no-repeat center bottom / 100% 60px,
+    linear-gradient(180deg, rgba(31, 48, 82, 0.95), rgba(21, 34, 58, 0.85));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+.header::before { content: ''; position: absolute; inset: 0; border-radius: 16px; background: radial-gradient(ellipse 60% 80% at 85% 0%, rgba(111, 227, 180, 0.14), transparent 70%); pointer-events: none; }
+.header > * { position: relative; }
+@media (min-width: 900px) { .header { margin: 0 0 18px; padding: 18px 22px 20px; } }

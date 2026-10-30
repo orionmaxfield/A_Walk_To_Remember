@@ -24,7 +24,7 @@ export async function onRequestGet({ request, env, data }) {
         WHERE m.team_id = ? ORDER BY m.joined_at`
     ).bind(teamId),
     env.DB.prepare(
-      `SELECT e.id, e.miles, e.note, e.logged_at, e.user_id, u.name
+      `SELECT e.id, e.miles, e.note, e.logged_at, e.user_id, u.name, u.picture
          FROM mile_entries e JOIN users u ON u.id = e.user_id
         WHERE e.team_id = ? ORDER BY e.id DESC LIMIT 30`
     ).bind(teamId),

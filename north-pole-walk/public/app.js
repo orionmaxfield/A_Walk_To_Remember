@@ -23,6 +23,8 @@
     goalOpen: false,    // the goal form on the Journey tab
     tab: 'journey',
     picking: null,       // destination picker: null, or { journeyId: null | 'oz' … }
+    awardsAll: false,    // Awards tab: the full list, or Earned + Next up
+    recap: null,         // response from /api/recap (last week on this walk)
     feedOpen: false,     // "Latest on the trail" shows 6 entries, or all of them
     lastShownMile: null, // so the walker animates from where it was
     busy: false,
@@ -63,6 +65,8 @@
     try { localStorage.setItem('units', u === 'km' ? 'km' : 'mi'); } catch (e) { /* stays for this visit only */ }
   }
   const isKm = () => units() === 'km';
+  function flag(name) { try { return localStorage.getItem(name) === '1'; } catch (e) { return false; } }
+  function setFlag(name, on) { try { if (on) localStorage.setItem(name, '1'); else localStorage.removeItem(name); } catch (e) { /* no storage */ } }
   // A stored mile value as the number the walker sees.
   function dnum(miles) { return isKm() ? Number(miles) * KM_PER_MILE : Number(miles); }
   // "2.5 mi" / "4 km"
@@ -76,7 +80,7 @@
     const t = a.progress && a.progress.text ? a.progress.text : '';
     if (!isKm()) return t;
     const m = t.match(/^(.*?)([\d,.]+) \/ ([\d,.]+) miles$/);
-    return m ? `${m[1]}${fmt(dnum(a.progress.value), 1)} / ${fmt(dnum(a.progress.goal), 0)} km` : t;
+    return m ? `${m[1]}${fmt(dnum(a.progress.value), 1)} / ${fmt(dnum(a.progress.goal))} km` : t;
   }
 
   function whenText(sqlDate) {
@@ -223,12 +227,14 @@
 
   async function loadJourney() {
     const before = state.journey && state.journey.team.id;
-    const [journey, rhythm] = await Promise.all([
+    const [journey, rhythm, recap] = await Promise.all([
       api('/api/journey?team=' + encodeURIComponent(state.teamId)),
       api('/api/rhythm').catch(() => null),
+      api('/api/recap?team=' + encodeURIComponent(state.teamId)).catch(() => null),
     ]);
     state.journey = journey;
     state.rhythm = rhythm;
+    state.recap = recap;
     state.awards = null; // miles changed, so awards may have too
     state.history = null;
     if (before !== state.journey.team.id) state.feedOpen = false;
@@ -383,7 +389,7 @@
         <span class="destination-art" aria-hidden="true">${destinationArt(J)}</span>
         <span class="destination-copy">
           <strong>${esc(J.title)}</strong>
-          <span class="destination-miles">${fmtDist(J.totalMiles, 0)} · ${esc(J.start)} to ${esc(J.end)}</span>
+          <span class="destination-miles">${fmtDist(J.totalMiles)} · ${esc(J.start)} to ${esc(J.end)}</span>
           <span class="destination-blurb">${esc(J.blurb)}</span>
         </span>
       </button>
@@ -404,7 +410,7 @@
         <div class="header">
           <div>
             <h1>${esc(J.title)}</h1>
-            <div class="team-name">${fmtDist(J.totalMiles, 0)} · ${esc(J.start)} to ${esc(J.end)}</div>
+            <div class="team-name">${fmtDist(J.totalMiles)} · ${esc(J.start)} to ${esc(J.end)}</div>
           </div>
           <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
         </div>
@@ -425,7 +431,7 @@
         <div class="page">
           <h2>Along the way</h2>
           <ol class="stops">
-            ${stops.map((w) => `<li><span class="stop-mile">${fmt(dnum(w.mile), 0)}</span><span>${esc(capitalize(w.name))}</span></li>`).join('')}
+            ${stops.map((w) => `<li><span class="stop-mile">${fmt(dnum(w.mile))}</span><span>${esc(capitalize(w.name))}</span></li>`).join('')}
           </ol>
         </div>
       </section>`;
@@ -466,7 +472,7 @@
           </form>
           ${miles ? `
           <div class="route-summary">
-            <h2>${fmtDist(miles, 0)}</h2>
+            <h2>${fmtDist(miles)}</h2>
             <p class="small muted">${esc(f.start.name)} to ${esc(f.end.name)}, as the roads run (straight-line distance plus a fifth). ${esc(dailyHint({ totalMiles: miles }))}</p>
           </div>
           <div class="start-buttons">
@@ -598,7 +604,7 @@
     const who = isSolo() ? 'You are' : 'Your team is';
     const where = p.arrived
       ? `${who} ${esc(p.J.waypoints[p.J.waypoints.length - 1].region)}.`
-      : `${who} ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(capitalize(p.next.name))}, ${fmtDist(p.next.mile - p.mile, 0)} ahead.` : ''}`;
+      : `${who} ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(capitalize(p.next.name))}, ${fmtDist(p.next.mile - p.mile)} ahead.` : ''}`;
     const card = stopCard(p.here);
     const inviteLink = `${location.origin}/join/${state.journey.team.invite_code}`;
 
@@ -611,6 +617,7 @@
       ${momentBanner(p)}
       ${installHint()}
       ${rhythmCard(p)}
+      ${recapCard(p)}
 
       <div class="page milepost-page">
         <div class="milepost" aria-hidden="true">
@@ -619,9 +626,9 @@
           <div class="ground"></div>
         </div>
         <div class="progress-copy">
-          <h2>${fmt(dnum(p.total), 0)} of ${fmtDist(p.goal, 0)}</h2>
+          <h2>${fmt(dnum(p.total))} of ${fmtDist(p.goal)}</h2>
           <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
-          <p class="small">${p.arrived ? 'Journey complete' : p.total <= 0 ? `<strong>Take your first step.</strong> ${fmtDist(p.goal, 0)} to ${esc(p.J.end)}` : `${Math.floor(p.pct)}% there, ${fmtDist(p.goal - p.total, 0)} to go`}</p>
+          <p class="small">${p.arrived ? 'Journey complete' : p.total <= 0 ? `<strong>Take your first step.</strong> ${fmtDist(p.goal)} to ${esc(p.J.end)}` : `${Math.floor(p.pct)}% there, ${fmtDist(p.goal - p.total)} to go`}</p>
           <p class="small muted">${p.total <= 0 ? `The marker is waiting at ${esc(p.J.start)}. Your first walk moves it.` : where}</p>
           ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:6px">Replay the celebration</button>` : ''}
         </div>
@@ -630,7 +637,7 @@
       <div class="page fact remember">
         <h2>${esc(card.heading)}</h2>
         <p>${esc(card.text)}</p>
-        <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile), 0)}</p>
+        <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile))}</p>
       </div>
 
       ${isSolo() ? `
@@ -656,6 +663,31 @@
           : `<div class="first-step"><p class="muted">${isSolo() ? 'No miles yet. Even a walk around the block counts.' : 'No miles yet. Be the first to take a step.'}</p><button class="button" data-action="tab" data-tab="log">Log your first walk</button></div>`}
         ${all.length > 6 && !state.feedOpen ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show more</button>` : ''}
       </div>`;
+  }
+
+  /* ---------- Monday recap: last week on this walk ---------- */
+
+  function recapCard(p) {
+    const R = state.recap;
+    if (!R) return '';
+    let dismissed = '';
+    try { dismissed = localStorage.getItem('recapDismissed') || ''; } catch (e) { /* ok */ }
+    const forced = location.search.includes('recap=1');
+    if ((!R.isMonday && !forced) || dismissed === R.weekStart) return '';
+    if (R.teamMiles <= 0) return '';
+    const solo = isSolo();
+    const moved = R.endMile > R.startMile
+      ? `The marker moved from ${isKm() ? 'km' : 'mile'} ${fmt(dnum(R.startMile))} to ${fmt(dnum(R.endMile))}${R.stopsPassed.length ? `, passing ${esc(listNames(R.stopsPassed.map(capitalize)))}` : ''}.`
+      : 'The marker stayed put.';
+    const you = solo
+      ? `You walked <strong>${fmtDist(R.myMiles)}</strong> on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.`
+      : `The team walked <strong>${fmtDist(R.teamMiles)}</strong>; you added ${fmtDist(R.myMiles)} on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.${R.topName ? ` Most miles: ${esc(R.topName)}.` : ''}`;
+    const best = R.bestDay ? ` Your best day was ${R.bestDay.weekday}, ${fmtDist(R.bestDay.miles)}.` : '';
+    return `<div class="page recap">
+      <div class="cal-head"><h2>Last week</h2><button type="button" class="button quiet small-btn" data-action="dismiss-recap" aria-label="Dismiss">✕</button></div>
+      <p>${you}${best}</p>
+      <p class="small muted">${moved}${R.arrived ? ' Journey complete!' : ''}</p>
+    </div>`;
   }
 
   /* ---------- "You are here": the moment right after an entry ---------- */
@@ -694,6 +726,13 @@
     const ringLabel = target
       ? `${fmt(dnum(done), 1)} of ${fmtDist(target, 1)} ${period === 'week' ? 'this week' : 'today'}`
       : `${fmtDist(done, 1)} ${period === 'week' ? 'this week' : 'today'}`;
+    let starter = '';
+    if (!goal && !state.goalOpen && R.features && R.features.goal && !flag('goalOfferDismissed')) {
+      starter = `<div class="starter-goal">
+          <p class="small">Most walkers start with <strong>${isKm() ? '3 km' : '2 mi'} a day</strong>. Set that as your goal?</p>
+          <div class="row"><button class="button" type="button" data-action="accept-starter-goal">Yes, ${isKm() ? '3 km' : '2 mi'} a day</button><button class="button quiet" type="button" data-action="dismiss-starter-goal">Not now</button></div>
+        </div>`;
+    }
     const goalForm = state.goalOpen ? `
         <form data-form="set-goal" class="goal-form">
           <div class="row">
@@ -721,9 +760,10 @@
           <strong>${ringLabel}</strong>
           <span class="streak ${R.walkedToday && R.streak >= 2 ? 'hot' : ''}">${flameSvg()} ${esc(streakText)}</span>
           ${nextStop ? `<span class="next-stop">${nextStop}</span>` : ''}
-          ${!state.goalOpen ? `<button type="button" class="button link" data-action="toggle-goal">${target ? 'Change goal' : (R.features && R.features.goal ? 'Set a daily goal' : '')}</button>` : ''}
+          ${!state.goalOpen && (target || flag('goalOfferDismissed')) ? `<button type="button" class="button link" data-action="toggle-goal">${target ? 'Change goal' : (R.features && R.features.goal ? 'Set a daily goal' : '')}</button>` : ''}
         </div>
         ${goalForm}
+        ${starter}
         ${!p.arrived ? `<div class="quick-row in-rhythm" aria-label="Quick add">${QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-amount="${m}">+${m}<small>${units()}</small></button>`).join('')}</div>` : ''}
       </div>`;
   }
@@ -736,12 +776,21 @@
     const mine = e.user_id === state.user.id;
     const cheersOn = !isSolo() && state.journey.features && state.journey.features.cheers;
     return `<li data-entry="${e.id}">
-      <span class="avatar">${esc((e.name || '?')[0].toUpperCase())}</span>
+      ${avatar(e)}
       <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span>${cheersOn ? cheerLine(e) : ''}</div>
       <span class="miles">${fmtDist(e.miles)}</span>
       ${mine ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}" aria-label="Edit this entry">edit</button>`
         : cheersOn ? `<button type="button" class="cheer ${e.cheered ? 'on' : ''}" data-action="cheer" data-id="${e.id}" aria-pressed="${e.cheered ? 'true' : 'false'}" aria-label="${e.cheered ? 'Take back your cheer' : 'Cheer'}">${heartSvg()}<b>${e.cheers || ''}</b></button>` : ''}
     </li>`;
+  }
+
+  // A Google profile photo when we have one, otherwise the person's initial.
+  function avatar(person) {
+    const initial = esc(((person && person.name) || '?')[0].toUpperCase());
+    if (person && person.picture) {
+      return `<span class="avatar has-photo"><img src="${esc(person.picture)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()"><b>${initial}</b></span>`;
+    }
+    return `<span class="avatar">${initial}</span>`;
   }
 
   function heartSvg() {
@@ -973,7 +1022,7 @@
         <h2>Walking together (${members.length})</h2>
         <ul class="list">
           ${members.map((m) => `<li>
-            ${m.picture ? `<img class="avatar" src="${esc(m.picture)}" alt="" referrerpolicy="no-referrer">` : `<span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>`}
+            ${avatar(m)}
             <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>joined ${esc(whenText(m.joined_at))}</span></div>
           </li>`).join('')}
         </ul>
@@ -1017,7 +1066,7 @@
     }
     const rows = (J.standings || []).map((m, i) => `<li class="${m.id === state.user.id ? 'me' : ''}">
         <span class="rank">${i < 3 && m.total > 0 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
-        ${m.picture ? `<img class="avatar" src="${esc(m.picture)}" alt="" referrerpolicy="no-referrer">` : `<span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>`}
+        ${avatar(m)}
         <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>${fmtDist(m.week)} this week</span></div>
         <span class="miles">${fmtDist(m.total)}</span>
       </li>`).join('');
@@ -1062,26 +1111,44 @@
     if (!A) {
       return `<div class="page"><h2>Awards</h2><p class="muted small">Opening the trophy case…</p></div>`;
     }
-    const teamEarned = A.team.filter((a) => a.earned).length;
-    const mineEarned = A.personal.filter((a) => a.earned).length;
     const hero = A.hero || 'Elf';
     const solo = isSolo();
+    const all = [...A.team.map((a) => ({ ...a, section: 'team' })), ...A.personal.map((a) => ({ ...a, section: 'personal' }))];
+    const earned = all.filter((a) => a.earned).sort((a, b) => String(b.earnedAt).localeCompare(String(a.earnedAt)));
+    const ratio = (a) => (a.progress && a.progress.goal ? a.progress.value / a.progress.goal : -1);
+    const nextUp = all.filter((a) => !a.earned).sort((a, b) => ratio(b) - ratio(a)).slice(0, 3);
     const lastWeek = A.elfOfLastWeek && A.elfOfLastWeek.names.length
       ? `Last week's ${esc(hero)} of the Week: <strong>${esc(listNames(A.elfOfLastWeek.names))}</strong>`
       : `Last week's ${esc(hero)} of the Week: <strong>nobody logged last week</strong>`;
+    if (state.awardsAll) {
+      return `
+        ${routeNotice()}
+        <div class="page">
+          <div class="cal-head"><h2>${solo ? 'Journey Awards' : 'Team Awards'}</h2><button type="button" class="button quiet small-btn" data-action="awards-less">Back</button></div>
+          <p class="muted small">${solo ? 'Earned by reaching each stop on the trail.' : 'Everyone on the team sees these the same way.'} ${A.team.filter((a) => a.earned).length} of ${A.team.length} earned.</p>
+          ${solo ? '' : `<p class="small elf-week">${lastWeek}</p>`}
+          <ul class="badges">${A.team.map(badgeCard).join('')}</ul>
+        </div>
+        <div class="page">
+          <h2>Your Awards</h2>
+          <p class="muted small">Earned by your own miles. ${A.personal.filter((a) => a.earned).length} of ${A.personal.length} earned.</p>
+          <ul class="badges">${A.personal.map(badgeCard).join('')}</ul>
+        </div>`;
+    }
     return `
       ${routeNotice()}
       <div class="page">
-        <h2>${solo ? 'Journey Awards' : 'Team Awards'}</h2>
-        <p class="muted small">${solo ? 'Earned by reaching each stop on the trail.' : 'Everyone on the team sees these the same way.'} ${teamEarned} of ${A.team.length} earned.</p>
-        ${solo ? '' : `<p class="small elf-week">${lastWeek}</p>`}
-        <ul class="badges">${A.team.map(badgeCard).join('')}</ul>
+        <h2>Earned</h2>
+        <p class="muted small">${earned.length} of ${all.length} awards so far.${!solo ? ` ${lastWeek}` : ''}</p>
+        ${earned.length ? `<ul class="badges">${earned.map(badgeCard).join('')}</ul>` : `<p class="muted">Nothing yet. Your first walk earns the first one.</p>`}
       </div>
+      ${nextUp.length ? `
       <div class="page">
-        <h2>Your Awards</h2>
-        <p class="muted small">Earned by your own miles. ${mineEarned} of ${A.personal.length} earned.</p>
-        <ul class="badges">${A.personal.map(badgeCard).join('')}</ul>
-      </div>`;
+        <h2>Next up</h2>
+        <p class="muted small">The three closest.</p>
+        <ul class="badges">${nextUp.map(badgeCard).join('')}</ul>
+      </div>` : ''}
+      <button class="button quiet on-night wide" type="button" data-action="awards-all">See all ${all.length} awards</button>`;
   }
 
   /* ---------- Settings ---------- */
@@ -1176,7 +1243,7 @@
         <ul class="stat-row">
           <li><strong>${R.streak}</strong><span>day streak</span></li>
           <li><strong>${R.bestStreak}</strong><span>best streak</span></li>
-          <li><strong>${fmt(dnum(Hs.allTimeMiles), 0)}</strong><span>${unitWord()} ever</span></li>
+          <li><strong>${fmt(dnum(Hs.allTimeMiles))}</strong><span>${unitWord()} ever</span></li>
           <li><strong>${R.daysWalked}</strong><span>days walked</span></li>
         </ul>` : '';
     return `
@@ -1403,6 +1470,9 @@
     });
 
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
+    if (action === 'awards-all') { state.awardsAll = true; renderScreen(); }
+    if (action === 'awards-less') { state.awardsAll = false; renderScreen(); }
+    if (action === 'dismiss-recap') { try { localStorage.setItem('recapDismissed', state.recap ? state.recap.weekStart : '1'); } catch (e) { /* ok */ } renderScreen(); }
     if (action === 'open-settings') { state.tab = 'settings'; renderScreen(); }
     if (action === 'close-settings') { state.tab = 'journey'; renderScreen(); }
     if (action === 'dismiss-install') { try { localStorage.setItem('installHintDismissed', '1'); } catch (e) { /* ok */ } document.querySelectorAll('.notice').forEach((n) => n.remove()); }
@@ -1412,6 +1482,13 @@
       p.userChoice.then(() => { try { localStorage.setItem('installHintDismissed', '1'); } catch (e) { /* ok */ } renderScreen(); }).catch(() => {});
     }
     if (action === 'toggle-goal') { state.goalOpen = !state.goalOpen; renderScreen(); }
+    if (action === 'dismiss-starter-goal') { setFlag('goalOfferDismissed', true); renderScreen(); }
+    if (action === 'accept-starter-goal') withBusy(async () => {
+      await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: isKm() ? 3 / KM_PER_MILE : 2, period: 'day' }) });
+      await loadJourney();
+      renderScreen();
+      toast(`Goal set: ${isKm() ? '3 km' : '2 mi'} a day`);
+    });
     if (action === 'history-month') { state.history = null; state.historyMonth = el.dataset.month; renderScreen(); }
     if (action === 'clear-goal') withBusy(async () => {
       await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: 0 }) });

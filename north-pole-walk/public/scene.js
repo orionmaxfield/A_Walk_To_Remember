@@ -367,6 +367,7 @@
       for (let x = x0; x < x1; x += 46 + r() * 40) waves += `M${x.toFixed(0)} ${(HORIZON - 16 + r() * 14).toFixed(0)} q6 -2 12 0`;
       out += `<path d="${waves}" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>`;
     }
+    if (theme.depth !== false && c.hillFar) out += `<path d="${hills(x0, x1, HORIZON - 10, 70 * amp, r)}" fill="${c.hillFar}" opacity="0.9"/>`;
     out += `<path d="${hills(x0, x1, HORIZON, 48 * amp, r)}" fill="${c.hillBack}"/>`;
     if (theme.midBehind) out += theme.midBehind(ctx);
     out += `<path d="${hills(x0, x1, HORIZON + 4, 26 * amp, r)}" fill="${c.hillFront}"/>`;
@@ -784,6 +785,17 @@
         const s = mx(marks.start);
         out += cottage(s - 70, HORIZON + 8, 26, 16, '#6fa6e8', '#2b5fa8', false) + cottage(s - 36, HORIZON + 10, 20, 14, '#8fbdf0', '#2b5fa8', false) + cottage(s + 8, HORIZON + 8, 24, 15, '#6fa6e8', '#2b5fa8', false);
       }
+      // The Scarecrow on his pole, in the cornfield behind the road
+      if (marks.corn != null) {
+        const sx = mx(marks.corn) + 95;
+        out += `<g transform="translate(${sx.toFixed(0)} ${HORIZON + 8}) scale(0.85)">
+          <rect x="-2" y="-62" width="4" height="62" fill="#8b5a2b"/><rect x="-22" y="-50" width="44" height="4" fill="#8b5a2b"/>
+          <path d="M-12 -48 h24 v24 h-24z" fill="#3b6ea8"/><path d="M-22 -48 h10 v6 h-10z M12 -48 h10 v6 h-10z" fill="#3b6ea8"/>
+          <path d="M-14 -46 l-10 2 M14 -46 l10 2" stroke="#e2b04c" stroke-width="2"/>
+          <circle cy="-58" r="9" fill="#ead9a8"/><circle cx="-3" cy="-60" r="1.3" fill="#2b241f"/><circle cx="3" cy="-60" r="1.3" fill="#2b241f"/><path d="M-3 -55 q3 2 6 0" stroke="#2b241f" stroke-width="1" fill="none"/>
+          <path d="M-14 -66 h28 l-6 -3 h-16z" fill="#8b5a2b"/><path d="M-6 -69 h12 v-7 h-12z" fill="#8b5a2b"/>
+        </g>`;
+      }
       return out;
     },
     nearBehind({ marks, nx, r }) {
@@ -792,15 +804,6 @@
         for (let x = nx(marks.corn) - 170; x < nx(marks.corn) + 120; x += 11 + r() * 6) {
           out += `<use href="#${id('corn')}" transform="translate(${x.toFixed(0)} ${SIGN_BASE - 2 - Math.round(r() * 5)}) scale(${(0.8 + r() * 0.4).toFixed(2)})"/>`;
         }
-        // The Scarecrow on his pole
-        const sx = nx(marks.corn) - 60;
-        out += `<g transform="translate(${sx.toFixed(0)} ${SIGN_BASE})">
-          <rect x="-2" y="-62" width="4" height="62" fill="#8b5a2b"/><rect x="-22" y="-50" width="44" height="4" fill="#8b5a2b"/>
-          <path d="M-12 -48 h24 v24 h-24z" fill="#3b6ea8"/><path d="M-22 -48 h10 v6 h-10z M12 -48 h10 v6 h-10z" fill="#3b6ea8"/>
-          <path d="M-14 -46 l-10 2 M14 -46 l10 2" stroke="#e2b04c" stroke-width="2"/>
-          <circle cy="-58" r="9" fill="#ead9a8"/><circle cx="-3" cy="-60" r="1.3" fill="#2b241f"/><circle cx="3" cy="-60" r="1.3" fill="#2b241f"/><path d="M-3 -55 q3 2 6 0" stroke="#2b241f" stroke-width="1" fill="none"/>
-          <path d="M-14 -66 h28 l-6 -3 h-16z" fill="#8b5a2b"/><path d="M-6 -69 h12 v-7 h-12z" fill="#8b5a2b"/>
-        </g>`;
       }
       if (marks.poppies != null) {
         for (let x = nx(marks.poppies) - 190; x < nx(marks.poppies) + 110; x += 7 + r() * 8) {
@@ -1359,9 +1362,10 @@
     midFront({ marks, mx }) {
       let out = '';
       if (marks.shenandoah != null) {
-        // A trail shelter (lean-to)
+        // A trail shelter (lean-to), and a black bear nosing about behind the trail
         const s = mx(marks.shenandoah) - 30;
         out += `<g transform="translate(${s.toFixed(0)} ${HORIZON + 8})"><path d="M-22 0 v-22 l44 -8 v30z" fill="#6b4320"/><path d="M-26 -22 l48 -9 l4 6 l-50 9z" fill="#4a3a2f"/><rect x="-18" y="-12" width="18" height="12" fill="#2b241f"/></g>`;
+        out += `<g transform="translate(0 ${HORIZON + 10 - SIGN_BASE}) scale(1)">${blackBear(mx(marks.shenandoah) + 60)}</g>`;
       }
       return out;
     },
@@ -1389,9 +1393,6 @@
       return out;
     },
     nearFront({ marks, nx }) {
-      if (marks.shenandoah != null) {
-        return blackBear(nx(marks.shenandoah) + 70) + (marks.finish != null ? finishBanner(nx(marks.finish), 'KATAHDIN', '#5a3415') : '');
-      }
       return marks.finish != null ? finishBanner(nx(marks.finish), 'KATAHDIN', '#5a3415') : '';
     },
   };
@@ -1461,6 +1462,33 @@
     return THEMES[J.theme] || THEMES.arctic;
   }
 
+  // Mix two colours (hex or rgb()) by k.
+  function mix(a, b, k) {
+    const pa = parseColor(a), pb = parseColor(b);
+    return `rgb(${Math.round(lerp(pa[0], pb[0], k))},${Math.round(lerp(pa[1], pb[1], k))},${Math.round(lerp(pa[2], pb[2], k))})`;
+  }
+  function parseColor(c) {
+    if (c[0] === '#') return rgb(c);
+    const m = String(c).match(/(\d+)\D+(\d+)\D+(\d+)/);
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+  }
+
+  // The sky follows the walker's clock: warm at dawn, bright by day, amber at dusk,
+  // dark at night. A gentle tint over the theme's own palette (the office's arctic
+  // scene keeps its own light).
+  function timeOfDay(c, hour) {
+    const h = hour == null ? new Date().getHours() + new Date().getMinutes() / 60 : hour;
+    let tint = null, k = 0;
+    if (h >= 5 && h < 8) { tint = ['#f6b980', '#ffd9a0', '#ffe9c8']; k = 0.45 * (1 - Math.abs(h - 6.5) / 1.5); }
+    else if (h >= 17 && h < 20.5) { tint = ['#c96a5a', '#f08a58', '#ffd9a0']; k = 0.5 * (1 - Math.abs(h - 18.75) / 1.75); }
+    else if (h >= 20.5 || h < 5) { tint = ['#0d1a3c', '#182a55', '#30416e']; k = 0.55; }
+    if (!tint || k <= 0) return c;
+    const out = Object.assign({}, c);
+    out.skyTop = mix(c.skyTop, tint[0], k); out.skyMid = mix(c.skyMid, tint[1], k); out.skyBot = mix(c.skyBot, tint[2], k);
+    if (tint[0] === '#0d1a3c') { out.stars = Math.max(c.stars || 0, 0.7); out.sunOp = (c.sunOp || 0) * 0.3; out.moonOp = Math.max(c.moonOp || 0, 0.8); out.moonY = c.moonY || 50; }
+    return out;
+  }
+
   // The full SVG for a journey at a given mile. VW is the viewBox width.
   function render(J, mile, VW, opts) {
     const theme = themeFor(J);
@@ -1470,8 +1498,10 @@
     const marks = sceneMarks(J);
     const k = {};
     for (const key in (theme.fracs || {})) k[key] = marks[key] != null ? marks[key] / total : theme.fracs[key];
-    const c = theme.palette(t, k);
+    let c = theme.palette(t, k);
+    if (theme.walker === 'hiker' && !opts.still) c = timeOfDay(c, opts.hour);
     c.t = t;
+    if (!c.hillFar) c.hillFar = mix(c.hillBack, c.skyBot, 0.55);
     const vars = `--tree:${c.tree};--leaf:${c.leaf || c.tree};--tree-snow:${f2(c.treeSnow || 0)};--patch:${f2(c.patch || 0)}`;
     const walker = theme.walker === 'hiker' ? hiker(VW / 2) : elf(VW / 2);
     const weather = opts.still ? '' : snowfall(VW, c, c.embers ? '#ffb347' : null);
