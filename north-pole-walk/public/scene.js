@@ -1758,19 +1758,22 @@
     const x0 = scale > 1 ? VW / 2 - 110 * scale : VW - 250, base = HORIZON + 6;
     const ink = 'rgba(8, 8, 10, 0.82)';
     let g = '';
-    if (has('forest', 'wood', 'tree', 'grove', 'jungle')) {
+    if (has('ship', 'boat', 'ferry', 'harbor', 'harbour', 'drift', 'dolphin')) {
+      // A sailing ship low on the water
+      g = `<path d="M${x0 - 40} ${base + 10} q60 -14 120 0 t120 0 t60 -2 v26 h-300z" fill="${ink}"/><path d="M${x0 + 40} ${base - 6} h140 l-18 24 h-104z" fill="${ink}"/><rect x="${x0 + 108}" y="${base - 96}" width="5" height="92" fill="${ink}"/><path d="M${x0 + 113} ${base - 90} l62 70 h-62z" fill="${ink}"/><path d="M${x0 + 108} ${base - 84} l-50 62 h50z" fill="${ink}"/><path d="M${x0 + 60} ${base + 14} q40 -8 80 0" stroke="rgba(255,200,150,0.35)" stroke-width="2" fill="none"/>`;
+    } else if (has('forest', 'wood', 'tree', 'grove', 'jungle', 'wilderness', 'autumn', 'thorn', 'smokies', 'shenandoah')) {
       g = [0, 42, 78, 118, 150, 190].map((dx, i) => { const h = 70 + (i % 3) * 22; return `<path d="M${x0 + dx} ${base} l-20 0 l20 -${h} l20 ${h} z" fill="${ink}"/><rect x="${x0 + dx - 3}" y="${base - 2}" width="6" height="12" fill="${ink}"/>`; }).join('');
-    } else if (has('river', 'crossing', 'lake', 'lagoon', 'sea', 'bay', 'shore', 'harbor', 'harbour', 'falls', 'ford')) {
+    } else if (has('river', 'crossing', 'lake', 'lagoon', 'sea', 'ocean', 'bay', 'shore', 'falls', 'ford', 'dam', 'shallows', 'coral', 'marsh', 'water gap', 'reflections')) {
       g = `<path d="M${x0 - 40} ${base + 10} q60 -16 120 0 t120 0 t80 -4 v30 h-320z" fill="${ink}"/><path d="M${x0 + 10} ${base + 16} q40 -8 80 0 M${x0 + 120} ${base + 22} q40 -8 80 0" stroke="rgba(255,200,150,0.35)" stroke-width="2" fill="none"/>`;
-    } else if (has('mountain', 'gulch', 'pass', 'ridge', 'peak', 'summit', 'cliff', 'canyon', 'hill', 'mount', 'volcano')) {
+    } else if (has('mountain', 'gulch', 'pass', 'ridge', 'peak', 'summit', 'cliff', 'canyon', 'hill', 'mount', 'volcano', 'rock', 'tor', 'whites', 'kuwohi', 'cebreiro', 'galicia', 'greylock', 'katahdin', 'roncesvalles')) {
       g = `<path d="M${x0 - 30} ${base} l70 -120 l40 50 l50 -90 l80 160 z" fill="${ink}"/><path d="M${x0 + 40} ${base - 120} l-12 20 l24 0 z" fill="rgba(245,241,234,0.5)"/><path d="M${x0 + 130} ${base - 160} l-14 24 l28 0 z" fill="rgba(245,241,234,0.5)"/>`;
-    } else if (has('city', 'gates', 'gate', 'castle', 'cathedral', 'tower', 'palace', 'abbey', 'temple', 'fort', 'town', 'santiago', 'camelot', 'atlantis')) {
+    } else if (has('city', 'gates', 'gate', 'castle', 'cathedral', 'tower', 'palace', 'abbey', 'temple', 'fort', 'town', 'santiago', 'camelot', 'atlantis', 'chapel', 'rings', 'isle of brass', 'pamplona', 'burgos', 'león', 'leon', 'astorga', 'ponferrada', 'rooftops', 'watchfires', 'fires', 'round table', 'grail')) {
       g = [[0, 90, 34], [40, 130, 28], [76, 110, 40], [124, 150, 30], [162, 100, 36]].map(([dx, h, w]) => `<rect x="${x0 + dx}" y="${base - h}" width="${w}" height="${h}" fill="${ink}"/><path d="M${x0 + dx} ${base - h} l${w / 2} -${w * 0.6} l${w / 2} ${w * 0.6} z" fill="${ink}"/>`).join('') + `<rect x="${x0 + 86}" y="${base - 60}" width="6" height="10" fill="rgba(255,200,120,0.55)"/><rect x="${x0 + 136}" y="${base - 90}" width="6" height="10" fill="rgba(255,200,120,0.55)"/>`;
     } else if (has('bridge', 'viaduct')) {
       g = `<path d="M${x0 - 20} ${base - 20} h240 v12 h-240z" fill="${ink}"/>` + [0, 60, 120, 180].map((dx) => `<path d="M${x0 + dx} ${base - 8} a30 30 0 0 1 60 0 v8 h-60z" fill="${ink}"/>`).join('');
-    } else if (has('village', 'inn', 'farm', 'cottage', 'house', 'home', 'mice', 'camp', 'station')) {
+    } else if (has('village', 'inn', 'farm', 'cottage', 'house', 'home', 'mice', 'camp', 'station', 'springs', 'sarria', 'logroño', 'hanover', 'damascus', 'monson', 'harpers', 'furnace', 'puente', 'ferry at')) {
       g = [[0, 40, 44], [60, 56, 52], [128, 44, 48]].map(([dx, h, w]) => `<rect x="${x0 + dx}" y="${base - h}" width="${w}" height="${h}" fill="${ink}"/><path d="M${x0 + dx - 6} ${base - h} l${w / 2 + 6} -${h * 0.6} l${w / 2 + 6} ${h * 0.6} z" fill="${ink}"/><rect x="${x0 + dx + w / 2 - 4}" y="${base - h * 0.55}" width="8" height="9" fill="rgba(255,200,120,0.6)"/>`).join('');
-    } else if (has('field', 'meadow', 'clearing', 'plain', 'prairie', 'poppy', 'garden', 'corn')) {
+    } else if (has('field', 'meadow', 'clearing', 'plain', 'prairie', 'poppy', 'garden', 'corn', 'vines', 'meseta', 'ash', 'sargasso', 'clouds')) {
       g = [...Array(26)].map((_, i) => `<path d="M${x0 - 20 + i * 10} ${base + 8} q4 -22 8 -40 q4 18 8 40z" fill="${ink}"/>`).join('');
     } else if (has('desert', 'dune', 'sand')) {
       g = `<path d="M${x0 - 40} ${base + 10} q80 -60 160 -10 t140 0 v30 h-300z" fill="${ink}"/>`;
