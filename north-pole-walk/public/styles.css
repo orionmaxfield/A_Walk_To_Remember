@@ -545,9 +545,10 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .recap .cal-head .small-btn { min-width: 40px; font-size: 16px; }
 
 /* ---------- You: diary ---------- */
-.stat-row { list-style: none; margin: var(--s3) 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2); }
+.stat-row { list-style: none; margin: var(--s3) 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); }
 .stat-row li { text-align: center; background: var(--raised); border-radius: var(--r-control); padding: 12px 4px; }
-.stat-row strong { display: block; font-family: var(--font-display); font-size: var(--fs-22); line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat-row strong { display: block; font-family: var(--font-display); font-size: var(--fs-22); line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-row span { white-space: nowrap; }
 .stat-row span { font-size: 10px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); margin-bottom: var(--s1); }
 .cal-head h2 { margin: 0; text-align: center; }
@@ -676,3 +677,4 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
   .progress-hero > .hero-foot { grid-area: foot; }
   .progress-hero > .button { grid-column: 1 / -1; justify-self: start; }
 }
+.button.link.danger { color: var(--danger); }

@@ -1353,7 +1353,7 @@
   function awardsScreen() {
     const A = state.awards;
     if (!A) {
-      return `<div class="page"><h2>Awards</h2><p class="muted small">Opening the trophy case…</p></div>`;
+      return `<div class="page hero" aria-busy="true"><div class="kicker">Earned</div><div class="skeleton" style="height:44px;width:40%;margin:6px 0 14px"></div><div class="skeleton" style="height:120px"></div></div><div class="page"><div class="skeleton" style="height:28px;width:35%;margin-bottom:12px"></div><div class="skeleton" style="height:120px"></div></div>`;
     }
     const hero = A.hero || 'Elf';
     const solo = isSolo();
@@ -1432,7 +1432,7 @@
       <div class="page">
         <h2>Account</h2>
         <button class="button quiet wide" data-action="sign-out">Sign out</button>
-        <p class="small" style="text-align:center;margin-top:12px"><button class="button link" type="button" data-action="delete-account">Delete my account</button></p>
+        <p class="small" style="text-align:center;margin-top:12px"><button class="button link danger" type="button" data-action="delete-account">Delete my account</button></p>
         <p class="small muted" style="text-align:center;margin-top:8px"><a href="/privacy.html">Privacy</a></p>
       </div>`;
   }
@@ -1464,7 +1464,7 @@
     const Hs = state.history;
     const R = state.rhythm;
     const first = (state.user.name || '').split(' ')[0];
-    if (!Hs) return `<div class="page"><h2>${esc(first)}</h2><p class="muted small">Opening your walking diary…</p></div>`;
+    if (!Hs) return `<div class="page" aria-busy="true"><h2>${esc(first)}'s walking diary</h2><div class="skeleton" style="height:96px;margin-top:12px"></div></div><div class="page"><div class="skeleton" style="height:28px;width:50%;margin:0 auto 14px"></div><div class="skeleton" style="height:240px"></div></div>`;
     const ym = `${Hs.year}-${String(Hs.month).padStart(2, '0')}`;
     const isThisMonth = Hs.today.year === Hs.year && Hs.today.month === Hs.month;
     const maxDay = Math.max(0.1, ...Object.values(Hs.days));
@@ -1486,10 +1486,10 @@
     }
     const stats = R ? `
         <ul class="stat-row">
-          <li><strong>${R.streak}</strong><span>day streak</span></li>
-          <li><strong>${R.bestStreak}</strong><span>best streak</span></li>
-          <li><strong>${fmt(dnum(Hs.allTimeMiles))}</strong><span>${unitWord()} ever</span></li>
-          <li><strong>${R.daysWalked}</strong><span>days walked</span></li>
+          <li><strong>${R.streak}</strong><span>streak</span></li>
+          <li><strong>${R.bestStreak}</strong><span>best run</span></li>
+          <li><strong>${fmt(dnum(Hs.allTimeMiles), Hs.allTimeMiles >= 1000 ? 0 : 1)}</strong><span>${unitWord()}</span></li>
+          <li><strong>${R.daysWalked}</strong><span>days</span></li>
         </ul>` : '';
     return `
       <div class="page">
