@@ -805,13 +805,15 @@
     const moved = R.endMile > R.startMile
       ? `The marker moved from ${isKm() ? 'km' : 'mile'} ${fmt(dnum(R.startMile))} to ${fmt(dnum(R.endMile))}${R.stopsPassed.length ? `, passing ${esc(listNames(R.stopsPassed.map(capitalize)))}` : ''}.`
       : 'The marker stayed put.';
+    const heroMiles = solo ? R.myMiles : R.teamMiles;
     const you = solo
-      ? `You walked <strong>${fmtDist(R.myMiles)}</strong> on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.`
-      : `The team walked <strong>${fmtDist(R.teamMiles)}</strong>; you added ${fmtDist(R.myMiles)} on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.${R.topName ? ` Most miles: ${esc(R.topName)}.` : ''}`;
+      ? `On ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.`
+      : `You added ${fmtDist(R.myMiles)} on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.${R.topName ? ` Most miles: ${esc(R.topName)}.` : ''}`;
     const best = R.bestDay ? ` Your best day was ${R.bestDay.weekday}, ${fmtDist(R.bestDay.miles)}.` : '';
     return `<div class="page recap">
-      <div class="cal-head"><h2>Last week</h2><button type="button" class="button quiet small-btn" data-action="dismiss-recap" aria-label="Dismiss">✕</button></div>
-      <p>${you}${best}</p>
+      <div class="cal-head"><div class="kicker">Last week</div><button type="button" class="button quiet small-btn" data-action="dismiss-recap" aria-label="Dismiss">✕</button></div>
+      <div class="hero-number"><b>${fmt(dnum(heroMiles))}</b><small>${unitWord()}${solo ? '' : ', the whole team'}</small></div>
+      <p class="small">${you}${best}</p>
       <p class="small muted">${moved}${R.arrived ? ' Journey complete!' : ''}</p>
     </div>`;
   }
@@ -1670,6 +1672,12 @@
     cancelAnimationFrame(celebrationFrame);
   }
 
+  // A tiny tap of haptic feedback where the platform offers it (Android browsers today;
+  // the iPhone wrapper can route this to its Haptics plugin). Silent elsewhere.
+  function buzz() {
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* not available */ }
+  }
+
   // Update the visible numbers in place (no full re-render) so a tap feels instant.
   function bumpNumbers() {
     const p = progress();
@@ -1858,6 +1866,7 @@
     if (action === 'quick-add') withBusy(async () => {
       el.disabled = true;
       el.classList.add('tapped');
+      buzz();
       const miles = toMiles(el.dataset.amount);
       // Optimistic: move the numbers now, reconcile with the server after.
       const snap = { teamTotal: state.journey.teamTotal, myTotal: state.journey.myTotal, today: state.rhythm ? state.rhythm.todayMiles : null, week: state.rhythm ? state.rhythm.weekMiles : null, walked: state.rhythm ? state.rhythm.walkedToday : null, streak: state.rhythm ? state.rhythm.streak : null };

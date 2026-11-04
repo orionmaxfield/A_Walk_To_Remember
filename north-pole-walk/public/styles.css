@@ -548,7 +548,9 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .moment.first b { color: var(--accent-text); }
 @keyframes moment-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 .recap { border-left: 3px solid var(--accent); }
-.recap .cal-head h2 { text-align: left; }
+.recap .cal-head { margin-bottom: 0; }
+.recap .cal-head .kicker { margin: 0; }
+.recap .hero-number { margin: var(--s1) 0 var(--s2); }
 .recap .cal-head .small-btn { min-width: 40px; font-size: 16px; }
 
 /* ---------- You: diary ---------- */
