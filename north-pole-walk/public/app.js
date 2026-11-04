@@ -100,6 +100,9 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // "The North Pole" reads as "the North Pole" in the middle of a sentence.
+  function inSentence(name) { return String(name || '').replace(/^The /, 'the '); }
+
   function capitalize(s) {
     return String(s).charAt(0).toUpperCase() + String(s).slice(1);
   }
@@ -414,7 +417,7 @@
     if (!inv) return '<div id="cover-invite"></div>';
     const J = journeyDefFor({ journey_id: inv.journey_id, custom: inv.custom });
     const who = inv.kind === 'solo' ? `${esc(inv.name)} is walking there` : `${esc(inv.name)} · ${inv.walkers} ${inv.walkers === 1 ? 'walker' : 'walkers'}`;
-    return `<div id="cover-invite" class="cover-invite"><span class="kicker">You're invited</span><strong>Walk to ${esc(J.end)}</strong><span class="small muted">${who}. Sign in and your miles count too.</span></div>`;
+    return `<div id="cover-invite" class="cover-invite"><span class="kicker">You're invited</span><strong>Walk to ${esc(inSentence(J.end))}</strong><span class="small muted">${who}. Sign in and your miles count too.</span></div>`;
   }
 
   function renderCover() {
@@ -687,7 +690,7 @@
           </button>
         </div>
       </div>
-      <div class="page scene-page shared" id="scene-shell"><div id="scene" class="scene"></div></div>
+      <div class="page scene-page shared" id="scene-shell" data-action="scene-home"><div id="scene" class="scene"></div></div>
       <div id="screen"></div>
       <nav class="nav" aria-label="Sections"><div class="nav-inner">
         ${navButton('journey', 'Journey', '<path d="M4 18c4-6 6-6 8 0s4 6 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="6" r="2.5" fill="currentColor"/>')}
@@ -1706,7 +1709,7 @@
     ctx.fillText('JOURNEY COMPLETE', pad, sceneH - 10);
     try { ctx.letterSpacing = '0px'; } catch (e) { /* ok */ }
     ctx.fillStyle = '#F5F1EA'; ctx.font = '600 86px Fraunces, Georgia, serif';
-    const title = `${solo ? 'I' : 'We'} walked to ${J.end}`;
+    const title = `${solo ? 'I' : 'We'} walked to ${inSentence(J.end)}`;
     const lines = wrapText(ctx, title, W - pad * 2);
     let y = sceneH + 90;
     lines.forEach((ln) => { ctx.fillText(ln, pad, y); y += 96; });
@@ -1738,7 +1741,7 @@
     const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
     const file = new File([blob], `stroll-${String(p.J.id).replace(/[^a-z0-9]/gi, '')}.png`, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: `I walked to ${p.J.end}`, text: `${fmtDist(p.J.totalMiles)}, every one of them mine. Walked with Stroll.` }); } catch (e) { /* closed the sheet */ }
+      try { await navigator.share({ files: [file], title: `I walked to ${inSentence(p.J.end)}`, text: `${fmtDist(p.J.totalMiles)}, every one of them mine. Walked with Stroll.` }); } catch (e) { /* closed the sheet */ }
       return;
     }
     const a = document.createElement('a');
@@ -1970,6 +1973,7 @@
     const action = el.dataset.action;
 
     if (action === 'tab') { state.tab = el.dataset.tab; if (state.tab !== 'log') editing = null; renderScreen(true); }
+    if (action === 'scene-home' && state.tab !== 'journey') { state.tab = 'journey'; editing = null; renderScreen(true); }
 
     if (action === 'pick-open') renderPick();
     if (action === 'goal-step-pick') withBusy(async () => {
