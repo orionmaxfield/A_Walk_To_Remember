@@ -903,16 +903,15 @@
     const quick = QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-amount="${m}">+${m}<small>${units()}</small></button>`).join('');
     return `
       ${editing ? '' : `
-      <div class="page">
-        <h2>Quick add</h2>
-        <p class="muted small">One tap logs a walk for today.</p>
+      <div class="page hero">
+        <div class="kicker">Quick add · today</div>
         <div class="quick-row">${quick}</div>
       </div>`}
 
       <div class="page">
-        <h2>${editing ? 'Edit your entry' : `Add your ${unitWord()}`}</h2>
-        ${editing ? `<p class="muted small">Logged ${esc(whenText(editing.logged_at))}. Change the number, the note or the day, then save.</p>`
-          : `<p class="muted small">Walked or ran? Log miles or steps. Did yoga, swam, biked or lifted? Log the calories you burned: every 100 calories counts as 1 mile.</p>`}
+        <h2>${editing ? 'Edit entry' : 'Log a walk'}</h2>
+        ${editing ? `<p class="muted small">Logged ${esc(whenText(editing.logged_at))}.</p>`
+          : `<p class="muted small">Miles, steps, or calories from any workout.</p>`}
         <form data-form="add-miles" ${editing ? `data-edit="${editing.id}"` : ''}>
           ${editing ? '' : `
           <div class="unit-toggle" role="radiogroup" aria-label="What are you logging?">
@@ -944,15 +943,16 @@
 
       ${editing ? '' : `
       <div class="page">
-        <h2>How other movement counts</h2>
-        <p class="small muted">Every 100 calories you burn counts as 1 mile, which is about 2,000 steps. If your watch or fitness app shows calories for a workout, use that number. If not, here is about what 30 minutes burns. Tap one to fill it in.</p>
+        <details class="fold">
+          <summary><h2>Other movement counts too</h2><span class="small muted">100 calories = 1 mile · tap one to fill it in</span></summary>
         <ul class="activity-list">
           ${ACTIVITIES.map((a) => `<li><button type="button" data-action="use-calories" data-cal="${a.cal}">
             <span class="activity-name">${esc(a.name)}</span>
             <span class="activity-numbers"><strong>${a.cal} cal</strong> = ${fmt(a.cal / CALORIES_PER_MILE, 2)} mi<small>about ${fmt(a.cal / CALORIES_PER_MILE * STEPS_PER_MILE, 0)} steps</small></span>
           </button></li>`).join('')}
         </ul>
-        <p class="small muted" style="margin-top:12px">Numbers are for 30 minutes for a 155-pound adult. Did an hour? Double it. Lighter people burn a little less, heavier people a little more.</p>
+        <p class="small muted" style="margin-top:12px">For 30 minutes, 155-pound adult. Did an hour? Double it.</p>
+        </details>
       </div>`}`;
   }
 

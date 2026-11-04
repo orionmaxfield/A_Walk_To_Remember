@@ -568,3 +568,11 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
   #app { max-width: 1180px; }
   .scene { height: 420px; }
 }
+
+/* ---------- Folds (collapsible sections) ---------- */
+.fold summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-height: 44px; }
+.fold summary::-webkit-details-marker { display: none; }
+.fold summary h2 { margin: 0; display: flex; align-items: center; justify-content: space-between; }
+.fold summary h2::after { content: ''; width: 10px; height: 10px; border-right: 2px solid var(--text-2); border-bottom: 2px solid var(--text-2); transform: rotate(45deg); margin-right: 4px; transition: transform 200ms var(--ease-out); }
+.fold[open] summary h2::after { transform: rotate(-135deg); }
+.fold[open] summary { margin-bottom: var(--s2); }
