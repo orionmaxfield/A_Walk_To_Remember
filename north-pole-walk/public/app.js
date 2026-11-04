@@ -503,10 +503,13 @@
           </div>
           <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
         </div>
-        <div class="page scene-page destination-preview theme-${esc(J.theme)}" aria-hidden="true">${destinationArt(J)}</div>
+        <div class="page scene-page destination-preview theme-${esc(J.theme)}" style="--dest:${esc(J.accent || '#E85D04')}">
+          <span aria-hidden="true">${destinationArt(J)}</span>
+          <span class="dest-chip preview-chip">${esc(feelOf(J))}</span>
+        </div>
         <div class="page">
           <p>${esc(J.blurb)}</p>
-          <p class="small muted">${esc(dailyHint(J))}</p>
+          <p class="small muted">Keep that pace and you arrive in a year. Faster is fine too.</p>
           <div class="start-buttons">
             <button class="button wide" type="button" data-action="start-solo" data-journey="${esc(J.id)}">Walk it on my own</button>
             <button class="button quiet wide" type="button" data-action="show-group-form">Start a group walk</button>
@@ -519,6 +522,7 @@
         </div>
         <div class="page">
           <h2>Along the way</h2>
+          <p class="small muted">${stops.length} stops. Each one unlocks a postcard.</p>
           <ol class="stops">
             ${stops.map((w) => `<li><span class="stop-mile">${fmt(dnum(w.mile))}</span><span>${esc(capitalize(w.name))}</span></li>`).join('')}
           </ol>

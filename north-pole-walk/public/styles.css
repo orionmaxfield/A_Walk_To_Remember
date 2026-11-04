@@ -463,7 +463,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .destination-overlay strong { display: block; font-family: var(--font-display); font-size: var(--fs-28); font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6); }
 .dest-chip { align-self: flex-start; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--on-accent); background: var(--dest, var(--accent)); padding: 4px 9px; border-radius: var(--r-pill); margin-bottom: 4px; }
 .destination-miles { display: block; font-size: var(--fs-13); font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.destination-preview { height: 180px; }
+.destination-preview { height: 220px; position: relative; }
+.destination-preview > span:first-child { position: absolute; inset: 0; }
+.destination-preview::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(11, 11, 12, 0) 55%, rgba(11, 11, 12, 0.7) 100%); pointer-events: none; }
+.preview-chip { position: absolute; left: var(--s4); bottom: var(--s4); z-index: 1; margin: 0; }
 .start-buttons { display: grid; gap: var(--s2); margin-top: var(--s4); }
 .stops { list-style: none; margin: 0; padding: 0; }
 .stops li { display: flex; gap: var(--s3); align-items: baseline; padding: 8px 0; border-top: 1px solid var(--hairline); font-size: var(--fs-15); min-height: 40px; }
