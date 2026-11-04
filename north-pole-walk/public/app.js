@@ -200,7 +200,8 @@
   }
 
   function routeNotice() {
-    if (currentJourneyDef().id !== 'north-pole' || routeNoticeDismissed()) return '';
+    // A one-time note for walkers whose team predates the real route. A brand-new team has nothing to be told.
+    if (currentJourneyDef().id !== 'north-pole' || routeNoticeDismissed() || !(state.journey.teamTotal > 0)) return '';
     return `<div class="page notice" role="status">
       <p><strong>We've switched to the real route: 3,381 miles to the North Pole!</strong> Your miles are all still here; the trail just got longer, and some badges moved.</p>
       <button class="button quiet" type="button" data-action="dismiss-notice">Got it</button>

@@ -25,8 +25,9 @@ Contrast (WCAG AA): `--text` on `--surface` 15.6:1; `--text-2` on `--surface` 7.
 
 ## Type
 
-- Display: **Fraunces** (optical size, 500–600 weight) for titles and hero numbers. Tabular numerals on anything that counts.
+- Display: **Fraunces** (500–600 weight) for titles and hero numbers. Tabular numerals on anything that counts.
 - Body: **Inter**, 400/500/600.
+- Both ship in the repo (`public/fonts/`, variable weight, Latin subset, SIL OFL) and are preloaded; nothing is fetched from Google, so type is identical offline and inside the iPhone wrapper.
 - Scale (px / line-height): 34/40 display, 28/34 title, 22/28 heading, 17/24 body-large, 15/22 body, 13/18 caption. Tokens `--fs-34` … `--fs-13`.
 - One hero number per card, set in display at 34–44px with `font-variant-numeric: tabular-nums`.
 
@@ -36,6 +37,8 @@ Contrast (WCAG AA): `--text` on `--surface` 15.6:1; `--text-2` on `--surface` 7.
 - Radius: `--r-card` 20px, `--r-control` 14px, `--r-pill` 999px.
 - Depth: cards sit flat on the background with a hairline border; `--shadow-card` is a soft, low shadow (`0 8px 24px rgba(0,0,0,0.35)`); hero cards add `--glow` (`0 0 0 1px rgba(255,122,26,0.18), 0 12px 40px rgba(232,93,4,0.14)`).
 - Icons: 24px, 1.75px stroke, round caps, `currentColor`. No filled icons except the active tab.
+- Award badges: the badge art is drawn in many colors; earned badges are tinted to the warm orange with a CSS filter so the trophy case reads as one set, and locked ones are dim gray.
+- Scenes: one premium dusk style for every destination (sky tinted by the destination's accent, ember horizon, silhouette hills, one warm light, vignette). Signposts are a single dark board with the name and the mile. The walker is muted with a rim light and an orange scarf as its one accent.
 
 ## Motion
 
