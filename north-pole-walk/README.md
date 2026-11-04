@@ -1,6 +1,6 @@
 # Stroll
 
-A small web app where you walk, virtually, to somewhere amazing: the Emerald City, Santiago, Neverland, Camelot, Atlantis, the Dark Mountain, the end of the Appalachian Trail. Pick a destination, log your miles, and watch a storybook scene carry you along the trail. Walk on your own, or share an invite link and pool miles with friends. Storybook style, built for phones.
+A small web app where you walk, virtually, to somewhere amazing: the Emerald City, Santiago, Neverland, Camelot, Atlantis, the Dark Mountain, the end of the Appalachian Trail. Pick a destination, log your miles, and watch the scene carry you along the trail at dusk. Walk on your own, or share an invite link and pool miles with friends. Deep orange on black, built for phones, ready to wrap as an iPhone app (`docs/iphone-wrap.md`).
 
 The office edition is the original journey: a team walk from Layton, Utah to the North Pole, 3,381 miles due north, following the stops on the "Elves on a Self-Care Journey" poster.
 
@@ -9,7 +9,7 @@ What it does today:
 - Sign in with Google (one tap, progress is kept across devices)
 - Choose a destination and start a solo journey, or start a group and share an invite link. A friend who joins your solo journey turns it into a group walk.
 - Add your miles (walking, running, treadmill), or the calories you burned doing anything else (yoga, swimming, biking, lifting): every 100 calories counts as 1 mile. The Add miles tab lists typical calories for common activities.
-- See your progress: an animated storybook scene with its own scenery for every destination (a hiker walks past wooden signposts; the elf walks the North Pole route), a wooden mile marker, and a "Did you know?" fact for each stop (the office's North Pole route shows the poster's "Remember" self-care notes instead)
+- See your progress: an animated dusk scene with its own scenery for every destination (a hiker walks past signposts; the elf walks the North Pole route), one hero number with the progress bar, a route map, milestone postcards, and a "Did you know?" fact for each stop (the office's North Pole route shows the poster's "Remember" self-care notes instead)
 - See your own total miles
 - An Awards tab: team badges for every stop and border on the route, plus personal badges for streaks, milestones, early-bird and night-owl walks, weekends, a marathon-length entry and Elf of the Week. Badges unlock with a pop-up the moment miles are added, and relock if the miles that earned them are removed.
 - A celebration when the team reaches the Pole

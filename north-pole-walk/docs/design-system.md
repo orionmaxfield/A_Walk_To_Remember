@@ -55,6 +55,6 @@ Contrast (WCAG AA): `--text` on `--surface` 15.6:1; `--text-2` on `--surface` 7.
 - Skeleton blocks (`.skeleton`) while loading, never spinners.
 - The bottom tab bar is the only global navigation: Journey, Log, Friends, Awards, You. Settings lives behind a gear.
 
-## Screens, in conversion order
+## Screens
 
-Journey, destination picker, Add miles, Awards, You, Team/Friends, Settings, sign-in cover. Each converts in its own push and is checked at 390px and 1366px with no console errors.
+All converted on Nov 4: Journey, destination picker, destination detail, Somewhere real, Add miles, Awards, You, Team/Friends, Settings, sign-in cover, privacy page. Every push is checked at 390px and 1366px with no console errors, and the tap-target sweep (`targets.js` in the build session's scratchpad; any element under 40px is listed) runs after layout changes.
