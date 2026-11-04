@@ -1,6 +1,18 @@
 # Stroll: status and build list
 
-_Written Thu Oct 29, 2026, on branch `claude/loving-cerf-7dwr4l`. Nothing here is live until Orion says "merge."_
+_Written Thu Oct 29, 2026, updated Wed Nov 4, on branch `claude/loving-cerf-7dwr4l`. Nothing here is live until Orion says "merge."_
+
+## Nov 4: the new look, flow and mobile readiness
+
+Twenty-two pushes in one day, each checked at 390px and 1366px with no console errors. Preview: https://claude-loving-cerf-7dwr4l.north-pole-walk.pages.dev (runs on the `stroll-test` database).
+
+- **Identity.** Deep orange on near-black on design tokens; `docs/design-system.md` explains colors (WCAG AA figures), type (Fraunces + Inter, shipped in the repo), the 8pt grid, radii, depth, motion and the mobile rules. The storybook paper style is retired. Every screen converted: Journey, picker (cover cards, carousel), destination detail, Somewhere real, Add miles, Awards, You, Team, Settings, sign-in cover.
+- **Journey art.** One premium dusk style for every destination (accent-tinted sky, ember horizon, silhouette hills, one warm light, particles, vignette). Single-board signposts with name and mile. The walker restyled for dusk with a proper stride. A route map card and milestone postcards (lazy-drawn) share the art.
+- **Flow.** First run in three steps (sign in → pick → starter goal → Journey with the first-step prompt). Skeleton loaders, optimistic quick add with rollback, 220ms tab transitions, streaks that forgive one missed day, error toasts with "Try again" on a lost connection.
+- **Mobile.** Offline queue for miles with no signal (synced on reconnect), a service worker that keeps the last good reads, icons and iPhone launch images in the new colors, safe areas, 44pt targets (checked by script), configurable API address for the wrapper. The plan for the December Capacitor build is in `docs/iphone-wrap.md`.
+- **Office flow** (create a team the old way, elf scene, miles, awards, join by code) re-tested as two users on the new look; the "real route" notice now only shows to teams that already have miles.
+
+Open question for Orion: bundle id for the iPhone app (`com.orionmaxfield.stroll` is the placeholder). Still open from October: whether award descriptions should convert to kilometers (miles for now).
 
 ## Where the app stands today
 
@@ -30,9 +42,9 @@ _Written Thu Oct 29, 2026, on branch `claude/loving-cerf-7dwr4l`. Nothing here i
 Each item is small enough to preview and check on its own. Items 1 to 4 are what the public launch needs; 5 onward are polish and growth.
 
 1. _(built, needs a decision)_ **Custom real-world destination.** "Somewhere real" on the destination screen: type a start and a finish, pick the right match, and the app measures the road (straight-line distance plus a fifth) and builds a journey with distance-based milestones. Uses OpenStreetMap's free Nominatim lookup for now (no key, one lookup per new walk, attribution shown). Orion's call whether to keep it or move to a paid map service before the launch ads; the provider lives in one file. Needs `migrations/003_custom_destinations.sql`.
-2. **Step syncing, phase one: the iPhone app shell.** Wrap the web app with Capacitor, read daily steps from HealthKit, and post them as mile entries (about 2,000 steps per mile, configurable). Manual entry stays as the fallback. Plan in `docs/step-sync-plan.md`. Needs Orion's Apple developer account (Nov 3).
+2. **The iPhone app shell, then step syncing.** Wrap the web app with Capacitor (plan and what must change in `docs/iphone-wrap.md`: native Google sign-in, the session cookie across origins, deep links, Sign in with Apple), then read daily steps from HealthKit and post them as mile entries (`docs/step-sync-plan.md`). Needs Orion's Apple developer account.
 3. **Public sign-up polish.** Landing page copy on the cover and a short "how it works" for first-timers. (Account deletion and renaming are done.)
-4. **App Store readiness.** App icon, splash screen, screenshots, privacy labels, support page. Checklist reusable for Earmark. Target submission mid-December.
+4. **App Store readiness.** Screenshots, privacy labels, support page (icon and launch images are done). Checklist reusable for Earmark. Target submission mid-December.
 5. **Nudges.** Weekly streak nudges or email digests, to keep New Year walkers consistent through February. (The feed, cheers, streak and goal ring are done.)
 6. _(done: leaderboard with an off switch)_
 7. _(merged into 5)_
