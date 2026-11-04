@@ -743,6 +743,7 @@
         <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
         <p class="small">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : where}</p>
         ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:8px">Replay the celebration</button>` : ''}
+        ${isSolo() ? '' : `<div class="hero-foot"><span class="kicker">Your share</span><b>${fmtDist(state.journey.myTotal)}</b><span class="small muted">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</span></div>`}
       </div>
 
       ${rhythmCard(p)}
@@ -762,14 +763,9 @@
         <h2>Walk with a friend</h2>
         <p class="small muted">Their miles join yours on this trail.</p>
         <button class="button quiet" data-action="copy-link" data-link="${esc(inviteLink)}" style="margin-top:8px">Copy invite link</button>
-      </div>` : `
-      <div class="page">
-        <div class="kicker">Your share</div>
-        <div class="big-number">${fmt(dnum(state.journey.myTotal))}<small>${unitWord()}</small></div>
-        <p class="small muted" style="margin-top:6px">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</p>
-      </div>`}
+      </div>` : ''}
 
-      <div class="page">
+      <div class="page feed-page">
         <h2>Latest on the trail</h2>
         ${!isSolo() && state.journey.features && state.journey.features.cheers ? `<p class="small muted">Tap the heart to cheer someone on.</p>` : ''}
         ${recent.length ? `<ul class="list">${recent.map(entryRow).join('')}</ul>`

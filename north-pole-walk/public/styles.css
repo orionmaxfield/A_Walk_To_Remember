@@ -2,6 +2,10 @@
    Stroll design tokens (see docs/design-system.md)
    Deep orange on near-black. Orange is the accent, never the wallpaper.
    ========================================================================== */
+/* Fonts ship with the app (no Google request): they work offline and inside the iPhone wrapper. */
+@font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/fraunces-latin-wght.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/inter-latin-wght.woff2') format('woff2'); }
+
 :root {
   /* Color */
   --bg: #0B0B0C;
@@ -650,3 +654,15 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .goal-choices .quick.suggested { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(255, 122, 26, 0.25); }
 .goal-choices .quick small { white-space: nowrap; }
 .offline-notice { border-left-color: var(--text-3); }
+
+/* Hero footer: your share of a team walk, inside the hero rather than its own card */
+.hero-foot { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid var(--hairline); }
+.hero-foot .kicker { margin: 0; }
+.hero-foot b { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-22); line-height: 1; font-variant-numeric: tabular-nums; }
+.hero-foot .small { flex-basis: 100%; margin: 0; }
+@media (min-width: 900px) {
+  .hero-foot .small { flex-basis: auto; margin-left: auto; }
+  #screen > .feed-page { column-span: all; }
+  .feed-page .list { columns: 2; column-gap: var(--s5); }
+  .feed-page .list > li { break-inside: avoid; }
+}

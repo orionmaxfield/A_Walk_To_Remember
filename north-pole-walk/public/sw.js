@@ -4,9 +4,9 @@
 // the network fails. Writes (adding miles) never go through here; app.js queues
 // them on the phone and sends them when the connection is back.
 
-const SHELL_CACHE = 'stroll-shell-v2';
+const SHELL_CACHE = 'stroll-shell-v3';
 const API_CACHE = 'stroll-api-v1';
-const SHELL = ['/', '/styles.css', '/app.js', '/journey.js', '/custom.js', '/scene.js', '/badges.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const SHELL = ['/', '/styles.css', '/app.js', '/journey.js', '/custom.js', '/scene.js', '/badges.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/fonts/fraunces-latin-wght.woff2', '/fonts/inter-latin-wght.woff2'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
