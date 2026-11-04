@@ -107,6 +107,10 @@ p:last-child { margin-bottom: 0; }
 a { color: var(--accent-text); }
 button { font: inherit; touch-action: manipulation; }
 input, select, textarea { touch-action: manipulation; }
+/* Native feel on phones: no gray tap flash, no text selection or callout on long-press of controls and art */
+* { -webkit-tap-highlight-color: transparent; }
+button, .nav, .quick, .postcard, .destination, .scene-page, .badge-card, .cal-grid, .unit-toggle label, .avatar { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, .field input { -webkit-user-select: text; user-select: text; }
 strong { font-weight: 600; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
 
@@ -212,7 +216,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .header-tools { display: flex; align-items: center; gap: var(--s2); flex: 0 1 auto; min-width: 0; max-width: 52%; }
 .header select, .header-tools select {
   flex: 1 1 auto; min-width: 0; max-width: 100%;
-  font: inherit; font-size: var(--fs-13); font-weight: 500; min-height: 40px;
+  font: inherit; font-size: 16px; font-weight: 500; min-height: 40px;
   padding: 6px 28px 6px 12px; border-radius: var(--r-pill);
   border: 1px solid var(--hairline-2);
   background: var(--raised) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5' fill='none' stroke='%23A8A29E' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 8px center / 16px;
@@ -359,7 +363,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .list .who strong { display: block; font-weight: 500; }
 .list .who span { font-size: var(--fs-13); color: var(--text-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list .miles { font-family: var(--font-display); font-weight: 600; font-size: 19px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.list .undo { font-size: var(--fs-13); color: var(--accent-text); background: none; border: 0; min-height: 44px; padding: 4px 8px; cursor: pointer; border-radius: 8px; font-weight: 500; }
+.list .undo { font-size: var(--fs-13); color: var(--accent-text); background: none; border: 0; min-height: 44px; min-width: 44px; padding: 4px 8px; cursor: pointer; border-radius: 8px; font-weight: 500; }
 .list .cheer { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; min-width: 44px; padding: 4px 8px; background: none; border: 0; border-radius: var(--r-pill); color: var(--text-2); cursor: pointer; font-weight: 600; font-size: var(--fs-13); }
 .list .cheer svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.75; }
 .list .cheer.on { color: var(--accent-text); }
@@ -474,7 +478,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .stops li:first-child { border-top: 0; }
 .stop-mile { flex: 0 0 52px; font-family: var(--font-display); font-weight: 600; color: var(--accent-text); text-align: right; font-size: var(--fs-15); font-variant-numeric: tabular-nums; }
 .found { color: var(--accent-text); font-weight: 500; margin: -8px 0 12px; }
-form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size: var(--fs-15); padding: 10px 12px; margin: -8px 0 12px; border: 1px solid var(--hairline-2); border-radius: var(--r-control); background: var(--raised); color: var(--text); min-height: 48px; }
+form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; margin: -8px 0 12px; border: 1px solid var(--hairline-2); border-radius: var(--r-control); background: var(--raised); color: var(--text); min-height: 48px; }
 .route-summary { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--hairline); }
 .route-summary h2 { font-size: var(--fs-34); }
 
@@ -507,7 +511,7 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .when summary::before { content: '+ '; margin-right: 4px; }
 .when[open] summary::before { content: '− '; }
 .when .field { margin-top: var(--s2); }
-.when input[type="date"] { font-size: var(--fs-15); box-sizing: border-box; height: 48px; width: 100%; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; line-height: 1.2; }
+.when input[type="date"] { font-size: 16px; box-sizing: border-box; height: 48px; width: 100%; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; line-height: 1.2; }
 .when input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; padding: 8px; }
 .last-entry .list li { gap: var(--s2); }
 .first-step { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
