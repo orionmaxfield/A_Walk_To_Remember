@@ -179,8 +179,17 @@
 
   /* ---------- Boot ---------- */
 
+  function skeleton() {
+    return `<div class="skel-screen" aria-busy="true" aria-label="Loading">
+      <div class="skeleton" style="height:28px;width:60%;margin:8px 0 18px"></div>
+      <div class="skeleton" style="height:240px;border-radius:20px"></div>
+      <div class="skeleton" style="height:120px;border-radius:20px;margin-top:12px"></div>
+      <div class="skeleton" style="height:140px;border-radius:20px;margin-top:12px"></div>
+    </div>`;
+  }
+
   async function boot() {
-    $app.innerHTML = '<p class="loading">Opening the map…</p>';
+    $app.innerHTML = skeleton();
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       navigator.serviceWorker.register('/sw.js').catch(() => { /* the app works without it */ });
     }
@@ -525,8 +534,30 @@
     state.picking = null;
     state.tab = kind === 'team' ? 'team' : 'journey';
     await loadJourney();
+    // First-run step 3: offer a starter goal before landing on the Journey.
+    const needsGoal = state.rhythm && state.rhythm.features && state.rhythm.features.goal && !state.rhythm.goal && !flag('goalOfferDismissed');
+    if (needsGoal) return renderGoalStep(made.team, kind);
     renderMain();
     toast(kind === 'team' ? `${made.team.name} is ready. Share the invite link.` : `Your journey begins. Add your first miles!`);
+  }
+
+  function renderGoalStep(team, kind) {
+    const J = currentJourneyDef();
+    const choices = isKm() ? [[2, '2 km'], [3, '3 km'], [5, '5 km']] : [[1, '1 mi'], [2, '2 mi'], [3, '3 mi']];
+    $app.innerHTML = `
+      <section class="goal-step">
+        <div class="header"><div><h1>One more thing</h1><div class="team-name">${esc(J.title)} is set up.</div></div></div>
+        <div class="page hero">
+          <div class="kicker">Daily goal</div>
+          <h2>How far on a normal day?</h2>
+          <p class="small muted">A small goal you can keep beats a big one you can't. You can change it any time from the ring on your Journey.</p>
+          <div class="quick-row goal-choices">
+            ${choices.map(([n, label]) => `<button type="button" class="quick ${n === 2 ? 'suggested' : ''}" data-action="goal-step-pick" data-amount="${n}">${label.split(' ')[0]}<small>${label.split(' ')[1]} a day</small></button>`).join('')}
+          </div>
+          <button class="button link" type="button" data-action="goal-step-skip" style="margin-top:12px">Skip for now</button>
+        </div>
+      </section>`;
+    window.scrollTo({ top: 0 });
   }
 
   function renderMain() {
@@ -568,9 +599,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true">${iconPaths}</svg>${label}</button>`;
   }
 
-  function renderScreen() {
+  function renderScreen(transition) {
     const $screen = document.getElementById('screen');
     if (!$screen) return;
+    if (transition) { $screen.classList.remove('enter'); void $screen.offsetWidth; $screen.classList.add('enter'); }
     if (state.tab === 'journey') $screen.innerHTML = journeyScreen();
     if (state.tab === 'log') $screen.innerHTML = logScreen();
     if (state.tab === 'team') $screen.innerHTML = teamScreen();
@@ -838,7 +870,7 @@
     const target = goal ? goal.miles : null;
     const pct = target ? Math.min(100, (done / target) * 100) : 0;
     const nextStop = !p.arrived && p.next ? `${fmtDist(p.next.mile - p.mile, 1)} to ${esc(p.next.name)}` : p.arrived ? 'Journey complete' : '';
-    const streakText = R.streak >= 2 ? `${R.streak}-day streak${R.walkedToday ? '' : ' · walk today to keep it'}`
+    const streakText = R.streak >= 2 ? `${R.streak}-day streak${R.walkedToday ? '' : (R.graceUsed ? ' · grace day used, walk today' : ' · walk today to keep it')}${R.walkedToday && R.graceUsed ? ' · one grace day used' : ''}`
       : R.streak === 1 ? (R.walkedToday ? 'Day 1 of a streak' : 'Walked yesterday · walk today to start a streak')
       : 'Walk today to start a streak';
     const ringLabel = target
@@ -1526,6 +1558,30 @@
     cancelAnimationFrame(celebrationFrame);
   }
 
+  // Update the visible numbers in place (no full re-render) so a tap feels instant.
+  function bumpNumbers() {
+    const p = progress();
+    const hero = document.querySelector('#hero-number b');
+    if (hero) { hero.textContent = fmt(dnum(p.total)); hero.parentElement.classList.remove('pulse'); void hero.offsetWidth; hero.parentElement.classList.add('pulse'); }
+    const fill = document.getElementById('progress-fill');
+    if (fill) fill.style.width = `${p.pct.toFixed(1)}%`;
+    const R = state.rhythm;
+    const ringNum = document.querySelector('.ring-number');
+    const ringLabel = document.querySelector('.rhythm-copy strong');
+    if (R && ringNum) {
+      const goal = R.goal, period = goal ? goal.period : 'day';
+      const done = period === 'week' ? R.weekMiles : R.todayMiles;
+      const target = goal ? goal.miles : null;
+      const pct = target ? Math.min(100, (done / target) * 100) : 0;
+      ringNum.textContent = target ? Math.round(pct) + '%' : fmt(dnum(done), 1);
+      const fillRing = document.querySelector('.ring-fill');
+      if (fillRing) { fillRing.style.strokeDashoffset = (213.6 * (1 - pct / 100)).toFixed(1); fillRing.classList.toggle('done', pct >= 100); }
+      if (ringLabel) ringLabel.textContent = target ? `${fmt(dnum(done), 1)} of ${fmtDist(target, 1)} ${period === 'week' ? 'this week' : 'today'}` : `${fmtDist(done, 1)} ${period === 'week' ? 'this week' : 'today'}`;
+      const ring = document.querySelector('.ring-button');
+      if (ring) { ring.classList.remove('bump'); void ring.offsetWidth; ring.classList.add('bump'); }
+    }
+  }
+
   /* ---------- Adding miles (form and quick-add share this) ---------- */
 
   async function addMiles(miles, note, date, label) {
@@ -1564,9 +1620,16 @@
     if (!el) return;
     const action = el.dataset.action;
 
-    if (action === 'tab') { state.tab = el.dataset.tab; if (state.tab !== 'log') editing = null; renderScreen(); }
+    if (action === 'tab') { state.tab = el.dataset.tab; if (state.tab !== 'log') editing = null; renderScreen(true); }
 
     if (action === 'pick-open') renderPick();
+    if (action === 'goal-step-pick') withBusy(async () => {
+      await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: toMiles(el.dataset.amount), period: 'day' }) });
+      await loadJourney();
+      renderMain();
+      toast(`Goal set: ${el.dataset.amount} ${units()} a day. Now take the first step.`);
+    });
+    if (action === 'goal-step-skip') { setFlag('goalOfferDismissed', true); renderMain(); toast('Your journey begins. Add your first miles!'); }
     if (action === 'pick-back') { state.picking = null; renderMain(); }
     if (action === 'pick-destination') renderDestination(JOURNEYS[el.dataset.journey]);
     if (action === 'pick-custom') renderCustom();
@@ -1660,7 +1723,20 @@
 
     if (action === 'quick-add') withBusy(async () => {
       el.disabled = true;
-      try { await addMiles(toMiles(el.dataset.amount), '', undefined); } finally { el.disabled = false; }
+      el.classList.add('tapped');
+      const miles = toMiles(el.dataset.amount);
+      // Optimistic: move the numbers now, reconcile with the server after.
+      const snap = { teamTotal: state.journey.teamTotal, myTotal: state.journey.myTotal, today: state.rhythm ? state.rhythm.todayMiles : null, week: state.rhythm ? state.rhythm.weekMiles : null, walked: state.rhythm ? state.rhythm.walkedToday : null, streak: state.rhythm ? state.rhythm.streak : null };
+      state.journey.teamTotal += miles; state.journey.myTotal += miles;
+      if (state.rhythm) { state.rhythm.todayMiles += miles; state.rhythm.weekMiles += miles; if (!state.rhythm.walkedToday) { state.rhythm.walkedToday = true; state.rhythm.streak += 1; } }
+      bumpNumbers();
+      try { await addMiles(miles, '', undefined); }
+      catch (e) {
+        state.journey.teamTotal = snap.teamTotal; state.journey.myTotal = snap.myTotal;
+        if (state.rhythm) { state.rhythm.todayMiles = snap.today; state.rhythm.weekMiles = snap.week; state.rhythm.walkedToday = snap.walked; state.rhythm.streak = snap.streak; }
+        renderScreen();
+        throw e;
+      } finally { el.disabled = false; }
     });
 
     if (action === 'edit-entry') {
@@ -1716,6 +1792,8 @@
       state.teamId = el.value;
       localStorage.setItem('teamId', state.teamId);
       state.lastShownMile = null;
+      const $screen = document.getElementById('screen');
+      if ($screen) $screen.innerHTML = skeleton();
       await loadJourney();
       renderMain();
     });

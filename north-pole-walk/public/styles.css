@@ -630,3 +630,16 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .postcard-full-copy p { font-family: var(--font-display); font-size: var(--fs-17); line-height: 1.5; }
 .postcard-full-copy p.small { font-family: var(--font-body); font-size: var(--fs-13); }
 @media (min-width: 900px) { #screen > .postcards-page { column-span: all; } .postcard { flex-basis: 200px; } .postcard-art { height: 110px; } }
+
+/* ---------- Flow: transitions, taps, skeletons, goal step ---------- */
+#screen.enter { animation: screen-in var(--t-page) var(--ease-out); }
+@keyframes screen-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.skel-screen { padding-top: var(--s2); }
+.quick.tapped { animation: tap-bounce 320ms var(--ease-out); }
+@keyframes tap-bounce { 0% { transform: scale(0.94); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.ring-button.bump { animation: ring-bump 420ms var(--ease-out); }
+@keyframes ring-bump { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.goal-step .page.hero { margin-top: var(--s4); }
+.goal-choices .quick { min-height: 76px; }
+.goal-choices .quick.suggested { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(255, 122, 26, 0.25); }
+.goal-choices .quick small { white-space: nowrap; }

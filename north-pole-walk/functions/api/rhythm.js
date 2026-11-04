@@ -27,11 +27,19 @@ export async function onRequestGet({ env, data }) {
   }
 
   // Streak: days in a row with a walk, counting back from today (or from
-  // yesterday, if today hasn't been walked yet: the streak is alive until midnight).
-  let streak = 0;
-  const startFrom = byDay[today.dayIndex] ? today.dayIndex : today.dayIndex - 1;
-  for (let d = startFrom; byDay[d]; d--) streak++;
+  // yesterday, if today hasn't been walked yet: the streak is alive until
+  // midnight). One missed day is forgiven per streak (a grace day), so a
+  // single off day never wipes out weeks of walking.
+  let streak = 0, graceUsed = false, graceDay = null;
   const walkedToday = Boolean(byDay[today.dayIndex]);
+  let d = walkedToday ? today.dayIndex : today.dayIndex - 1;
+  if (!walkedToday && !byDay[d] && byDay[d - 1]) { graceUsed = true; graceDay = d; d -= 1; } // yesterday was the off day
+  while (byDay[d]) {
+    streak++;
+    d--;
+    if (!byDay[d] && !graceUsed && byDay[d - 1]) { graceUsed = true; graceDay = d; d--; }
+  }
+  if (streak === 0) { graceUsed = false; graceDay = null; }
 
   let best = 0, run = 0;
   const days = Object.keys(byDay).map(Number).sort((a, b) => a - b);
@@ -53,6 +61,8 @@ export async function onRequestGet({ env, data }) {
     weekMiles: round(weekMiles),
     streak,
     walkedToday,
+    graceUsed,
+    graceDay: graceDay != null ? toSql(denverMidnightUtc(graceDay) + 12 * 3600000).slice(0, 10) : null,
     bestStreak: best,
     daysWalked: days.length,
     goal,
