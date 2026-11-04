@@ -929,7 +929,7 @@
       const passed = w.mile <= p.mile;
       const isNext = i === nextIdx;
       return `<g class="stop ${passed ? 'passed' : ''} ${isNext ? 'next' : ''}" data-action="route-stop" data-name="${esc(capitalize(w.name))}" data-mile="${w.mile}">
-          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="14" fill="transparent"/>
+          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="22" fill="transparent"/>
           <circle class="dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${isNext ? 5.5 : 4}"/>
           ${labels[i] || ''}
         </g>`;
@@ -1434,7 +1434,7 @@
         <h2>Account</h2>
         <button class="button quiet wide" data-action="sign-out">Sign out</button>
         <p class="small" style="text-align:center;margin-top:12px"><button class="button link danger" type="button" data-action="delete-account">Delete my account</button></p>
-        <p class="small muted" style="text-align:center;margin-top:8px"><a href="/privacy.html">Privacy</a></p>
+        <p class="small muted" style="text-align:center;margin-top:8px"><a class="tap-link" href="/privacy.html">Privacy</a></p>
       </div>`;
   }
 

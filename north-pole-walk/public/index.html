@@ -20,7 +20,11 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div id="app" aria-live="polite"></div>
+  <div id="app" aria-live="polite"><div class="skel-screen" aria-busy="true" aria-label="Loading">
+    <div class="skeleton" style="height:28px;width:60%;margin:8px 0 18px"></div>
+    <div class="skeleton" style="height:240px;border-radius:20px"></div>
+    <div class="skeleton" style="height:120px;border-radius:20px;margin-top:12px"></div>
+  </div></div>
   <div id="toast" class="toast" hidden></div>
   <div id="award-pop" class="award-pop" hidden></div>
   <div id="postcard-pop" class="award-pop postcard-pop" hidden></div>
@@ -37,7 +41,7 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/journey.js"></script>
   <script src="/custom.js"></script>
-  <script src="/badges.js"></script>
+  <script src="/badges.js" defer></script>
   <script src="/scene.js"></script>
   <script src="/app.js"></script>
 </body>
