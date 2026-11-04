@@ -1594,6 +1594,7 @@
     const vars = `--tree:${c.tree};--leaf:${c.leaf || c.tree};--tree-snow:${f2(c.treeSnow || 0)};--patch:${f2(c.patch || 0)}`;
     const walker = theme.walker === 'hiker' ? hiker(VW / 2) : elf(VW / 2);
     const weather = opts.still ? '' : snowfall(VW, c, c.embers ? '#ffb347' : null) + particles(VW, theme.particles);
+    const arrived = mile >= total - 1e-6;
     return `<svg class="scene-svg${opts.still ? ' still' : ''}" viewBox="0 0 ${VW} ${H}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${esc(opts.label || '')}" style="${vars}">
       ${defs(c)}
       ${sky(c, VW, theme)}
@@ -1601,9 +1602,31 @@
       <g class="layer mid" data-speed="${SPEED.mid}">${midLayer(total, VW, c, J, marks, theme)}</g>
       <g class="layer near" data-speed="${SPEED.near}">${nearLayer(total, VW, c, J, marks, clamp(mile, 0, total), theme)}</g>
       ${walker}
+      ${arrived ? finale(VW, J, Boolean(opts.still)) : ''}
       <rect class="vignette" x="0" y="0" width="${VW}" height="${H}" fill="${ref('vignette')}"/>
       ${weather}
     </svg>`;
+  }
+
+  // The finale: at the finish, a warm glow rises behind the landmark and fireworks in the
+  // destination's accent pop over the sky. Still pictures (postcards, share card) get the
+  // bursts frozen mid-bloom.
+  function finale(VW, J, still) {
+    const r = rng(77);
+    const acc = J.accent || '#E85D04';
+    const gid = id('arrival');
+    let fw = '';
+    for (let i = 0; i < 6; i++) {
+      const x = (VW * 0.12 + r() * VW * 0.76).toFixed(0), y = (28 + r() * 95).toFixed(0), sc = (0.7 + r() * 0.7).toFixed(2);
+      const col = i % 2 ? acc : '#FFD27A';
+      const rays = [...Array(12)].map((_, k) => { const a = k / 12 * Math.PI * 2; return `<line x1="${(Math.cos(a) * 6).toFixed(1)}" y1="${(Math.sin(a) * 6).toFixed(1)}" x2="${(Math.cos(a) * 24).toFixed(1)}" y2="${(Math.sin(a) * 24).toFixed(1)}"/>`; }).join('');
+      fw += `<g transform="translate(${x} ${y}) scale(${sc})"><g class="fw${still ? ' fw-still' : ''}" style="animation-delay:${(-r() * 3).toFixed(1)}s;animation-duration:${(2.2 + r() * 1.4).toFixed(1)}s" stroke="${col}" stroke-width="1.6" stroke-linecap="round" fill="none">${rays}<circle r="2.4" fill="${col}" stroke="none"/></g></g>`;
+    }
+    return `<g class="finale">
+      <defs><radialGradient id="${gid}" cx="0.5" cy="0.9" r="0.6"><stop offset="0" stop-color="${acc}" stop-opacity="0.55"/><stop offset="0.5" stop-color="${acc}" stop-opacity="0.18"/><stop offset="1" stop-color="${acc}" stop-opacity="0"/></radialGradient></defs>
+      <ellipse cx="${VW / 2}" cy="${HORIZON + 6}" rx="${(VW * 0.32).toFixed(0)}" ry="90" fill="url(#${gid})"/>
+      ${fw}
+    </g>`;
   }
 
   function build(host, opts) {

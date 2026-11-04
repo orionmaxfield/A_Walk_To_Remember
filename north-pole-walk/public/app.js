@@ -784,7 +784,7 @@
         <div class="hero-number" id="hero-number"><b>${fmt(dnum(p.total))}</b><small>of ${fmtDist(p.goal)}</small></div>
         <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
         <p class="small">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : where}</p>
-        ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:8px">Replay the celebration</button>` : ''}
+        ${p.arrived ? `<div class="arrived-actions"><button class="button" data-action="share-arrival">Share my arrival</button><button class="button quiet" data-action="replay-celebration">Replay the celebration</button></div>` : ''}
         ${isSolo() ? '' : `<div class="hero-foot"><span class="kicker">Your share</span><b>${fmtDist(state.journey.myTotal)}</b><span class="small muted">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</span></div>`}
       </div>
 
@@ -1658,6 +1658,85 @@
     showCelebration();
   }
 
+  /* ---------- The arrival card: a picture to share ("I walked to Camelot") ---------- */
+
+  const SCENE_CSS = '.layer.mid,.layer.near{filter:saturate(.72) brightness(.86)}.layer.far{filter:saturate(.5) brightness(.7)}.clouds{filter:brightness(.55)}.fw{opacity:.9}';
+
+  async function arrivalCard() {
+    const p = progress();
+    const J = p.J;
+    const W = 1080, Hc = 1350, sceneH = 760;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = Hc;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0B0B0C'; ctx.fillRect(0, 0, W, Hc);
+    // The finale scene, drawn through an <img> so the canvas can hold it.
+    let svg = JourneyScene.thumbnail(J, J.totalMiles, { hour: 19 });
+    svg = svg.replace(/<g class="sign"[\s\S]*?<\/g>\s*<\/g>/g, '');
+    svg = svg.replace(/^<svg /, `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${sceneH}" `).replace('preserveAspectRatio="xMidYMax slice"', 'preserveAspectRatio="xMidYMid slice"').replace(/<defs>/, `<style>${SCENE_CSS}</style><defs>`);
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+    try {
+      await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('The picture could not be drawn.')); img.src = url; });
+      ctx.drawImage(img, 0, 0, W, sceneH);
+    } finally { URL.revokeObjectURL(url); }
+    const fade = ctx.createLinearGradient(0, sceneH * 0.45, 0, sceneH);
+    fade.addColorStop(0, 'rgba(11,11,12,0)'); fade.addColorStop(1, 'rgba(11,11,12,1)');
+    ctx.fillStyle = fade; ctx.fillRect(0, 0, W, sceneH);
+    try { await document.fonts.ready; } catch (e) { /* system fonts then */ }
+    // Words
+    const solo = isSolo() || state.journey.members.length < 2;
+    const first = (state.user.name || '').split(' ')[0];
+    const pad = 80;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#FF8A33'; ctx.font = '700 26px Inter, sans-serif';
+    try { ctx.letterSpacing = '4px'; } catch (e) { /* older browsers */ }
+    ctx.fillText('JOURNEY COMPLETE', pad, sceneH - 10);
+    try { ctx.letterSpacing = '0px'; } catch (e) { /* ok */ }
+    ctx.fillStyle = '#F5F1EA'; ctx.font = '600 86px Fraunces, Georgia, serif';
+    const title = `${solo ? 'I' : 'We'} walked to ${J.end}`;
+    const lines = wrapText(ctx, title, W - pad * 2);
+    let y = sceneH + 90;
+    lines.forEach((ln) => { ctx.fillText(ln, pad, y); y += 96; });
+    ctx.fillStyle = '#A8A29E'; ctx.font = '400 36px Inter, sans-serif';
+    const when = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    ctx.fillText(`${fmtDist(J.totalMiles)} · ${solo ? first : state.journey.team.name} · ${when}`, pad, y + 10);
+    // Wordmark
+    const by = Hc - 90;
+    ctx.strokeStyle = '#E85D04'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(pad, by + 16); ctx.bezierCurveTo(pad + 12, by - 4, pad + 18, by - 4, pad + 26, by + 16); ctx.bezierCurveTo(pad + 34, by + 36, pad + 40, by + 36, pad + 52, by + 16); ctx.stroke();
+    ctx.fillStyle = '#FF8A33'; ctx.beginPath(); ctx.arc(pad + 46, by - 12, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#F5F1EA'; ctx.font = '500 40px Fraunces, Georgia, serif'; ctx.fillText('Stroll', pad + 70, by + 28);
+    return canvas;
+  }
+
+  function wrapText(ctx, text, maxW) {
+    const words = text.split(' '); const lines = []; let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  async function shareArrival() {
+    const p = progress();
+    const canvas = await arrivalCard();
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+    const file = new File([blob], `stroll-${String(p.J.id).replace(/[^a-z0-9]/gi, '')}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: `I walked to ${p.J.end}`, text: `${fmtDist(p.J.totalMiles)}, every one of them mine. Walked with Stroll.` }); } catch (e) { /* closed the sheet */ }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('Your arrival card is saved. Share it anywhere.');
+  }
+  window.Stroll = Object.assign(window.Stroll || {}, { arrivalCard });
+
   let celebrationFrame = null;
   function showCelebration() {
     const p = progress();
@@ -1960,6 +2039,7 @@
       document.querySelectorAll('.notice').forEach((n) => n.remove());
     }
     if (action === 'replay-celebration') showCelebration();
+    if (action === 'share-arrival') withBusy(shareArrival);
     if (action === 'close-celebration') hideCelebration();
   });
 
