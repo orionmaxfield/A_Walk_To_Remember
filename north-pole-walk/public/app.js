@@ -1532,6 +1532,7 @@
         <button class="button quiet wide" data-action="sign-out">Sign out</button>
         <p class="small" style="text-align:center;margin-top:12px"><button class="button link danger" type="button" data-action="delete-account">Delete my account</button></p>
         <p class="small muted" style="text-align:center;margin-top:8px"><a class="tap-link" href="/privacy.html">Privacy</a></p>
+        <p class="small muted build-line">Stroll · build ${esc(state.config.build || 'dev')}${state.config.branch && state.config.branch !== 'main' ? ` · ${esc(state.config.branch)}` : ''}</p>
       </div>`;
   }
 

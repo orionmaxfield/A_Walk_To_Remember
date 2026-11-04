@@ -760,3 +760,4 @@ body { overscroll-behavior-y: contain; }
 @media (min-width: 900px) { .scene-page.shared { height: 380px; } .scene-page.shared.compact { height: 150px; } }
 @media (min-width: 900px) { .progress-hero > .arrived-actions { grid-column: 1 / -1; } }
 .scene-page.shared.compact { cursor: pointer; }
+.build-line { text-align: center; margin-top: var(--s3); font-size: var(--fs-13); color: var(--text-3); font-variant-numeric: tabular-nums; }

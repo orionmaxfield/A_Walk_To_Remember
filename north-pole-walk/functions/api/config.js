@@ -6,6 +6,9 @@ export function onRequestGet({ env }) {
   const body = {
     googleClientId: clientId.includes('PASTE-YOUR') ? '' : clientId,
     dbReady: Boolean(env.DB),
+    // Which build this is (Cloudflare Pages sets the commit on every deploy); 'dev' locally.
+    build: env.CF_PAGES_COMMIT_SHA ? String(env.CF_PAGES_COMMIT_SHA).slice(0, 7) : 'dev',
+    branch: env.CF_PAGES_BRANCH || '',
   };
   return new Response(JSON.stringify(body), {
     headers: { 'Content-Type': 'application/json' },
