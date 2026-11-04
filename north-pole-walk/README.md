@@ -96,6 +96,8 @@ npm run dev
 
 Then open `http://localhost:8788`. For Google sign-in to work locally, add `http://localhost:8788` as an authorized origin in Google (Step 5). The local database is separate from the live one.
 
+`npm test` runs the browser checks (first run, quick add, offline, the office team flow, arrival, kilometres) against a throwaway local database; see `tests/README.md`.
+
 ## If something isn't working
 
 - **The sign-in button does nothing, or shows an error popup** — the site address isn't in Google's authorized origins yet (Step 5), or Google hasn't applied it yet. Wait a few minutes and try again.
