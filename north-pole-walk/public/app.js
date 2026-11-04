@@ -1326,7 +1326,7 @@
       return owner ? `<div class="page"><h2>Leaderboard</h2><p class="muted small">Off. Only you can see this switch.</p>${toggle}</div>` : '';
     }
     const rows = (J.standings || []).map((m, i) => `<li class="${m.id === state.user.id ? 'me' : ''}">
-        <span class="rank">${i < 3 && m.total > 0 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+        <span class="rank ${i === 0 && m.total > 0 ? 'first' : ''}">${i + 1}</span>
         ${avatar(m)}
         <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>${fmtDist(m.week)} this week</span></div>
         <span class="miles">${fmtDist(m.total)}</span>

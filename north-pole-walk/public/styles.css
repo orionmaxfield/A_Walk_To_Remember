@@ -366,8 +366,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .list .cheer.on svg { fill: var(--accent); stroke: var(--accent); }
 .list .cheer:active { transform: scale(0.92); }
 .cheer-line { display: block; font-size: 12px; font-style: normal; color: var(--accent-text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.standings .rank { flex: 0 0 26px; text-align: center; font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--text-2); }
-.standings li.me { background: var(--accent-soft); margin: 0 calc(-1 * var(--s2)); padding-left: var(--s2); padding-right: var(--s2); border-radius: 12px; }
+.standings .rank { flex: 0 0 26px; text-align: center; font-family: var(--font-display); font-weight: 600; font-size: var(--fs-17); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.standings .rank.first { color: var(--accent-text); }
+.standings li.me { background: var(--raised); border: 1px solid var(--hairline-2); border-left: 3px solid var(--accent); margin: 0 calc(-1 * var(--s2)); padding-left: calc(var(--s2) + 2px); padding-right: var(--s2); border-radius: 12px; }
 
 .big-number { font-family: var(--font-display); font-size: var(--fs-44); line-height: var(--lh-44); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .big-number small { font-size: var(--fs-15); font-weight: 500; color: var(--text-2); margin-left: 6px; font-family: var(--font-body); }
