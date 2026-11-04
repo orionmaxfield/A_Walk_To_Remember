@@ -34,14 +34,61 @@
   /* ---------- Helpers ---------- */
 
   async function api(path, options = {}) {
-    const res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
+    let res;
+    try {
+      res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    } catch (e) {
+      const err = new Error('No signal right now. Check your connection and try again.');
+      err.offline = true;
+      throw err;
+    }
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Something went wrong. Try again.');
+    if (!res.ok) {
+      const err = new Error(body.error || 'Something went wrong. Try again.');
+      if (body.offline || res.status === 503) err.offline = true;
+      throw err;
+    }
     return body;
   }
+
+  /* ---------- Offline queue: miles logged with no signal wait on the phone ---------- */
+  const QUEUE_KEY = 'strollQueue';
+  function readQueue() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; } }
+  function writeQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) { /* no storage */ } }
+  function queuedFor(teamId) { return readQueue().filter((q) => q.team_id === teamId); }
+
+  let flushing = false;
+  async function flushQueue() {
+    if (flushing) return 0;
+    flushing = true;
+    let sent = 0;
+    try {
+      let q = readQueue();
+      while (q.length) {
+        const item = q[0];
+        try {
+          await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: item.team_id, miles: item.miles, note: item.note, date: item.date }) });
+        } catch (e) {
+          if (e.offline) break;           // still no signal: try again later
+          // The server refused it (walk gone, bad date): drop it rather than retry forever.
+        }
+        q = q.slice(1);
+        writeQueue(q);
+        sent++;
+      }
+    } finally { flushing = false; }
+    return sent;
+  }
+
+  async function syncQueued(quiet) {
+    if (!readQueue().length || !state.user) return;
+    const sent = await flushQueue();
+    if (!sent) return;
+    try { await loadJourney(); } catch (e) { /* offline again */ }
+    if (document.getElementById('screen')) renderScreen();
+    if (!quiet) toast(sent === 1 ? 'Back online. Your walk is saved.' : `Back online. ${sent} walks saved.`);
+  }
+  window.addEventListener('online', () => syncQueued(false));
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -145,6 +192,13 @@
     state.noticeDismissed = true;
     try { localStorage.setItem(ROUTE_NOTICE_KEY, '1'); } catch (e) { /* no storage; it stays dismissed for this visit */ }
   }
+  function offlineNotice() {
+    const q = queuedFor(state.teamId);
+    if (!q.length) return '';
+    const total = q.reduce((n, x) => n + Number(x.miles || 0), 0);
+    return `<div class="page notice offline-notice"><p><strong>${fmtDist(total)} waiting to send.</strong> ${q.length === 1 ? 'It was' : `${q.length} entries were`} saved on your phone with no signal${navigator.onLine ? '' : ', and you still look offline'}.</p><button class="button quiet" type="button" data-action="sync-now">Send now</button></div>`;
+  }
+
   function routeNotice() {
     if (currentJourneyDef().id !== 'north-pole' || routeNoticeDismissed()) return '';
     return `<div class="page notice" role="status">
@@ -206,6 +260,7 @@
     }
 
     if (!state.user) return renderCover();
+    if (readQueue().length) { try { await flushQueue(); } catch (e) { /* later */ } }
     await afterSignIn();
   }
 
@@ -625,9 +680,11 @@
 
   /* ---------- Journey screen ---------- */
 
+  function queuedMiles() { return queuedFor(state.teamId).reduce((n, q) => n + Number(q.miles || 0), 0); }
+
   function progress() {
     const J = currentJourneyDef();
-    const total = state.journey.teamTotal;
+    const total = state.journey.teamTotal + queuedMiles();
     const goal = J.totalMiles;
     const mile = Math.min(total, goal);
     const passed = J.waypoints.filter((w) => w.mile <= mile);
@@ -650,6 +707,7 @@
 
     return `
       ${routeNotice()}
+      ${offlineNotice()}
       <div class="page scene-page">
         <div id="scene" class="scene"></div>
       </div>
@@ -1586,7 +1644,17 @@
 
   async function addMiles(miles, note, date, label) {
     const firstEver = state.journey && state.journey.teamTotal <= 0;
-    const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note, date }) });
+    let added;
+    try {
+      added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note, date }) });
+    } catch (e) {
+      if (!e.offline) throw e;
+      writeQueue(readQueue().concat([{ team_id: state.teamId, miles, note: note || '', date: date || null, at: Date.now() }]));
+      state.tab = 'journey';
+      renderScreen();
+      toast(`No signal. ${fmtDist(miles)} is saved on your phone and will send when you're back online.`);
+      return 'queued';
+    }
     await loadJourney();
     state.tab = 'journey';
     state.moment = { miles: added.miles, first: firstEver };
@@ -1650,9 +1718,16 @@
     if (action === 'sign-out') withBusy(async () => {
       await api('/api/auth/logout', { method: 'POST' });
       localStorage.removeItem('teamId');
+      localStorage.removeItem(QUEUE_KEY);
       location.reload();
     });
 
+    if (action === 'sync-now') withBusy(async () => {
+      const before = readQueue().length;
+      await syncQueued(true);
+      const left = readQueue().length;
+      toast(left ? 'Still no signal. It will send on its own when you are back online.' : (before === 1 ? 'Sent. Your walk is saved.' : `Sent. ${before} walks saved.`));
+    });
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
     if (action === 'route-stop') toast(`${el.dataset.name} · ${fmtDist(Number(el.dataset.mile))}`);
     if (action === 'open-postcard') openPostcard(Number(el.dataset.mile));
@@ -1730,7 +1805,11 @@
       state.journey.teamTotal += miles; state.journey.myTotal += miles;
       if (state.rhythm) { state.rhythm.todayMiles += miles; state.rhythm.weekMiles += miles; if (!state.rhythm.walkedToday) { state.rhythm.walkedToday = true; state.rhythm.streak += 1; } }
       bumpNumbers();
-      try { await addMiles(miles, '', undefined); }
+      try {
+        const r = await addMiles(miles, '', undefined);
+        // Queued offline: the queue now carries these miles, so drop the optimistic copy.
+        if (r === 'queued') { state.journey.teamTotal = snap.teamTotal; state.journey.myTotal = snap.myTotal; renderScreen(); }
+      }
       catch (e) {
         state.journey.teamTotal = snap.teamTotal; state.journey.myTotal = snap.myTotal;
         if (state.rhythm) { state.rhythm.todayMiles = snap.today; state.rhythm.weekMiles = snap.week; state.rhythm.walkedToday = snap.walked; state.rhythm.streak = snap.streak; }

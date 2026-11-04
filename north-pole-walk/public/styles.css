@@ -643,3 +643,4 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .goal-choices .quick { min-height: 76px; }
 .goal-choices .quick.suggested { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(255, 122, 26, 0.25); }
 .goal-choices .quick small { white-space: nowrap; }
+.offline-notice { border-left-color: var(--text-3); }

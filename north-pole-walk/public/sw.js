@@ -1,35 +1,60 @@
-// A deliberately small service worker. It exists so phones offer "Add to Home
-// Screen" / "Install app", and it keeps the app's own files (not the API) in a
-// cache for a quick start. API calls always go to the network.
+// Stroll's service worker. It keeps the app shell (not the API) cached for a
+// quick start and for "Add to Home Screen", and it makes the app tolerant of
+// no signal: the last good copy of each API read is kept, and served only when
+// the network fails. Writes (adding miles) never go through here; app.js queues
+// them on the phone and sends them when the connection is back.
 
-const CACHE = 'stroll-shell-v1';
-const SHELL = ['/', '/styles.css', '/app.js', '/journey.js', '/custom.js', '/scene.js', '/badges.js', '/manifest.webmanifest'];
+const SHELL_CACHE = 'stroll-shell-v2';
+const API_CACHE = 'stroll-api-v1';
+const SHELL = ['/', '/styles.css', '/app.js', '/journey.js', '/custom.js', '/scene.js', '/badges.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
+  event.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== SHELL_CACHE && k !== API_CACHE).map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
-  // Network first, cache as a fallback: new deploys show up right away.
+  const req = event.request;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+
+  // Signing out forgets the cached reads, so the next person on this phone never sees them.
+  if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
+    event.respondWith(fetch(req).then((res) => { caches.delete(API_CACHE).catch(() => {}); return res; }));
+    return;
+  }
+  if (req.method !== 'GET') return;
+
+  if (url.pathname.startsWith('/api/')) {
+    // Network first. Keep the last good copy; use it only when the network is gone.
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) { const copy = res.clone(); caches.open(API_CACHE).then((c) => c.put(req, copy)).catch(() => {}); }
+          return res;
+        })
+        .catch(() => caches.match(req).then((hit) => hit || new Response(JSON.stringify({ error: 'You seem to be offline.', offline: true }), { status: 503, headers: { 'Content-Type': 'application/json' } })))
+    );
+    return;
+  }
+
+  // App files: network first, cache as a fallback, so new deploys show up right away.
   event.respondWith(
-    fetch(event.request)
+    fetch(req)
       .then((res) => {
-        if (res.ok && SHELL.includes(url.pathname)) {
+        if (res.ok && (SHELL.includes(url.pathname) || url.pathname.startsWith('/icons/'))) {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(event.request, copy)).catch(() => {});
+          caches.open(SHELL_CACHE).then((c) => c.put(req, copy)).catch(() => {});
         }
         return res;
       })
-      .catch(() => caches.match(event.request).then((hit) => hit || caches.match('/')))
+      .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('/') : undefined)))
   );
 });
