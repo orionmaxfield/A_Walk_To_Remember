@@ -787,7 +787,8 @@
     const who = isSolo() ? 'You are' : 'Your team is';
     const where = p.arrived
       ? `${who} ${esc(p.J.waypoints[p.J.waypoints.length - 1].region)}.`
-      : `${who} ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(capitalize(p.next.name))}, ${fmtDist(p.next.mile - p.mile)} ahead.` : ''}`;
+      : `${who} ${esc(p.here.region)}.`;
+    const nextHead = !p.arrived && p.next ? `<strong class="hero-next">Next: ${esc(capitalize(p.next.name))} · ${fmtDist(p.next.mile - p.mile)}</strong>` : '';
     const card = stopCard(p.here);
     const inviteLink = `${WEB_ORIGIN}/join/${state.journey.team.invite_code}`;
 
@@ -802,7 +803,7 @@
         <div class="kicker">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% of the way`}</div>
         <div class="hero-number" id="hero-number"><b>${fmt(dnum(p.total))}</b><small>of ${fmtDist(p.goal)}</small></div>
         <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
-        <p class="small">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : where}</p>
+        <p class="small hero-copy">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `${nextHead}<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : `${nextHead}${where}`}</p>
         ${p.arrived ? `<div class="arrived-actions"><button class="button" data-action="share-arrival">Share my arrival</button><button class="button quiet" data-action="replay-celebration">Replay the celebration</button></div>` : ''}
         ${isSolo() ? '' : `<div class="hero-foot"><span class="kicker">Your share</span><b>${fmtDist(state.journey.myTotal)}</b><span class="small muted">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</span></div>`}
       </div>
@@ -813,9 +814,11 @@
       ${routeMapCard(p)}
 
       <div class="page fact remember">
-        <h2>${esc(card.heading)}</h2>
-        <p>${esc(card.text)}</p>
-        <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile))}</p>
+        <div class="fact-body">
+          <h2>${esc(card.heading)}</h2>
+          <p>${esc(card.text)}</p>
+          <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile))}${p.next && !p.arrived ? ` · next story in ${fmtDist(p.next.mile - p.mile)}` : ''}</p>
+        </div>
       </div>
       </div>
 
@@ -895,8 +898,10 @@
   // Each stop's postcard: the scene just short of the stop, at its own hour of the day
   // (dawn, day, dusk, night in turn), with the stop's landmark silhouette on the right.
   const POSTCARD_HOURS = [7, 13, 18, 21, 9, 16, 20, 23];
+  // Each postcard gets its own sky tint as well as its own hour, so a row reads as different places.
+  const POSTCARD_TINTS = ['#FB7185', '#FBBF24', '#2DD4BF', '#A78BFA', '#60A5FA', '#4ADE80', '#F97316', '#F472B6'];
   function postcardArt(J, w, i) {
-    return JourneyScene.thumbnail(J, Math.max(0, w.mile - 2), { hour: POSTCARD_HOURS[i % POSTCARD_HOURS.length], mark: w });
+    return JourneyScene.thumbnail(J, Math.max(0, w.mile - 2), { hour: POSTCARD_HOURS[i % POSTCARD_HOURS.length], accent: POSTCARD_TINTS[i % POSTCARD_TINTS.length], mark: w, markScale: 1.7, walker: false });
   }
 
   function postcardsCard(p) {
@@ -1016,8 +1021,8 @@
           <path class="trail" d="${routePath(0, 1)}"/>
           <path class="trail done" d="${routePath(0, cur)}"/>
           <g class="endpoints">
-            ${cur > 0.04 ? `<circle cx="24" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>` : ''}
-            ${startLabel}
+            ${Math.hypot(mx - 24, my - routePoint(0)[1]) > 60 ? `<circle cx="24" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>` : ''}
+            ${Math.hypot(mx - 24, my - routePoint(0)[1]) > 30 ? startLabel : ''}
           </g>
           ${dots}
           <g class="here" transform="translate(${mx.toFixed(1)} ${my.toFixed(1)})">

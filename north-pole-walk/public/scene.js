@@ -1590,9 +1590,9 @@
     let c = theme.palette(t, k);
     c.t = t;
     if (!c.hillFar) c.hillFar = mix(c.hillBack, c.skyBot, 0.55);
-    c = premium(c, J.accent || '#E85D04', opts.hour);
+    c = premium(c, opts.accent || J.accent || '#E85D04', opts.hour);
     const vars = `--tree:${c.tree};--leaf:${c.leaf || c.tree};--tree-snow:${f2(c.treeSnow || 0)};--patch:${f2(c.patch || 0)}`;
-    const walker = theme.walker === 'hiker' ? hiker(VW / 2) : elf(VW / 2);
+    const walker = opts.walker === false ? '' : theme.walker === 'hiker' ? hiker(VW / 2) : elf(VW / 2);
     const weather = opts.still ? '' : snowfall(VW, c, c.embers ? '#ffb347' : null) + particles(VW, theme.particles);
     const arrived = mile >= total - 1e-6;
     return `<svg class="scene-svg${opts.still ? ' still' : ''}" viewBox="0 0 ${VW} ${H}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${esc(opts.label || '')}" style="${vars}">
@@ -1737,8 +1737,8 @@
     const VW = 720;
     setWorld(J);
     const mile = atMile != null ? clamp(atMile, 0, J.totalMiles) : clamp(mileAt(worldX(J.totalMiles) - 150), 0, J.totalMiles);
-    let svg = render(J, mile, VW, { still: true, label: '', hour: opts.hour });
-    if (opts.mark) svg = svg.replace('</svg>', stopMark(opts.mark, VW) + '</svg>');
+    let svg = render(J, mile, VW, { still: true, label: '', hour: opts.hour, accent: opts.accent, walker: opts.walker });
+    if (opts.mark) svg = svg.replace('</svg>', stopMark(opts.mark, VW, opts.markScale || 1) + '</svg>');
     // Slide the layers into place, as mount() would, by baking the transforms in.
     svg = svg.replace(/<g class="layer" data-speed="([\d.]+)">/g, (m, s) => `<g class="layer" data-speed="${s}" transform="translate(${(VW / 2 - worldX(mile) * Number(s)).toFixed(2)} 0)">`);
     const offset = VW / 2 - worldX(mile);
@@ -1750,10 +1750,12 @@
 
   // A stop's own landmark, as a dark silhouette on the right of a postcard, chosen from
   // words in its name: forest, river, mountain, city, field, bridge, village, cathedral...
-  function stopMark(wp, VW) {
+  function stopMark(wp, VW, scale) {
     const name = String(wp.name || '').toLowerCase() + ' ' + String(wp.scene || '').toLowerCase();
     const has = (...ws) => ws.some((w) => name.includes(w));
-    const x0 = VW - 250, base = HORIZON + 6;
+    // Drawn at the right of a 720-wide picture; a larger scale centers and enlarges it (postcards).
+    scale = scale || 1;
+    const x0 = scale > 1 ? VW / 2 - 110 * scale : VW - 250, base = HORIZON + 6;
     const ink = 'rgba(8, 8, 10, 0.82)';
     let g = '';
     if (has('forest', 'wood', 'tree', 'grove', 'jungle')) {
@@ -1778,7 +1780,8 @@
       // A lone signpost-style cairn and a tree for stops with no better match
       g = `<path d="M${x0 + 120} ${base} l-20 0 l20 -80 l20 80 z" fill="${ink}"/><rect x="${x0 + 117}" y="${base - 2}" width="6" height="12" fill="${ink}"/><path d="M${x0 + 40} ${base} l10 -30 l12 30z M${x0 + 46} ${base - 28} l6 -14 l6 14z" fill="${ink}"/>`;
     }
-    return `<g class="stop-mark" opacity="0.9">${g}</g>`;
+    const tf = scale > 1 ? ` transform="translate(${(VW / 2).toFixed(0)} ${base}) scale(${scale}) translate(${(-VW / 2).toFixed(0)} ${-base})"` : '';
+    return `<g class="stop-mark" opacity="0.92"${tf}>${g}</g>`;
   }
 
   // Rebuild at the current spot if the scene's box changes size (rotation, desktop resize).
