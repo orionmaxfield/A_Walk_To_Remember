@@ -1532,7 +1532,8 @@
           <li><strong>${R.bestStreak}</strong><span>best run</span></li>
           <li><strong>${fmt(dnum(Hs.allTimeMiles), Hs.allTimeMiles >= 1000 ? 0 : 1)}</strong><span>${unitWord()}</span></li>
           <li><strong>${R.daysWalked}</strong><span>days</span></li>
-        </ul>` : '';
+        </ul>
+        <p class="small muted" style="margin:10px 0 0">${R.graceUsed ? 'This streak has used its grace day: one missed day is forgiven per streak, and that was it.' : 'One missed day per streak is forgiven, so a day off never erases weeks of walking.'}</p>` : '';
     return `
       <div class="page">
         <h2>${esc(first)}'s walking diary</h2>
