@@ -666,3 +666,13 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
   .feed-page .list { columns: 2; column-gap: var(--s5); }
   .feed-page .list > li { break-inside: avoid; }
 }
+/* Desktop: the hero spans the page as one row (number and bar left, where-you-are right) */
+@media (min-width: 900px) {
+  #screen > .progress-hero { column-span: all; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-areas: "kicker copy" "number copy" "bar copy" "foot foot"; column-gap: var(--s7); align-items: center; }
+  .progress-hero > .kicker { grid-area: kicker; align-self: end; }
+  .progress-hero > .hero-number { grid-area: number; }
+  .progress-hero > .progress-bar { grid-area: bar; align-self: start; }
+  .progress-hero > p.small { grid-area: copy; font-size: var(--fs-17); line-height: var(--lh-17); margin: 0; }
+  .progress-hero > .hero-foot { grid-area: foot; }
+  .progress-hero > .button { grid-column: 1 / -1; justify-self: start; }
+}
