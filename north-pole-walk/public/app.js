@@ -388,6 +388,33 @@
     }, 100);
   }
 
+  // Sign in with Apple (web): Apple's script is loaded only when the flag is on.
+  let appleReady = null;
+  function loadApple() {
+    if (appleReady) return appleReady;
+    appleReady = new Promise((resolve, reject) => {
+      if (window.AppleID) return resolve();
+      const sc = document.createElement('script');
+      sc.src = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+      sc.onload = () => resolve(); sc.onerror = () => reject(new Error('Apple sign-in could not load. Check your connection and try again.'));
+      document.head.appendChild(sc);
+    }).then(() => {
+      window.AppleID.auth.init({ clientId: state.config.appleClientId, scope: 'name email', redirectURI: WEB_ORIGIN + '/', usePopup: true });
+    });
+    return appleReady;
+  }
+  async function appleSignIn() {
+    await loadApple();
+    let res;
+    try { res = await window.AppleID.auth.signIn(); } catch (e) { if (e && e.error === 'popup_closed_by_user') return; throw new Error('Apple sign-in was cancelled or failed. Try again.'); }
+    const idToken = res && res.authorization && res.authorization.id_token;
+    if (!idToken) throw new Error('Apple did not return a sign-in token.');
+    await api('/api/auth/apple', { method: 'POST', body: JSON.stringify({ id_token: idToken, name: res.user && res.user.name ? res.user.name : undefined }) });
+    const me = await api('/api/me');
+    state.user = me.user; state.teams = me.teams;
+    await afterSignIn();
+  }
+
   async function onGoogleCredential(response) {
     try {
       await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ credential: response.credential }) });
@@ -498,6 +525,7 @@
           <p class="cover-sub">Walk somewhere amazing this year.<br>Pick a destination, log your miles, watch yourself get there.</p>
           ${coverInviteHtml()}
           <div class="signin"><div id="google-button"></div></div>
+          ${state.config.appleClientId ? `<div class="signin"><button type="button" class="apple-button" data-action="apple-signin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.2 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.9-4zM14.3 5.2c.7-.8 1.2-2 1-3.2-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.5 2.9-1.3z"/></svg>Continue with Apple</button></div>` : ''}
           <p class="small muted cover-free">Free. Nothing to install. Works on any phone.</p>
         </div>
         ${landingHtml()}
@@ -2139,6 +2167,7 @@
       const btn = document.getElementById('google-button');
       if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.classList.remove('flash'); void btn.offsetWidth; btn.classList.add('flash'); }
     }
+    if (action === 'apple-signin') withBusy(appleSignIn);
     if (action === 'landing-start') {
       const btn = document.getElementById('google-button');
       if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.classList.remove('flash'); void btn.offsetWidth; btn.classList.add('flash'); }

@@ -822,3 +822,8 @@ body { overscroll-behavior-y: contain; }
 .week p.small { margin: 0; }
 .week-met { color: var(--success); }
 @media (min-width: 900px) { #screen > .week { column-span: all; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s5); } .week .week-dots { margin: 0; max-width: 420px; } .week p.small { text-align: right; } }
+
+/* Sign in with Apple (shown when the flag is on). White on our black, per Apple's button guidance */
+.apple-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; width: 280px; max-width: 100%; padding: 0 16px; border-radius: 999px; border: 1px solid #000; background: #FFFFFF; color: #000; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
+.apple-button svg { width: 18px; height: 18px; fill: currentColor; }
+.apple-button:active { transform: scale(0.98); }
