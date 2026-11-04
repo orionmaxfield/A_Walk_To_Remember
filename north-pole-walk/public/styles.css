@@ -388,7 +388,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   border: 2px solid rgba(255, 122, 26, 0.55);
   box-shadow: 0 0 18px rgba(232, 93, 4, 0.22);
 }
-.badge-frame svg { width: 44px; height: 44px; display: block; }
+.badge-frame svg { width: 44px; height: 44px; display: block; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)); }
 .badge-card.locked .badge-frame { border: 1px dashed var(--hairline-2); background: var(--raised); box-shadow: none; }
 .badge-card.locked .badge-frame svg { filter: grayscale(1); opacity: 0.4; }
 .badge-card.locked h3 { color: var(--text-2); }
@@ -529,7 +529,7 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .stat-row span { font-size: 10px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); margin-bottom: var(--s1); }
 .cal-head h2 { margin: 0; text-align: center; }
-.cal-head .small-btn { min-width: 44px; min-height: 44px; font-size: 22px; line-height: 1; padding: 0; }
+.cal-head .small-btn.arrow { min-width: 44px; min-height: 44px; font-size: 22px; line-height: 1; padding: 0; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: var(--s3); }
 .cal-dow { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-3); padding-bottom: 2px; }
 .cal-cell { position: relative; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; font-size: var(--fs-13); font-weight: 500; color: var(--text-2); overflow: hidden; font-variant-numeric: tabular-nums; }

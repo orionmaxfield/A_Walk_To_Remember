@@ -1001,7 +1001,7 @@
             ${navigator.share ? `<button class="button quiet" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(solo ? J.title : team.name)}" data-end="${esc(J.end)}">Share</button>` : ''}
           </div>
         </div>
-        <p class="small muted">Friends open the link, sign in with Google, and they're on the walk. Or they type the code under "Have an invite?".</p>`;
+`;
     return `
       ${solo ? `
       <div class="page">
@@ -1011,7 +1011,7 @@
       </div>` : `
       <div class="page">
         <h2>${esc(team.name)}</h2>
-        <p class="muted small">Send this link to anyone who wants to walk with you. They sign in with Google and they're on the team.</p>
+        <p class="muted small">Share the link or the code. Friends sign in with Google and they're on the team.</p>
         ${invite}
       </div>
 
@@ -1040,7 +1040,7 @@
 
       <div class="page">
         <h2>Another trail</h2>
-        <p class="muted small">You can be on more than one walk at a time: your own journey, one with work, one with family.</p>
+        <p class="muted small">Be on more than one walk at a time.</p>
         <button class="button quiet wide" type="button" data-action="pick-open">Start another journey</button>
         <form data-form="join-team" style="margin-top:10px">
           <div class="row">
@@ -1069,7 +1069,7 @@
       </li>`).join('');
     return `<div class="page">
         <h2>Leaderboard</h2>
-        <p class="muted small">Miles so far, with this week's miles underneath (Monday to Sunday).</p>
+        <p class="muted small">All time, with this week underneath.</p>
         <ol class="list standings">${rows}</ol>
         ${toggle}
       </div>`;
@@ -1134,9 +1134,10 @@
     }
     return `
       ${routeNotice()}
-      <div class="page">
-        <h2>Earned</h2>
-        <p class="muted small">${earned.length} of ${all.length} awards so far.${!solo ? ` ${lastWeek}` : ''}</p>
+      <div class="page hero">
+        <div class="kicker">Earned</div>
+        <div class="hero-number"><b>${earned.length}</b><small>of ${all.length} awards</small></div>
+        ${!solo ? `<p class="small muted" style="margin-top:-6px">${lastWeek}</p>` : ''}
         ${earned.length ? `<ul class="badges">${earned.map(badgeCard).join('')}</ul>` : `<p class="muted">Nothing yet. Your first walk earns the first one.</p>`}
       </div>
       ${nextUp.length ? `
@@ -1174,11 +1175,11 @@
           <label><input type="radio" name="units" value="mi" data-action="set-units" ${!isKm() ? 'checked' : ''}><span>Miles</span></label>
           <label><input type="radio" name="units" value="km" data-action="set-units" ${isKm() ? 'checked' : ''}><span>Kilometers</span></label>
         </div>
-        <p class="small muted">Shown everywhere, and used when you type a distance. Miles are kept underneath, so friends can use either.</p>
+        <p class="small muted">Used everywhere, including what you type. Friends can use either.</p>
       </div>
       <div class="page">
         <h2>On your phone</h2>
-        <p class="small muted">Stroll works like an app from your home screen: full screen, one tap away.</p>
+        <p class="small muted">Full screen, one tap away.</p>
         ${installHelp()}
       </div>
       <div class="page">
@@ -1250,9 +1251,9 @@
       </div>
       <div class="page">
         <div class="cal-head">
-          <button type="button" class="button quiet small-btn" data-action="history-month" data-month="${shiftMonth(ym, -1)}" aria-label="Previous month">‹</button>
+          <button type="button" class="button quiet small-btn arrow" data-action="history-month" data-month="${shiftMonth(ym, -1)}" aria-label="Previous month">‹</button>
           <h2>${MONTHS[Hs.month - 1]} ${Hs.year}</h2>
-          <button type="button" class="button quiet small-btn" data-action="history-month" data-month="${shiftMonth(ym, 1)}" aria-label="Next month" ${isThisMonth ? 'disabled' : ''}>›</button>
+          <button type="button" class="button quiet small-btn arrow" data-action="history-month" data-month="${shiftMonth(ym, 1)}" aria-label="Next month" ${isThisMonth ? 'disabled' : ''}>›</button>
         </div>
         <p class="small muted">${fmtDist(Hs.total, 1)} this month · ${Object.keys(Hs.days).length} ${Object.keys(Hs.days).length === 1 ? 'day' : 'days'} walked</p>
         <div class="cal-grid" role="grid" aria-label="Days walked this month">
