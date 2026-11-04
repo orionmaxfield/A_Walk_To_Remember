@@ -553,7 +553,10 @@
           </div>
           <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
         </div>
-        <div class="page scene-page destination-preview theme-road" aria-hidden="true">${destinationArt(customJourney(f.start && f.end ? { start: f.start, end: f.end, miles } : CUSTOM_SAMPLE))}</div>
+        <div class="page scene-page destination-preview theme-road" style="--dest:#F59E0B">
+          <span aria-hidden="true">${destinationArt(customJourney(f.start && f.end ? { start: f.start, end: f.end, miles } : CUSTOM_SAMPLE))}</span>
+          ${miles ? `<span class="dest-chip preview-chip">${esc(feelOf({ totalMiles: miles }))}</span>` : ''}
+        </div>
         <div class="page">
           <form data-form="custom-lookup">
             <label class="field"><span>Starting from</span><input name="start" maxlength="120" placeholder="Layton, Utah" value="${esc(f.startQ)}" required></label>
@@ -561,13 +564,15 @@
             <label class="field"><span>Walking to</span><input name="end" maxlength="120" placeholder="Grand Canyon" value="${esc(f.endQ)}" required></label>
             ${chooser('end', f.ends, f.end)}
             ${f.error ? `<p class="small error-note">${esc(f.error)}</p>` : ''}
-            <button class="button quiet wide" type="submit" ${f.busy ? 'disabled' : ''}>${f.busy ? 'Looking up…' : (f.starts ? 'Look up again' : 'Find the route')}</button>
+            <button class="button ${miles ? 'quiet ' : ''}wide" type="submit" ${f.busy ? 'disabled' : ''}>${f.busy ? 'Looking up…' : (f.starts ? 'Look up again' : 'Find the route')}</button>
           </form>
+          <p class="small muted" style="margin-top:14px">Place names come from OpenStreetMap, © OpenStreetMap contributors.</p>
+        </div>
           ${miles ? `
-          <div class="route-summary">
-            <h2>${fmtDist(miles)}</h2>
-            <p class="small muted">${esc(f.start.name)} to ${esc(f.end.name)}, as the roads run (straight-line distance plus a fifth). ${esc(dailyHint({ totalMiles: miles }))}</p>
-          </div>
+        <div class="page hero">
+          <div class="kicker">Your route</div>
+          <div class="hero-number"><b>${fmt(dnum(miles), 0)}</b><small>${unitWord()}</small></div>
+          <p class="small muted">${esc(f.start.name)} to ${esc(f.end.name)}, as the roads run (straight-line distance plus a fifth). ${esc(dailyHint({ totalMiles: miles }))}</p>
           <div class="start-buttons">
             <button class="button wide" type="button" data-action="start-custom-solo">Walk it on my own</button>
             <button class="button quiet wide" type="button" data-action="show-group-form">Start a group walk</button>
@@ -575,9 +580,8 @@
           <form data-form="create-team" data-journey="custom" hidden>
             <label class="field"><span>Group name</span><input name="name" maxlength="60" placeholder="The Lunch Walkers" required></label>
             <button class="button wide" type="submit">Start the group walk</button>
-          </form>` : ''}
-          <p class="small muted" style="margin-top:14px">Place names come from OpenStreetMap, © OpenStreetMap contributors.</p>
-        </div>
+          </form>
+        </div>` : ''}
       </section>`;
     window.scrollTo({ top: 0 });
   }
