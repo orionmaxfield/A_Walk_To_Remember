@@ -1831,8 +1831,8 @@
 
   // A tiny tap of haptic feedback where the platform offers it (Android browsers today;
   // the iPhone wrapper can route this to its Haptics plugin). Silent elsewhere.
-  function buzz() {
-    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* not available */ }
+  function buzz(pattern) {
+    try { if (navigator.vibrate) navigator.vibrate(pattern || 12); } catch (e) { /* not available */ }
   }
 
   // Let the goal ring sweep from empty to its value (on opening the Journey, and after a goal is set).
@@ -1893,6 +1893,7 @@
     const J0 = currentJourneyDef();
     const passedStop = J0.waypoints.some((w) => w.mile > 0 && w.mile > before && w.mile <= state.journey.teamTotal);
     chime(passedStop ? 'stop' : 'log');
+    if (passedStop) buzz([18, 60, 18, 60, 36]); // a little flourish for reaching a stop
     try { if (!localStorage.getItem('installHintDue')) localStorage.setItem('installHintDue', '1'); } catch (e) { /* no storage */ }
     renderScreen();
     if (firstEver) burst();
