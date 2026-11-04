@@ -506,7 +506,8 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .when summary::before { content: '+ '; margin-right: 4px; }
 .when[open] summary::before { content: '− '; }
 .when .field { margin-top: var(--s2); }
-.when input[type="date"] { font-size: var(--fs-15); }
+.when input[type="date"] { font-size: var(--fs-15); box-sizing: border-box; height: 48px; width: 100%; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; line-height: 1.2; }
+.when input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; padding: 8px; }
 .last-entry .list li { gap: var(--s2); }
 .first-step { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .first-step p { flex: 1 1 200px; margin: 0; }
