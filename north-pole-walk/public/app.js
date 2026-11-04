@@ -687,6 +687,7 @@
           </button>
         </div>
       </div>
+      <div class="page scene-page shared" id="scene-shell"><div id="scene" class="scene"></div></div>
       <div id="screen"></div>
       <nav class="nav" aria-label="Sections"><div class="nav-inner">
         ${navButton('journey', 'Journey', '<path d="M4 18c4-6 6-6 8 0s4 6 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="6" r="2.5" fill="currentColor"/>')}
@@ -732,6 +733,8 @@
       b.classList.toggle('active', active);
       b.setAttribute('aria-current', active ? 'page' : 'false');
     });
+    const shell = document.getElementById('scene-shell');
+    if (shell) shell.classList.toggle('compact', state.tab !== 'journey');
     if (state.tab === 'journey') {
       positionScene();
       maybeCelebrate();
@@ -772,9 +775,6 @@
     return `
       ${routeNotice()}
       ${offlineNotice()}
-      <div class="page scene-page">
-        <div id="scene" class="scene"></div>
-      </div>
 
       ${momentBanner(p)}
       ${installHint()}
@@ -1126,6 +1126,10 @@
 
     const p = progress();
     const from = state.lastShownMile;
+    // Already showing this walk at this mile (say, coming back from another tab): leave it be.
+    const key = `${state.teamId}:${p.mile.toFixed(2)}:${isKm() ? 'km' : 'mi'}`;
+    if (host.firstChild && host.dataset.shown === key) return;
+    host.dataset.shown = key;
     JourneyScene.mount(host, {
       journey: p.J,
       mile: p.mile,

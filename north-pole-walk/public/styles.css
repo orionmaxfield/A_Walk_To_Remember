@@ -725,7 +725,7 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
   .brand { font-size: 13px; }
   /* Quick add: four pills, centered, instead of one flat row across the whole card */
   .quick-row { display: flex; justify-content: center; gap: var(--s3); }
-  .quick-row .quick { flex: 0 0 150px; border-radius: var(--r-pill); }
+  .quick-row .quick { flex: 0 1 150px; min-width: 0; border-radius: var(--r-pill); }
   .goal-choices .quick { flex-basis: 170px; }
 }
 
@@ -743,3 +743,11 @@ body { overscroll-behavior-y: contain; }
 .ptr.armed { background: var(--accent); color: var(--on-accent); }
 @keyframes ptr-spin { to { transform: translate(-50%, 56px) rotate(540deg); } }
 .ptr.spin { animation: ptr-spin 900ms linear infinite; }
+
+/* The scene is a shared header: full height on the Journey, a strip (bottom of the picture) elsewhere */
+.scene-page.shared { height: clamp(260px, 72vw, 300px); display: flex; flex-direction: column; justify-content: flex-end; transition: height 260ms var(--ease-out); margin-bottom: var(--s4); }
+.scene-page.shared .scene { flex: 0 0 auto; }
+.scene-page.shared.compact { height: 118px; }
+.scene-page.shared .scene { transition: transform 260ms var(--ease-out); }
+.scene-page.shared.compact .scene { transform: translateY(13%); }
+@media (min-width: 900px) { .scene-page.shared { height: 380px; } .scene-page.shared.compact { height: 150px; } }
