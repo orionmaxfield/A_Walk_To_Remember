@@ -479,7 +479,7 @@
         <section class="landing-how">
           <h2>How it works</h2>
           <ol class="benefits">
-            <li><span class="benefit-n">1</span><strong>Pick a destination.</strong><span>Oz, the Camino, Camelot, Atlantis, the Appalachian Trail, or any two real places on the map.</span></li>
+            <li><span class="benefit-n">1</span><strong>Pick a destination.</strong><span>Oz, the Camino, the Great Wall, Camelot, the center of the Earth, or any two real places on the map.</span></li>
             <li><span class="benefit-n">2</span><strong>Log your miles, any way you move.</strong><span>Walks, steps, a workout. One tap from the home screen. Friends can pool miles with you.</span></li>
             <li><span class="benefit-n">3</span><strong>Watch yourself get there.</strong><span>A scene that moves with you, a postcard at every stop, awards along the way, and a finale when you arrive.</span></li>
           </ol>
@@ -500,7 +500,7 @@
         </section>
         <section class="landing-dest">
           <h2>Where will you walk?</h2>
-          <p class="small muted">Seven trails to choose from, or any two real places. Each takes about a year at a gentle pace.</p>
+          <p class="small muted">Nine trails to choose from, or any two real places. Each takes about a year at a gentle pace.</p>
           <ul class="destinations">${pub.map((id) => destinationCard(JOURNEYS[id], true).replace('data-action="pick-destination"', 'data-action="landing-pick"')).join('')}</ul>
         </section>
         <section class="landing-cta">

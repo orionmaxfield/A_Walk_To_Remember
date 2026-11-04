@@ -1447,6 +1447,285 @@
     },
   };
 
+  /* --- Underground: Iceland's grey light, then a cave ceiling, crystal galleries,
+         a lit sea under the earth and a fiery way out through Stromboli --- */
+  THEMES.underground = {
+    walker: 'hiker',
+    particles: 'fireflies',
+    hillAmp: 0.9,
+    fracs: { crater: 0.12, descent: 0.17, gallery: 0.24, well: 0.32, mushrooms: 0.44, sea: 0.52, storm: 0.64, monsters: 0.72, geyser: 0.78, bones: 0.86, blast: 0.93 },
+    palette(t, k) {
+      const under = smooth(k.descent - 0.02, k.descent + 0.02, t);   // 1 once underground
+      const seaK = smooth(k.sea - 0.03, k.sea, t) * (1 - smooth(k.geyser, k.geyser + 0.04, t));
+      const fire = smooth(k.blast, 1, t);
+      return Object.assign({}, CLEAR, {
+        skyTop: ramp([[0, '#6f8fae'], [k.descent, '#2a2230'], [1, '#2a1418']], t),
+        skyMid: ramp([[0, '#a8bccc'], [k.descent, '#3a2f48'], [1, '#5a2a28']], t),
+        skyBot: ramp([[0, '#dfe8ee'], [k.descent, '#6a5a78'], [1, '#ff8a4c']], t),
+        rock: ramp([[0, '#6f7f8a'], [k.descent, '#4a3a52'], [k.blast, '#4a3a52'], [1, '#5a3030']], t),
+        rockBack: ramp([[0, '#9aa8b4'], [k.descent, '#6a5a78'], [1, '#7a4a48']], t),
+        hillBack: ramp([[0, '#7f9a6a'], [k.crater, '#8a8f7a'], [k.descent, '#5a4a68'], [k.sea, '#4a4a6a'], [k.blast, '#5a4a58'], [1, '#5a3a30']], t),
+        hillFront: ramp([[0, '#5f8a4e'], [k.crater, '#6f7a62'], [k.descent, '#453a55'], [k.sea, '#3a3a58'], [k.blast, '#4a3a48'], [1, '#4a2a24']], t),
+        grass: ramp([[0, '#6f9a58'], [k.crater, '#7a8a6a'], [k.descent, '#4a4050'], [k.sea, '#6a6a7a'], [k.geyser, '#4a4050'], [k.blast, '#4a3a40'], [1, '#3a2a28']], t),
+        path: ramp([[0, '#a89a7a'], [k.crater, '#8a8a8a'], [k.descent, '#6a6070'], [1, '#5a4a48']], t),
+        tree: '#2f4a3a', leaf: '#4a6a4a',
+        snowLine: lerp(0.45, 1.2, under),
+        sea: seaK > 0.02 ? '#5a7fb0' : null, seaFar: '#8aa0c8',
+        sunY: lerp(60, 118, under), sunOp: 1,
+        clouds: (1 - under) * 0.7,
+        cave: under, fire,
+      });
+    },
+    forest: [[0.0, 0.1, 0.25, 'pine']],
+    // The cave roof hangs over everything once underground; a lava glow climbs the walls near the end.
+    sky(c, VW) {
+      if (!c.cave) return '';
+      const r = rng(41);
+      let drips = '';
+      for (let x = -10; x < VW + 20; x += 18 + r() * 26) {
+        const h = 16 + r() * 48, w = 8 + r() * 14;
+        drips += `<path d="M${x.toFixed(0)} 54 l${(w / 2).toFixed(0)} ${h.toFixed(0)} l${(w / 2).toFixed(0)} -${h.toFixed(0)}z"/>`;
+      }
+      return `<g opacity="${f2(c.cave)}"><rect x="0" y="0" width="${VW}" height="58" fill="#0b0b0c"/><g fill="#141017">${drips}</g>
+        <rect x="0" y="0" width="${VW}" height="${H}" fill="#2a1410" opacity="${f2(c.fire * 0.35)}"/></g>`;
+    },
+    midBehind({ marks, mx, r }) {
+      let out = '';
+      if (marks.crater != null) {
+        // Snæfellsjökull: a broad snow-capped cone with the crater notch
+        const v = mx(marks.crater) + 20;
+        out += `<path d="M${v - 230} ${HORIZON + 10} L${v - 40} ${HORIZON - 108} L${v - 14} ${HORIZON - 100} L${v + 14} ${HORIZON - 100} L${v + 40} ${HORIZON - 108} L${v + 230} ${HORIZON + 10}Z" fill="#6a6a78"/>
+          <path d="M${v - 40} ${HORIZON - 108} L${v - 14} ${HORIZON - 100} L${v + 14} ${HORIZON - 100} L${v + 40} ${HORIZON - 108} L${v + 96} ${HORIZON - 52} L${v + 60} ${HORIZON - 60} L${v + 30} ${HORIZON - 44} L${v - 20} ${HORIZON - 58} L${v - 70} ${HORIZON - 50} L${v - 96} ${HORIZON - 52}Z" fill="#eef2f6"/>`;
+      }
+      if (marks.gallery != null) {
+        // Columns of crystal in the gallery, lit from within
+        const g = mx(marks.gallery);
+        for (const [dx, h, w] of [[-120, 70, 14], [-80, 100, 18], [-30, 60, 12], [30, 110, 20], [90, 80, 14], [150, 95, 16]]) {
+          out += `<path d="M${g + dx - w} ${HORIZON + 8} L${g + dx - w / 3} ${HORIZON + 8 - h} L${g + dx + w / 3} ${HORIZON + 8 - h - 10} L${g + dx + w} ${HORIZON + 8}z" fill="#9a6ab8" opacity="0.9"/><path d="M${g + dx - w / 3} ${HORIZON + 8 - h} L${g + dx + w / 3} ${HORIZON + 8 - h - 10} L${g + dx + w / 3} ${HORIZON + 8}" fill="none" stroke="#f0d8ff" stroke-width="1.5" opacity="0.7"/>`;
+        }
+      }
+      if (marks.storm != null) {
+        // Lightning over the Lidenbrock Sea
+        const s = mx(marks.storm) + 40;
+        out += `<path d="M${s} 0 l-14 56 l18 -8 l-22 70 l30 -46 l-16 6 l20 -50 l-14 4z" fill="#fff6d8" opacity="0.9"/><path d="M${s + 120} 0 l-8 40 l12 -6 l-16 52" fill="none" stroke="#fff6d8" stroke-width="2" opacity="0.7"/>`;
+      }
+      if (marks.monsters != null) {
+        // An ichthyosaurus breaking the surface, a plesiosaurus neck behind
+        const m = mx(marks.monsters);
+        out += `<path d="M${m - 90} ${HORIZON - 6} q30 -34 80 -14 q30 10 60 6 l20 -18 l4 22 l-30 10 q-50 14 -110 0z" fill="#1c1a26"/><circle cx="${m - 12}" cy="${HORIZON - 20}" r="2.4" fill="#ffd27a"/>
+          <path d="M${m + 110} ${HORIZON - 4} q-10 -40 14 -60 q14 -10 22 2 l-14 4 q-10 14 -2 54z" fill="#1c1a26"/>`;
+      }
+      if (marks.geyser != null) {
+        // Axel Island's geyser: a white column with a spreading top
+        const g = mx(marks.geyser) + 30;
+        out += `<path d="M${g - 40} ${HORIZON + 8} q40 -18 80 0z" fill="#5a5a6a"/><path d="M${g - 5} ${HORIZON - 2} l-6 -90 q11 -40 22 0 l-6 90z" fill="#e8eef6" opacity="0.85"/><ellipse cx="${g}" cy="${HORIZON - 92}" rx="26" ry="9" fill="#e8eef6" opacity="0.6"/>`;
+      }
+      if (marks.finish != null) out += volcano(mx(marks.finish) + 10, true);
+      return out;
+    },
+    midFront({ marks, mx, r }) {
+      let out = '';
+      if (marks.well != null) {
+        // The Hansbach: a thin bright stream down the rock face
+        const w = mx(marks.well) - 20;
+        out += `<path d="M${w - 30} ${HORIZON + 8} v-50 l60 -14 v64z" fill="#3a2f44"/><path d="M${w - 2} ${HORIZON - 50} q6 14 -2 28 q8 14 0 30" fill="none" stroke="#a8d8ff" stroke-width="3" stroke-linecap="round"/><ellipse cx="${w - 4}" cy="${HORIZON + 8}" rx="16" ry="4" fill="#a8d8ff" opacity="0.7"/>`;
+      }
+      if (marks.mushrooms != null) {
+        // The forest of giant mushrooms
+        const m = mx(marks.mushrooms);
+        for (let x = m - 170; x < m + 190; x += 26 + r() * 30) {
+          const s = 0.7 + r() * 0.9, h = 34 * s, cw = 26 * s;
+          out += `<g transform="translate(${x.toFixed(0)} ${HORIZON + 8})"><rect x="${(-4 * s).toFixed(1)}" y="${(-h).toFixed(1)}" width="${(8 * s).toFixed(1)}" height="${h.toFixed(1)}" fill="#cfc4b4"/><path d="M${-cw} ${-h} q${cw} -${(24 * s).toFixed(1)} ${cw * 2} 0z" fill="#d9cdbc"/><path d="M${-cw} ${-h} q${cw} ${(6 * s).toFixed(1)} ${cw * 2} 0" fill="none" stroke="#a89a8a" stroke-width="1.5"/></g>`;
+        }
+      }
+      if (marks.sea != null) {
+        // The raft of fossil wood on the Lidenbrock Sea
+        const s = mx(marks.sea) + 90;
+        out += `<g transform="translate(${s.toFixed(0)} ${HORIZON - 4})"><path d="M-34 0 h68 l-6 10 h-56z" fill="#5a4030"/><rect x="-2" y="-46" width="4" height="46" fill="#5a4030"/><path d="M2 -44 l30 36 h-30z" fill="#e6dcc8"/><path d="M-2 -40 l-24 30 h24z" fill="#d9ccb0"/></g>`;
+      }
+      if (marks.bones != null) {
+        // The field of bones: ribs and a long skull
+        const b = mx(marks.bones) - 20;
+        out += `<g fill="none" stroke="#e8e2d4" stroke-width="3" stroke-linecap="round">${[-110, -84, -58, -32, -6, 20].map((dx, i) => `<path d="M${b + dx} ${HORIZON + 8} q${8 + i * 2} -${40 + i * 8} ${36 + i * 4} -${50 + i * 8}"/>`).join('')}</g>
+          <path d="M${b + 70} ${HORIZON + 8} v-22 q10 -16 36 -10 l30 10 l-30 6 q-10 10 -4 16z" fill="#e8e2d4"/><circle cx="${b + 96}" cy="${HORIZON - 16}" r="4" fill="#2a2230"/>`;
+      }
+      if (marks.blast != null) {
+        // Rubble from the blasted boulder
+        const t = mx(marks.blast) - 30;
+        out += `<g fill="#5a4a58">${[[-50, 30, 18], [-14, 44, 24], [20, 36, 20], [52, 24, 14]].map(([dx, w, h]) => `<path d="M${t + dx} ${HORIZON + 8} l${w * 0.3} -${h} l${w * 0.5} ${h * 0.2} l${w * 0.2} ${h * 0.8}z"/>`).join('')}</g>`;
+      }
+      return out;
+    },
+    nearBehind({ marks, nx, r, x0, x1 }) {
+      let out = '';
+      // Crystals along the path in the galleries, embers near the end
+      if (marks.gallery != null) {
+        for (let x = nx(marks.gallery) - 200; x < nx(marks.gallery) + 220; x += 22 + r() * 30) {
+          const h = 8 + r() * 16;
+          out += `<path d="M${x.toFixed(0)} ${SIGN_BASE} l-5 0 l5 -${h.toFixed(0)} l5 ${h.toFixed(0)}z" fill="#c08ad8" opacity="0.85"/>`;
+        }
+      }
+      if (marks.sea != null) {
+        for (let x = nx(marks.sea) - 60; x < nx(marks.geyser != null ? marks.geyser : marks.sea) + 100; x += 60 + r() * 80) {
+          out += `<path d="M${x.toFixed(0)} ${SIGN_BASE - 2} q8 -4 16 0" fill="none" stroke="#a8c8ff" stroke-width="1.5" opacity="0.6"/>`;
+        }
+      }
+      if (marks.finish != null) {
+        const f = nx(marks.finish);
+        for (let x = f - 300; x < f + 100; x += 40 + r() * 50) {
+          out += `<path d="M${x.toFixed(0)} ${(SIGN_BASE + 20 + r() * 20).toFixed(0)} q10 -6 22 0" fill="none" stroke="#ff7a2c" stroke-width="2.5" opacity="${(0.4 + r() * 0.5).toFixed(2)}"/>`;
+        }
+      }
+      return out;
+    },
+    nearFront({ marks, nx }) {
+      return marks.finish != null ? finishBanner(nx(marks.finish), 'STROMBOLI', '#8a2f22') : '';
+    },
+  };
+
+  /* --- Great Wall: desert fort to the sea, with the wall riding the ridges all the way --- */
+  THEMES.greatwall = {
+    walker: 'hiker',
+    particles: 'dust',
+    hillAmp: 1.1,
+    farScale: 0.9,
+    fracs: { desert: 0.086, oasis: 0.19, river: 0.26, helan: 0.39, beacon: 0.55, yanmen: 0.72, dajingmen: 0.81, badaling: 0.86, jinshanling: 0.92 },
+    palette(t, k) {
+      const green = smooth(k.river, k.helan, t);
+      const sea = smooth(0.975, 1, t);
+      return Object.assign({}, CLEAR, {
+        skyTop: ramp([[0, '#6fa8e0'], [k.helan, '#5aa6e8'], [1, '#5a9fd8']], t),
+        skyMid: ramp([[0, '#d8c8a8'], [k.river, '#c8d8e8'], [1, '#b7d2ea']], t),
+        skyBot: ramp([[0, '#f6e4c0'], [k.river, '#e8f0f6'], [1, '#e2f0fb']], t),
+        rock: ramp([[0, '#b89a6a'], [k.helan, '#7a7080'], [k.badaling, '#6a7080']], t),
+        rockBack: ramp([[0, '#d4bb8a'], [k.helan, '#a8a0b0'], [1, '#98a0b0']], t),
+        hillBack: ramp([[0, '#d8b56a'], [k.oasis, '#cfae68'], [k.river, '#b8a860'], [k.helan, '#8fa05a'], [k.badaling, '#6f9a5a'], [1, '#7a9a6a']], t),
+        hillFront: ramp([[0, '#c9a45a'], [k.river, '#a89a58'], [k.helan, '#6f8a48'], [k.badaling, '#4f7a44'], [1, '#5f8a52']], t),
+        grass: ramp([[0, '#d9bf7a'], [k.river, '#b8aa66'], [k.helan, '#7fa05a'], [k.badaling, '#5f9a4a'], [1, '#6f9a5a']], t),
+        path: ramp([[0, '#d9c08a'], [k.helan, '#b8a080'], [1, '#a89a8a']], t),
+        tree: '#2f6e3b', leaf: ramp([[0, '#8a9a4a'], [k.helan, '#3f8a3c']], t),
+        sea: sea > 0.02 ? '#3a8fc8' : null, seaFar: '#8fc0e0',
+        sunY: 60, sunOp: 1,
+        clouds: 0.2 + green * 0.3,
+      });
+    },
+    forest: [[0.2, 0.28, 0.45, 'round'], [0.37, 0.5, 0.5, 'round'], [0.7, 0.86, 0.7, 'pine'], [0.86, 0.985, 0.85, 'round']],
+    // The wall itself: a ridge-riding band with battlements and a watchtower every so often.
+    // Rammed earth and low in the desert, grey brick and tall once it reaches the mountains.
+    midHills({ x0, x1, total }) {
+      const rr = rng(23);
+      let out = '';
+      let x = x0, y = HORIZON - 8 - rr() * 24, i = 0;
+      while (x < x1) {
+        const w = 44 + rr() * 50;
+        const tt = clamp(mileAt(x / SPEED.mid) / total, 0, 1);
+        const mtn = smooth(0.3, 0.45, tt);
+        const ny = HORIZON - 6 - rr() * (10 + 36 * mtn);
+        const stone = ramp([[0, '#c9a46f'], [0.3, '#b8a07a'], [0.42, '#8f8a80'], [1, '#8a8a86']], tt);
+        const dark = ramp([[0, '#a8865a'], [0.42, '#6a6660'], [1, '#62625e']], tt);
+        const h = 5 + 6 * mtn;
+        out += `<path d="M${x.toFixed(0)} ${y.toFixed(0)} L${(x + w).toFixed(0)} ${ny.toFixed(0)} L${(x + w).toFixed(0)} ${(ny + h + 16).toFixed(0)} L${x.toFixed(0)} ${(y + h + 16).toFixed(0)}Z" fill="${stone}"/>
+          <path d="M${x.toFixed(0)} ${(y + h).toFixed(0)} L${(x + w).toFixed(0)} ${(ny + h).toFixed(0)} L${(x + w).toFixed(0)} ${(ny + h + 16).toFixed(0)} L${x.toFixed(0)} ${(y + h + 16).toFixed(0)}Z" fill="${dark}" opacity="0.55"/>`;
+        if (mtn > 0.2) {
+          let teeth = '';
+          for (let px = 2; px < w - 2; px += 8) {
+            const py = y + (ny - y) * (px / w);
+            teeth += `M${(x + px).toFixed(0)} ${py.toFixed(0)} v-3 h4 v3`;
+          }
+          out += `<path d="${teeth}" fill="none" stroke="${stone}" stroke-width="1.6" opacity="${f2(mtn)}"/>`;
+        }
+        if (i % 5 === 2) {
+          const tx = x + w, ty = ny, th = 20 + 12 * mtn;
+          out += `<rect x="${(tx - 8).toFixed(0)}" y="${(ty - th).toFixed(0)}" width="16" height="${(th + h + 16).toFixed(0)}" fill="${dark}"/><rect x="${(tx - 8).toFixed(0)}" y="${(ty - th).toFixed(0)}" width="9" height="${(th + h + 16).toFixed(0)}" fill="${stone}"/>`;
+          if (mtn > 0.5) out += `<path d="M${(tx - 12).toFixed(0)} ${(ty - th).toFixed(0)} q12 -9 24 0z" fill="#5a4a44"/>`;
+          else out += `<path d="M${(tx - 8).toFixed(0)} ${(ty - th).toFixed(0)} h3 v-3 h4 v3 h3 v-3 h3 v3 h3" fill="none" stroke="${stone}" stroke-width="1.6"/>`;
+        }
+        x += w; y = ny; i++;
+      }
+      return out;
+    },
+    midBehind({ marks, mx, r }) {
+      let out = '';
+      const gateTower = (x, w, h, wallCol, roofCol) => `<g transform="translate(${x.toFixed(0)} ${HORIZON + 6})">
+        <rect x="${-w / 2}" y="${-h}" width="${w}" height="${h}" fill="${wallCol}"/>
+        <path d="M${-w / 2 - 4} ${-h} h${w + 8} v-3 h-${w + 8}z" fill="${roofCol}"/>
+        <rect x="${-w / 2 + 6}" y="${-h - 28}" width="${w - 12}" height="28" fill="#8a5a3a"/>
+        <path d="M${-w / 2 - 2} ${-h - 28} q${w / 2 + 2} -8 ${w + 4} 0 l-6 -3 q${-w / 2 + 4} -6 ${-w + 8} 0z" fill="#5a3a30"/>
+        <path d="M${-w / 2 + 2} ${-h - 44} q${w / 2 - 2} -10 ${w - 4} 0 l-5 -2 q${-w / 2 + 7} -7 ${-w + 14} 0z" fill="#5a3a30"/>
+        <rect x="${-w / 2 + 8}" y="${-h - 42}" width="${w - 16}" height="14" fill="#8a5a3a"/>
+        <path d="M-7 0 v-22 a7 7 0 0 1 14 0 v22z" fill="#2b241f"/>
+        ${[-1, 1].map((s) => `<rect x="${s * (w / 2 - 14) - 3}" y="${-h - 20}" width="6" height="10" fill="rgba(255,200,120,0.75)"/>`).join('')}
+      </g>`;
+      if (marks.start != null) {
+        // Jiayuguan: the fort's walls and its three-tiered gate tower
+        const s = mx(marks.start) - 150;
+        out += wall(s - 110, s + 110, HORIZON + 6, 26, '#c9a46f') + gateTower(s, 60, 30, '#c9a46f', '#a8865a') + tower(s - 112, HORIZON + 6, 16, 42, '#c9a46f', '#8a6a4a') + tower(s + 112, HORIZON + 6, 16, 42, '#c9a46f', '#8a6a4a');
+      }
+      if (marks.helan != null) {
+        // The Helan range: a long jagged wall of rock
+        const h = mx(marks.helan);
+        out += `<path d="M${h - 300} ${HORIZON + 10} L${h - 200} ${HORIZON - 70} L${h - 140} ${HORIZON - 40} L${h - 60} ${HORIZON - 96} L${h + 20} ${HORIZON - 54} L${h + 90} ${HORIZON - 88} L${h + 180} ${HORIZON - 30} L${h + 300} ${HORIZON + 10}Z" fill="#7a7080"/>`;
+      }
+      if (marks.beacon != null) {
+        // Zhenbeitai: four square tiers of brick
+        const b = mx(marks.beacon) + 20;
+        out += `<g transform="translate(${b.toFixed(0)} ${HORIZON + 6})">${[[70, 22], [54, 24], [40, 26], [26, 24]].map(([w, h], i) => { const y = -[0, 22, 46, 72][i]; return `<rect x="${-w / 2}" y="${y - h}" width="${w}" height="${h}" fill="#9a8f7a"/><rect x="${-w / 2}" y="${y - h}" width="${w / 2}" height="${h}" fill="#b0a58e"/>`; }).join('')}<path d="M-4 -96 v-14 M-4 -108 h12 l-3 4 l3 4 h-12" fill="#c9553d" stroke="#c9553d" stroke-width="1.5"/></g>`;
+      }
+      if (marks.yanmen != null) out += gateTower(mx(marks.yanmen) - 20, 70, 36, '#8f8a80', '#6a6660');
+      if (marks.dajingmen != null) out += gateTower(mx(marks.dajingmen) - 10, 54, 34, '#8f8a80', '#6a6660');
+      if (marks.badaling != null) {
+        // Badaling's watchtower on its ridge, with the wall stepping up to it
+        const b = mx(marks.badaling);
+        out += `<path d="M${b - 160} ${HORIZON + 10} L${b - 40} ${HORIZON - 56} L${b + 60} ${HORIZON - 70} L${b + 200} ${HORIZON + 10}Z" fill="#4f7a44"/>` + gateTower(b + 10, 44, 26, '#8a8a86', '#62625e');
+      }
+      if (marks.finish != null) {
+        // Shanhaiguan: the First Pass Under Heaven gate, and the wall running into the sea
+        const f = mx(marks.finish);
+        out += wall(f - 140, f + 30, HORIZON + 6, 24, '#8a8a86') + gateTower(f - 60, 76, 40, '#8a8a86', '#62625e');
+        out += `<path d="M${f + 30} ${HORIZON + 6} h150 v-22 h-150z" fill="#8a8a86"/><path d="M${f + 30} ${HORIZON - 16} h150" stroke="#62625e" stroke-width="3"/><rect x="${f + 164}" y="${HORIZON - 46}" width="30" height="52" fill="#7a7a76"/><path d="M${f + 160} ${HORIZON - 46} q19 -8 38 0z" fill="#5a4a44"/>`;
+      }
+      return out;
+    },
+    midFront({ marks, mx, r }) {
+      let out = '';
+      if (marks.desert != null) {
+        // A camel train heading west
+        const d = mx(marks.desert) - 60;
+        for (const dx of [0, 46, 92]) out += `<g transform="translate(${(d + dx).toFixed(0)} ${HORIZON + 8})" fill="#3a2a22"><path d="M-14 0 v-14 q4 -10 12 -8 q4 -8 10 -2 q6 -4 8 4 l4 -14 l3 1 l-2 16 v17 h-3 v-12 h-4 v12 h-3 v-12 h-14 v12z"/></g>`;
+      }
+      if (marks.oasis != null) {
+        // Poplars around the oasis town
+        const o = mx(marks.oasis);
+        for (const dx of [-90, -60, 40, 70, 100]) out += `<path d="M${o + dx} ${HORIZON + 8} v-30 M${o + dx} ${HORIZON - 24} q-7 10 -7 22 q7 10 7 10 q7 0 7 -10 q0 -12 -7 -22z" fill="#5a7a3a" stroke="#4a3a2f" stroke-width="1.2"/>`;
+        out += cottage(o - 20, HORIZON + 8, 44, 22, '#d9c9a0', '#8a6a4a', true) + cottage(o + 20, HORIZON + 8, 36, 18, '#d4bb8a', '#8a6a4a', false);
+      }
+      if (marks.river != null) {
+        // The Yellow River and the iron bridge
+        const v = mx(marks.river);
+        out += `<path d="M${v - 260} ${HORIZON + 4} q130 -12 260 0 t260 0 v16 h-520z" fill="#c9a86a"/><path d="M${v - 240} ${HORIZON + 8} q60 -4 120 0 M${v + 40} ${HORIZON + 12} q60 -4 120 0" fill="none" stroke="#e2cc98" stroke-width="1.5"/>`;
+        out += `<path d="M${v - 60} ${HORIZON + 2} h120" stroke="#4a4a52" stroke-width="4"/>` + [0, 30, 60, 90].map((dx) => `<path d="M${v - 60 + dx} ${HORIZON + 2} a15 15 0 0 1 30 0" fill="none" stroke="#4a4a52" stroke-width="2.5"/>`).join('');
+      }
+      return out;
+    },
+    nearBehind({ marks, nx, r, x0, x1 }) {
+      let out = '';
+      const dEnd = marks.oasis != null ? nx(marks.oasis) : x0;
+      for (let x = x0; x < dEnd; x += 40 + r() * 60) {
+        out += `<use href="#${id(r() < 0.5 ? 'rock' : 'bush')}" transform="translate(${x.toFixed(0)} ${(r() < 0.4 ? 264 : SIGN_BASE - 2).toFixed(0)}) scale(${(0.5 + r() * 0.5).toFixed(2)})"/>`;
+      }
+      if (marks.finish != null) {
+        // The Old Dragon's Head: the wall's last stones out into the surf
+        const f = nx(marks.finish) + 40;
+        out += `<path d="M${f} ${SIGN_BASE - 30} h130 v30 h-130z" fill="#7a7a76"/><path d="M${f} ${SIGN_BASE - 30} h130 v-6 h-130z" fill="#62625e"/>${[0, 20, 40, 60, 80, 100].map((dx) => `<rect x="${f + dx + 4}" y="${SIGN_BASE - 40}" width="8" height="6" fill="#62625e"/>`).join('')}
+          <path d="M${f + 110} ${SIGN_BASE + 10} q20 -8 40 0 q20 8 40 0" fill="none" stroke="#dff2ff" stroke-width="2" opacity="0.8"/>`;
+      }
+      return out;
+    },
+    nearFront({ marks, nx }) {
+      return marks.finish != null ? finishBanner(nx(marks.finish), 'SHANHAIGUAN', '#8a2f22') : '';
+    },
+  };
+
   /* --- Road: any real place to any other; plain countryside with a town at each end --- */
   THEMES.road = {
     walker: 'hiker',
@@ -1740,7 +2019,7 @@
     let svg = render(J, mile, VW, { still: true, label: '', hour: opts.hour, accent: opts.accent, walker: opts.walker });
     if (opts.mark) svg = svg.replace('</svg>', stopMark(opts.mark, VW, opts.markScale || 1) + '</svg>');
     // Slide the layers into place, as mount() would, by baking the transforms in.
-    svg = svg.replace(/<g class="layer" data-speed="([\d.]+)">/g, (m, s) => `<g class="layer" data-speed="${s}" transform="translate(${(VW / 2 - worldX(mile) * Number(s)).toFixed(2)} 0)">`);
+    svg = svg.replace(/<g class="layer (far|mid|near)" data-speed="([\d.]+)">/g, (m, l, s) => `<g class="layer ${l}" data-speed="${s}" transform="translate(${(VW / 2 - worldX(mile) * Number(s)).toFixed(2)} 0)">`);
     const offset = VW / 2 - worldX(mile);
     svg = svg.replace(/<g class="sign" data-mile="([^"]+)" data-passed="([^"]+)" data-w="([^"]+)" data-x="([^"]+)"/g,
       (m, mi, p, w, x) => `${m} opacity="${signOpacity(Number(x), Number(w), offset, VW).toFixed(2)}"`);
@@ -1758,26 +2037,33 @@
     const x0 = scale > 1 ? VW / 2 - 110 * scale : VW - 250, base = HORIZON + 6;
     const ink = 'rgba(8, 8, 10, 0.82)';
     let g = '';
-    if (has('ship', 'boat', 'ferry', 'harbor', 'harbour', 'drift', 'dolphin')) {
+    if (has('ship', 'boat', 'ferry', 'harbor', 'harbour', 'drift', 'dolphin', 'raft', 'lidenbrock', 'storm')) {
       // A sailing ship low on the water
       g = `<path d="M${x0 - 40} ${base + 10} q60 -14 120 0 t120 0 t60 -2 v26 h-300z" fill="${ink}"/><path d="M${x0 + 40} ${base - 6} h140 l-18 24 h-104z" fill="${ink}"/><rect x="${x0 + 108}" y="${base - 96}" width="5" height="92" fill="${ink}"/><path d="M${x0 + 113} ${base - 90} l62 70 h-62z" fill="${ink}"/><path d="M${x0 + 108} ${base - 84} l-50 62 h50z" fill="${ink}"/><path d="M${x0 + 60} ${base + 14} q40 -8 80 0" stroke="rgba(255,200,150,0.35)" stroke-width="2" fill="none"/>`;
-    } else if (has('forest', 'wood', 'tree', 'grove', 'jungle', 'wilderness', 'autumn', 'thorn', 'smokies', 'shenandoah')) {
+    } else if (has('forest', 'wood', 'tree', 'grove', 'jungle', 'wilderness', 'autumn', 'thorn', 'smokies', 'shenandoah', 'mushroom', 'jinshanling')) {
       g = [0, 42, 78, 118, 150, 190].map((dx, i) => { const h = 70 + (i % 3) * 22; return `<path d="M${x0 + dx} ${base} l-20 0 l20 -${h} l20 ${h} z" fill="${ink}"/><rect x="${x0 + dx - 3}" y="${base - 2}" width="6" height="12" fill="${ink}"/>`; }).join('');
-    } else if (has('river', 'crossing', 'lake', 'lagoon', 'sea', 'ocean', 'bay', 'shore', 'falls', 'ford', 'dam', 'shallows', 'coral', 'marsh', 'water gap', 'reflections')) {
+    } else if (has('river', 'crossing', 'lake', 'lagoon', 'sea', 'ocean', 'bay', 'shore', 'falls', 'ford', 'dam', 'shallows', 'coral', 'marsh', 'water gap', 'reflections', 'spring', 'hansbach', 'geyser', 'island', 'monsters')) {
       g = `<path d="M${x0 - 40} ${base + 10} q60 -16 120 0 t120 0 t80 -4 v30 h-320z" fill="${ink}"/><path d="M${x0 + 10} ${base + 16} q40 -8 80 0 M${x0 + 120} ${base + 22} q40 -8 80 0" stroke="rgba(255,200,150,0.35)" stroke-width="2" fill="none"/>`;
-    } else if (has('mountain', 'gulch', 'pass', 'ridge', 'peak', 'summit', 'cliff', 'canyon', 'hill', 'mount', 'volcano', 'rock', 'tor', 'whites', 'kuwohi', 'cebreiro', 'galicia', 'greylock', 'katahdin', 'roncesvalles')) {
+    } else if (has('mountain', 'gulch', 'pass', 'ridge', 'peak', 'summit', 'cliff', 'canyon', 'hill', 'mount', 'volcano', 'rock', 'tor', 'whites', 'kuwohi', 'cebreiro', 'galicia', 'greylock', 'katahdin', 'roncesvalles', 'crater', 'jökull', 'helan', 'stromboli')) {
       g = `<path d="M${x0 - 30} ${base} l70 -120 l40 50 l50 -90 l80 160 z" fill="${ink}"/><path d="M${x0 + 40} ${base - 120} l-12 20 l24 0 z" fill="rgba(245,241,234,0.5)"/><path d="M${x0 + 130} ${base - 160} l-14 24 l28 0 z" fill="rgba(245,241,234,0.5)"/>`;
+    } else if (has('wall', 'jiayuguan', 'beacon', 'zhenbeitai', 'yanmen', 'dajingmen', 'badaling', 'mutianyu', 'shanhaiguan', 'dragon', 'zhangjiakou')) {
+      // A stretch of wall riding a ridge, with two watchtowers
+      g = `<path d="M${x0 - 30} ${base + 10} L${x0 + 20} ${base - 40} L${x0 + 90} ${base - 20} L${x0 + 150} ${base - 70} L${x0 + 210} ${base - 44} L${x0 + 260} ${base + 10}z" fill="${ink}"/>`
+        + `<path d="M${x0 - 20} ${base - 4} L${x0 + 20} ${base - 52} L${x0 + 90} ${base - 32} L${x0 + 150} ${base - 82} L${x0 + 210} ${base - 56} L${x0 + 250} ${base - 10} L${x0 + 250} ${base + 2} L${x0 + 210} ${base - 44} L${x0 + 150} ${base - 70} L${x0 + 90} ${base - 20} L${x0 + 20} ${base - 40} L${x0 - 20} ${base + 8}z" fill="${ink}"/>`
+        + `<rect x="${x0 + 10}" y="${base - 80}" width="22" height="34" fill="${ink}"/><path d="M${x0 + 6} ${base - 80} q15 -10 30 0z" fill="${ink}"/>`
+        + `<rect x="${x0 + 140}" y="${base - 112}" width="22" height="36" fill="${ink}"/><path d="M${x0 + 136} ${base - 112} q15 -10 30 0z" fill="${ink}"/>`
+        + `<rect x="${x0 + 18}" y="${base - 70}" width="6" height="8" fill="rgba(255,200,120,0.6)"/><rect x="${x0 + 148}" y="${base - 102}" width="6" height="8" fill="rgba(255,200,120,0.6)"/>`;
     } else if (has('city', 'gates', 'gate', 'castle', 'cathedral', 'tower', 'palace', 'abbey', 'temple', 'fort', 'town', 'santiago', 'camelot', 'atlantis', 'chapel', 'rings', 'isle of brass', 'pamplona', 'burgos', 'león', 'leon', 'astorga', 'ponferrada', 'rooftops', 'watchfires', 'fires', 'round table', 'grail')) {
       g = [[0, 90, 34], [40, 130, 28], [76, 110, 40], [124, 150, 30], [162, 100, 36]].map(([dx, h, w]) => `<rect x="${x0 + dx}" y="${base - h}" width="${w}" height="${h}" fill="${ink}"/><path d="M${x0 + dx} ${base - h} l${w / 2} -${w * 0.6} l${w / 2} ${w * 0.6} z" fill="${ink}"/>`).join('') + `<rect x="${x0 + 86}" y="${base - 60}" width="6" height="10" fill="rgba(255,200,120,0.55)"/><rect x="${x0 + 136}" y="${base - 90}" width="6" height="10" fill="rgba(255,200,120,0.55)"/>`;
     } else if (has('bridge', 'viaduct')) {
       g = `<path d="M${x0 - 20} ${base - 20} h240 v12 h-240z" fill="${ink}"/>` + [0, 60, 120, 180].map((dx) => `<path d="M${x0 + dx} ${base - 8} a30 30 0 0 1 60 0 v8 h-60z" fill="${ink}"/>`).join('');
-    } else if (has('village', 'inn', 'farm', 'cottage', 'house', 'home', 'mice', 'camp', 'station', 'springs', 'sarria', 'logroño', 'hanover', 'damascus', 'monson', 'harpers', 'furnace', 'puente', 'ferry at')) {
+    } else if (has('village', 'inn', 'farm', 'cottage', 'house', 'home', 'mice', 'camp', 'station', 'springs', 'sarria', 'logroño', 'hanover', 'damascus', 'monson', 'harpers', 'furnace', 'puente', 'ferry at', 'wuwei', 'oasis', 'reykjavik')) {
       g = [[0, 40, 44], [60, 56, 52], [128, 44, 48]].map(([dx, h, w]) => `<rect x="${x0 + dx}" y="${base - h}" width="${w}" height="${h}" fill="${ink}"/><path d="M${x0 + dx - 6} ${base - h} l${w / 2 + 6} -${h * 0.6} l${w / 2 + 6} ${h * 0.6} z" fill="${ink}"/><rect x="${x0 + dx + w / 2 - 4}" y="${base - h * 0.55}" width="8" height="9" fill="rgba(255,200,120,0.6)"/>`).join('');
     } else if (has('field', 'meadow', 'clearing', 'plain', 'prairie', 'poppy', 'garden', 'corn', 'vines', 'meseta', 'ash', 'sargasso', 'clouds')) {
       g = [...Array(26)].map((_, i) => `<path d="M${x0 - 20 + i * 10} ${base + 8} q4 -22 8 -40 q4 18 8 40z" fill="${ink}"/>`).join('');
     } else if (has('desert', 'dune', 'sand')) {
       g = `<path d="M${x0 - 40} ${base + 10} q80 -60 160 -10 t140 0 v30 h-300z" fill="${ink}"/>`;
-    } else if (has('cave', 'mine', 'tunnel')) {
+    } else if (has('cave', 'mine', 'tunnel', 'gallery', 'chimney', 'descent', 'blast', 'bones')) {
       g = `<path d="M${x0} ${base + 10} q110 -150 220 0z" fill="${ink}"/><path d="M${x0 + 60} ${base + 10} q50 -70 100 0z" fill="rgba(0,0,0,0.9)"/>`;
     } else {
       // A lone signpost-style cairn and a tree for stops with no better match

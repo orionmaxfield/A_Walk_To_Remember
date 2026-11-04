@@ -2,6 +2,72 @@
 // Each entry is the inside of a 48 × 48 viewBox. app.js wraps it in <svg>.
 
 const BADGE_ICONS = {
+  crater: `
+    <path d="M4 42 L18 14 h12 L44 42 z" fill="#6b5f54"/>
+    <path d="M18 14 h12 l4 8 q-10 4 -20 0 z" fill="#fbfbf7"/>
+    <path d="M14 22 q10 6 20 0 l4 8 q-14 6 -28 0 z" fill="#8a7a6a"/>
+    <path d="M24 10 v-6 M20 6 l4 -2 l4 2" stroke="#e2b04c" stroke-width="1.5" stroke-linecap="round" fill="none"/>`,
+  crystal: `
+    <path d="M24 6 L34 20 L30 42 H18 L14 20 z" fill="#b48ad8"/>
+    <path d="M24 6 L34 20 L30 42 L24 30 z" fill="#8a5ab8"/>
+    <path d="M24 6 L14 20 L24 30 z" fill="#d8c0f0"/>
+    <path d="M8 42 l4 -10 l4 10 z M34 42 l4 -8 l4 8 z" fill="#b48ad8"/>`,
+  spring: `
+    <path d="M4 44 h40 v-10 h-40 z" fill="#6b5f54"/>
+    <path d="M10 34 v-14 l28 -8 v22" fill="#8a7a6a"/>
+    <path d="M26 14 q4 8 -2 14 q6 6 0 12" fill="none" stroke="#6fb4ff" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="26" cy="40" rx="10" ry="3" fill="#6fb4ff"/>
+    <path d="M22 39 q4 -2 8 0" fill="none" stroke="#dcefff" stroke-width="1.2" stroke-linecap="round"/>`,
+  mushroom: `
+    <path d="M20 42 v-14 h8 v14 z" fill="#d9ccb6"/>
+    <path d="M6 28 q18 -26 36 0 z" fill="#c9553d"/>
+    <circle cx="16" cy="20" r="3" fill="#fbfbf7"/><circle cx="28" cy="14" r="3.5" fill="#fbfbf7"/><circle cx="34" cy="24" r="2.5" fill="#fbfbf7"/>
+    <path d="M6 28 h36" stroke="#8a3a2a" stroke-width="2" stroke-linecap="round"/>`,
+  raft: `
+    <path d="M6 34 h36 l-4 6 h-28 z" fill="#8b5a2b"/>
+    <path d="M10 34 v6 M16 34 v6 M22 34 v6 M28 34 v6 M34 34 v6" stroke="#6b3f1d" stroke-width="1.2"/>
+    <rect x="23" y="8" width="2.5" height="26" fill="#6b3f1d"/>
+    <path d="M26 10 l12 20 h-12 z" fill="#fbfbf7"/><path d="M23 12 l-9 16 h9 z" fill="#e6dcc8"/>
+    <path d="M4 44 q5 -3 10 0 t10 0 t10 0 t10 0" fill="none" stroke="#6fb4ff" stroke-width="2" stroke-linecap="round"/>`,
+  lightning: `
+    <path d="M28 4 L14 26 h9 L19 44 L34 20 h-9 z" fill="#e2b04c" stroke="#b8862a" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M6 14 q4 -6 10 -2 M34 10 q6 -4 8 2" fill="none" stroke="#9aa4ad" stroke-width="2" stroke-linecap="round"/>`,
+  geyser: `
+    <path d="M4 44 q20 -14 40 0 z" fill="#8a7a6a"/>
+    <path d="M22 36 l-4 -26 q6 -8 12 0 l-4 26 z" fill="#dcefff"/>
+    <ellipse cx="24" cy="9" rx="10" ry="4" fill="#fbfbf7"/>
+    <circle cx="12" cy="14" r="2" fill="#dcefff"/><circle cx="37" cy="16" r="2.5" fill="#dcefff"/><circle cx="34" cy="8" r="1.5" fill="#dcefff"/>`,
+  bone: `
+    <path d="M12 14 l24 20" stroke="#fbfbf7" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="10" cy="10" r="4" fill="#fbfbf7"/><circle cx="16" cy="8" r="4" fill="#fbfbf7"/>
+    <circle cx="32" cy="40" r="4" fill="#fbfbf7"/><circle cx="38" cy="38" r="4" fill="#fbfbf7"/>
+    <path d="M12 14 l24 20" stroke="#c9c2b4" stroke-width="1" stroke-linecap="round"/>`,
+  camel: `
+    <path d="M8 42 v-14 q4 -12 12 -10 q4 -8 10 -2 q6 -4 8 4 l4 -14 l3 1 l-2 16 v19 h-3 v-12 h-4 v12 h-3 v-12 h-14 v12 z" fill="#b8862a"/>
+    <circle cx="41" cy="18" r="1" fill="#2b241f"/>
+    <path d="M4 44 h40" stroke="#e2b04c" stroke-width="2" stroke-linecap="round"/>`,
+  horse: `
+    <path d="M10 40 v-14 q0 -10 10 -10 h8 l6 -8 l6 2 l-4 8 q4 2 4 8 v14 h-3 v-12 h-4 v12 h-3 v-10 h-14 v10 z" fill="#6b4320"/>
+    <path d="M30 10 l4 -6 l2 4 z" fill="#6b4320"/><circle cx="35" cy="13" r="1" fill="#fbfbf7"/>
+    <path d="M14 18 q-6 -2 -8 2" fill="none" stroke="#2b241f" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M8 44 h32" stroke="#8a7a6a" stroke-width="2" stroke-linecap="round"/>`,
+  beacon: `
+    <rect x="8" y="34" width="32" height="10" fill="#9a8f7a"/><rect x="12" y="24" width="24" height="10" fill="#b0a58e"/>
+    <rect x="16" y="14" width="16" height="10" fill="#9a8f7a"/>
+    <path d="M24 14 q-8 -8 -2 -14 q0 6 4 6 q4 -4 2 -8 q8 6 0 16 z" fill="#e2b04c"/>
+    <path d="M22 12 q-3 -4 0 -7 q1 3 3 3 q2 -2 1 -4 q4 4 0 8 z" fill="#c9553d"/>`,
+  watchtower: `
+    <path d="M4 44 L14 30 h20 L44 44 z" fill="#4a3a2f"/>
+    <rect x="16" y="16" width="16" height="22" fill="#8a8a86"/><rect x="16" y="16" width="8" height="22" fill="#a8a8a4"/>
+    <path d="M12 16 q12 -8 24 0 z" fill="#5a4a44"/>
+    <rect x="22" y="26" width="4" height="7" fill="#2b241f"/>
+    <path d="M4 36 h10 M34 36 h10" stroke="#8a8a86" stroke-width="3"/>`,
+  dragon: `
+    <path d="M6 40 q6 -22 22 -22 q10 0 14 6 l-4 4 q-6 -4 -10 2 q-4 8 2 12 z" fill="#c9553d"/>
+    <path d="M28 18 l4 -10 l4 6 l6 -4 l-2 8" fill="#e2b04c"/>
+    <circle cx="34" cy="23" r="1.6" fill="#2b241f"/>
+    <path d="M38 26 l6 2 l-6 2 z" fill="#2b241f"/>
+    <path d="M4 44 q5 -3 10 0 t10 0 t10 0 t10 0" fill="none" stroke="#6fb4ff" stroke-width="2" stroke-linecap="round"/>`,
   falls: `
     <path d="M4 14 h14 l2 6 h8 l2 -6 h14 v8 H4 z" fill="#8a7a6a"/>
     <rect x="18" y="18" width="12" height="20" fill="#6fb4ff"/>

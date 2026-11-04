@@ -6,7 +6,8 @@
 // Stretch are made up, so they keep the poster's miles.
 //
 // The public destinations are either public-domain stories (Oz, Neverland, Camelot,
-// Atlantis), real routes (the Camino, the Appalachian Trail) or our own invention
+// Atlantis, Verne's Center of the Earth), real routes (the Camino, the Appalachian Trail,
+// the Great Wall) or our own invention
 // (the Dark Mountain). Nothing here uses a trademarked name. Real-route mileages
 // are approximate.
 //
@@ -16,7 +17,8 @@
 //   totalMiles      — the length of the trail
 //   public          — false hides it from the "choose a destination" screen
 //   theme           — which storybook scenery scene.js draws:
-//                     'arctic', 'oz', 'neverland', 'camelot', 'atlantis', 'volcano', 'camino', 'appalachian'
+//                     'arctic', 'oz', 'neverland', 'camelot', 'atlantis', 'volcano', 'camino', 'appalachian',
+//                     'underground', 'greatwall'
 //   hero, heroName  — who walks ('elf' or 'hiker') and what the awards call them ('Elf', 'Walker')
 //   blurb           — one or two sentences for the destination card
 //   arrival         — { title, text } for the celebration when the trail is done
@@ -612,10 +614,128 @@ const JOURNEYS = {
       { mile: 1910, name: 'the Maine line', kind: 'border', badge: { id: 'ap-maine', title: 'Into Maine', icon: 'pine' } },
     ],
   },
+
+  /* ---------- Journey to the Center of the Earth (Jules Verne, 1864; public domain) ---------- */
+  'center-earth': {
+    accent: '#E879F9',
+    id: 'center-earth',
+    title: 'To the Center of the Earth',
+    start: 'Reykjavik',
+    end: 'the center of the Earth',
+    banner: 'STROMBOLI',
+    totalMiles: 1000,
+    public: true,
+    theme: 'underground',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: "Down the crater of an Icelandic volcano and into Verne's hidden world: crystal galleries, a forest of giant mushrooms, an underground sea with its own storms, and a fiery way out.",
+    arrival: { title: 'Out through Stromboli!', text: 'You went in through Iceland and came out of an Italian volcano. Professor Lidenbrock would call that a fine walk.' },
+    waypoints: [
+      { mile: 0, name: 'Reykjavik', region: 'setting out from Reykjavik', sign: ['Reykjavik'], scene: 'start',
+        fact: "The whole expedition starts with a scrap of parchment: a coded message from a 16th-century Icelander, Arne Saknussemm, saying he reached the center of the Earth and how." },
+      { mile: 120, name: 'the crater of Snæfellsjökull', region: 'on the rim of Snæfellsjökull', sign: ['Snæfells-', 'jökull'], scene: 'crater',
+        badge: { id: 'ce-crater', title: 'Into the Crater', icon: 'crater' },
+        fact: 'Snæfellsjökull is a real glacier-capped volcano at the tip of a peninsula west of Reykjavik. In the book, the shadow of its peak points to the right chimney at the end of June.' },
+      { mile: 170, name: 'the chimney of Scartaris', region: 'climbing down the chimney', sign: ['The', 'Chimney'], scene: 'descent',
+        badge: { id: 'ce-descent', title: 'Began the Descent', icon: 'lantern' },
+        fact: 'They lower themselves down the chimney on a rope doubled around a rock, pulling it through after each stage so it can be used again and again.' },
+      { mile: 240, name: 'the crystal gallery', region: 'in the crystal gallery', sign: ['Crystal', 'Gallery'], scene: 'gallery',
+        badge: { id: 'ce-gallery', title: 'Crystal Gallery', icon: 'crystal' },
+        fact: 'The first galleries are lined with lava that cooled into glassy walls and crystals. Their lamps make the whole tunnel sparkle like a chandelier.' },
+      { mile: 320, name: "the Hansbach spring", region: 'following the Hansbach', sign: ['The', 'Hansbach'], scene: 'well',
+        badge: { id: 'ce-spring', title: 'Found Water', icon: 'spring' },
+        fact: 'Days without water nearly end the journey. Hans, the guide, hears a stream behind the rock, breaks through with his pickaxe, and the scalding brook named after him leads them down.' },
+      { mile: 440, name: 'the mushroom forest', region: 'in the forest of giant mushrooms', sign: ['Mushroom', 'Forest'], scene: 'mushrooms',
+        badge: { id: 'ce-mushrooms', title: 'Mushroom Forest', icon: 'mushroom' },
+        fact: 'The mushrooms stand thirty to forty feet tall, pale and damp, with caps as wide as rooftops. Nothing in the forest has ever seen daylight.' },
+      { mile: 520, name: 'the Lidenbrock Sea', region: 'on the shore of the Lidenbrock Sea', sign: ['Lidenbrock', 'Sea'], scene: 'sea',
+        badge: { id: 'ce-sea', title: 'Set Sail Underground', icon: 'raft' },
+        fact: 'An ocean under the Earth, lit by a strange electric glow and roofed with clouds. They build a raft from fossilized wood, which floats as well as the real thing.' },
+      { mile: 640, name: 'the electric storm', region: 'riding out the electric storm', sign: ['The Storm'], scene: 'storm',
+        badge: { id: 'ce-storm', title: 'Rode Out the Storm', icon: 'lightning' },
+        fact: 'A ball of fire rolls across the raft during the storm. It magnetizes every piece of iron on board, and the compass is never quite right again.' },
+      { mile: 720, name: 'the sea monsters', region: 'between two fighting sea monsters', sign: ['Sea', 'Monsters'], scene: 'monsters',
+        badge: { id: 'ce-monsters', title: 'Saw the Monsters', icon: 'whale' },
+        fact: 'Two creatures from the age of reptiles, an ichthyosaurus and a plesiosaurus, rise beside the raft and fight until one sinks. The travelers can only watch.' },
+      { mile: 780, name: 'Axel Island', region: 'on Axel Island', sign: ['Axel', 'Island'], scene: 'geyser',
+        badge: { id: 'ce-geyser', title: 'Axel Island', icon: 'geyser' },
+        fact: 'The raft lands on a small island with a roaring geyser. The professor names it after his nephew Axel, who tells the story.' },
+      { mile: 860, name: 'the field of bones', region: 'crossing the field of bones', sign: ['Field of', 'Bones'], scene: 'bones',
+        badge: { id: 'ce-bones', title: 'Field of Bones', icon: 'bone' },
+        fact: 'A plain of bones from creatures long extinct, and then, far off, a herd of mastodons with a giant of a man among them. Axel is never sure they really saw him.' },
+      { mile: 930, name: 'the blocked tunnel', region: 'at the blocked tunnel', sign: ['The', 'Blast'], scene: 'blast',
+        badge: { id: 'ce-blast', title: 'Cleared the Way', icon: 'pickaxe' },
+        fact: 'A boulder blocks the only way on, so they blast it with guncotton. The sea pours into the gap and carries the raft up a shaft toward the surface.' },
+      { mile: 1000, name: 'Stromboli', region: 'thrown out of Stromboli', sign: ['STROMBOLI'], scene: 'finish',
+        badge: { id: 'ce-stromboli', title: 'Out Through Stromboli', icon: 'volcano' },
+        fact: 'They go in through a volcano in Iceland and come out of one in Italy: Stromboli, in the Aeolian Islands, which has been erupting almost without pause for thousands of years.' },
+    ],
+    milestones: [
+      { mile: 500, name: 'the halfway point', kind: 'milestone', badge: { id: 'ce-halfway', title: 'Halfway Down', icon: 'star' } },
+    ],
+  },
+
+  /* ---------- The Great Wall (a real route, west to east, mileage approximate) ---------- */
+  'great-wall': {
+    accent: '#EF4444',
+    id: 'great-wall',
+    title: 'The Great Wall',
+    start: 'Jiayuguan',
+    end: 'the Old Dragon’s Head',
+    banner: 'SHANHAIGUAN',
+    totalMiles: 1750,
+    public: true,
+    theme: 'greatwall',
+    hero: 'hiker',
+    heroName: 'Walker',
+    blurb: "From the desert fort at the western end of the Ming wall to the tower where it walks into the sea: 1,750 miles of watchtowers, mountain ridges and the Yellow River.",
+    arrival: { title: 'The wall meets the sea!', text: 'From the Gobi to the Bohai Sea, tower by tower. You walked the length of the Great Wall.' },
+    waypoints: [
+      { mile: 0, name: 'Jiayuguan', region: 'setting out from the Jiayuguan fort', sign: ['Jiayuguan'], scene: 'start',
+        fact: 'Jiayuguan fort, finished in 1372, is the western end of the Ming wall. Legend says its builder counted the bricks so exactly that only one was left over, and it still sits on a ledge by the gate.' },
+      { mile: 150, name: 'the Gobi wall', region: 'along the rammed-earth wall at the edge of the Gobi', sign: ['Gobi', 'Wall'], scene: 'desert',
+        badge: { id: 'gw-gobi', title: 'Edge of the Gobi', icon: 'camel' },
+        fact: 'Out here the wall is not brick but rammed earth: layers of soil, gravel and reeds pounded hard inside wooden frames. Some stretches have stood for 600 years of desert wind.' },
+      { mile: 330, name: 'Wuwei', region: 'in Wuwei, on the old Silk Road', sign: ['Wuwei'], scene: 'oasis',
+        badge: { id: 'gw-wuwei', title: 'Silk Road Oasis', icon: 'horse' },
+        fact: 'The famous bronze Flying Horse of Gansu, galloping with one hoof on a swallow, was dug up in a tomb at Wuwei in 1969.' },
+      { mile: 450, name: 'the Yellow River at Lanzhou', region: 'crossing the Yellow River at Lanzhou', sign: ['Yellow', 'River'], scene: 'river',
+        badge: { id: 'gw-river', title: 'Crossed the Yellow River', icon: 'bridge' },
+        fact: "Lanzhou's iron bridge of 1909 was the first permanent bridge over the Yellow River. Before it, the city crossed on a bridge of boats that was taken apart every winter." },
+      { mile: 680, name: 'the Helan Mountains', region: 'under the Helan Mountains', sign: ['Helan', 'Mountains'], scene: 'helan',
+        badge: { id: 'gw-helan', title: 'Helan Mountains', icon: 'mountain' },
+        fact: 'The wall runs along the foot of the Helan range, whose rocks carry thousands of carvings of animals, faces and hunters, some of them several thousand years old.' },
+      { mile: 960, name: 'the Zhenbeitai beacon', region: 'at the Zhenbeitai beacon tower near Yulin', sign: ['Zhenbeitai'], scene: 'beacon',
+        badge: { id: 'gw-beacon', title: 'Greatest Beacon', icon: 'beacon' },
+        fact: 'Zhenbeitai, built in 1607, is the largest beacon tower on the whole wall: four square tiers of brick about 100 feet high, where smoke by day and fire by night passed warnings along the line.' },
+      { mile: 1260, name: 'Yanmen Pass', region: 'at Yanmen Pass', sign: ['Yanmen', 'Pass'], scene: 'yanmen',
+        badge: { id: 'gw-yanmen', title: 'Wild Goose Pass', icon: 'gate' },
+        fact: "Yanmen means 'Wild Goose Gate': the pass sits so high in the mountains that, the saying goes, migrating geese could only cross the range by flying through it." },
+      { mile: 1410, name: 'Zhangjiakou', region: 'at the Dajingmen gate in Zhangjiakou', sign: ['Zhangjiakou'], scene: 'dajingmen',
+        badge: { id: 'gw-zhangjiakou', title: 'Great Border Gate', icon: 'watchtower' },
+        fact: 'Dajingmen, the Great Border Gate, opened in 1644 as a trading gate in the wall. Tea went out through it to Mongolia and Russia; horses and furs came in.' },
+      { mile: 1510, name: 'Badaling', region: 'on the wall at Badaling', sign: ['Badaling'], scene: 'badaling',
+        badge: { id: 'gw-badaling', title: 'Badaling', icon: 'camera' },
+        fact: 'Badaling, an hour from Beijing, is the most visited stretch of the wall. It opened to visitors in 1957 and has hosted presidents, queens and tens of millions of ordinary walkers.' },
+      { mile: 1550, name: 'Mutianyu', region: 'on the wall at Mutianyu', sign: ['Mutianyu'],
+        badge: { id: 'gw-mutianyu', title: 'Mutianyu', icon: 'watchtower' },
+        fact: 'Mutianyu packs more than twenty watchtowers into a mile and a half of wall, closer together than almost anywhere else, because this was the route into the capital.' },
+      { mile: 1610, name: 'Jinshanling', region: 'on the ridges at Jinshanling', sign: ['Jinshanling'], scene: 'jinshanling',
+        badge: { id: 'gw-jinshanling', title: 'Jinshanling Ridges', icon: 'pine' },
+        fact: "Ming builders mixed sticky rice soup into their lime mortar. Scientists found in 2010 that the rice starch is why the bricks have held together for 500 years." },
+      { mile: 1750, name: 'the Old Dragon’s Head', region: 'at Shanhaiguan, where the wall walks into the sea', sign: ['SHANHAIGUAN'], scene: 'finish',
+        badge: { id: 'gw-dragon', title: "Old Dragon's Head", icon: 'dragon' },
+        fact: "At Shanhaiguan the wall ends in the Bohai Sea at a tower called the Old Dragon's Head, as if the whole wall were a dragon drinking. The gate above it is signed 'First Pass Under Heaven'." },
+    ],
+    milestones: [
+      { mile: 875, name: 'the halfway tower', kind: 'milestone', badge: { id: 'gw-halfway', title: 'Halfway Along the Wall', icon: 'star' } },
+      { mile: 1380, name: 'the Hebei line', kind: 'border', badge: { id: 'gw-hebei', title: 'Into Hebei', icon: 'roadsign' } },
+    ],
+  },
 };
 
 // The destinations offered on the "choose a destination" screen, in the order shown.
-const JOURNEY_ORDER = ['oz', 'camino', 'neverland', 'camelot', 'atlantis', 'dark-mountain', 'appalachian'];
+const JOURNEY_ORDER = ['oz', 'camino', 'great-wall', 'neverland', 'center-earth', 'camelot', 'atlantis', 'dark-mountain', 'appalachian'];
 
 // The server-side code in functions/ imports this same file so the awards and the
 // team creation use the very same journeys. Browsers ignore this line.
