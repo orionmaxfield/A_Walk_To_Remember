@@ -458,6 +458,7 @@
       <section>
         <div class="header">
           <div>
+            ${brandHtml()}
             <h1>${hasWalks ? 'Another journey' : `Where to, ${esc(first)}?`}</h1>
             <div class="team-name">${hasWalks ? 'Pick a new destination.' : 'Pick a destination. Swipe to see them all.'}</div>
           </div>
@@ -524,6 +525,7 @@
       <section>
         <div class="header">
           <div>
+            ${brandHtml()}
             <h1>${esc(J.title)}</h1>
             <div class="team-name">${fmtDist(J.totalMiles)} · ${esc(J.start)} to ${esc(J.end)}</div>
           </div>
@@ -574,6 +576,7 @@
       <section>
         <div class="header">
           <div>
+            ${brandHtml()}
             <h1>Somewhere real</h1>
             <div class="team-name">Any two places on the map</div>
           </div>
@@ -652,7 +655,7 @@
     const choices = isKm() ? [[2, '2 km'], [3, '3 km'], [5, '5 km']] : [[1, '1 mi'], [2, '2 mi'], [3, '3 mi']];
     $app.innerHTML = `
       <section class="goal-step">
-        <div class="header"><div><h1>One more thing</h1><div class="team-name">${esc(J.title)} is set up.</div></div></div>
+        <div class="header"><div>${brandHtml()}<h1>One more thing</h1><div class="team-name">${esc(J.title)} is set up.</div></div></div>
         <div class="page hero">
           <div class="kicker">Daily goal</div>
           <h2>How far on a normal day?</h2>
@@ -665,6 +668,8 @@
       </section>`;
     window.scrollTo({ top: 0 });
   }
+
+  function brandHtml() { return `<div class="brand" aria-label="Stroll"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="#E85D04" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="6.5" r="2.3" fill="#FF8A33"/></svg><span>Stroll</span></div>`; }
 
   function renderMain() {
     const team = state.journey.team;
@@ -679,7 +684,7 @@
     $app.innerHTML = `
       <div class="header">
         <div>
-          <div class="brand" aria-label="Stroll"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="#E85D04" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="6.5" r="2.3" fill="#FF8A33"/></svg><span>Stroll</span></div>
+          ${brandHtml()}
           <h1>${esc(J.title)}</h1>
           <div class="team-name">${solo ? `Your own journey · ${esc(team.name)}` : esc(team.name)}</div>
         </div>
