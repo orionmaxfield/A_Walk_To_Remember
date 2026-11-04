@@ -676,6 +676,7 @@
     $app.innerHTML = `
       <div class="header">
         <div>
+          <div class="brand" aria-label="Stroll"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="#E85D04" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="6.5" r="2.3" fill="#FF8A33"/></svg><span>Stroll</span></div>
           <h1>${esc(J.title)}</h1>
           <div class="team-name">${solo ? `Your own journey · ${esc(team.name)}` : esc(team.name)}</div>
         </div>
@@ -695,6 +696,7 @@
         ${navButton('you', 'You', '<rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M9 3v4M15 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/>')}
       </div></nav>`;
     renderScreen();
+    animateRing();
   }
 
   function navButton(tab, label, iconPaths) {
@@ -1051,6 +1053,7 @@
         <button type="button" class="ring-button" data-action="toggle-goal" aria-label="${target ? 'Change your goal' : 'Set a goal'}">
           <svg class="ring" viewBox="0 0 80 80" aria-hidden="true">
             <circle class="ring-track" cx="40" cy="40" r="34"/>
+            <line class="ring-tick" x1="71" y1="40" x2="77" y2="40"/>
             <circle class="ring-fill ${pct >= 100 ? 'done' : ''}" cx="40" cy="40" r="34" style="stroke-dashoffset:${(213.6 * (1 - pct / 100)).toFixed(1)}"/>
           </svg>
           <span class="ring-number">${target ? Math.round(pct) + '%' : fmt(dnum(done), 1)}</span>
@@ -1715,6 +1718,18 @@
     try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* not available */ }
   }
 
+  // Let the goal ring sweep from empty to its value (on opening the Journey, and after a goal is set).
+  function animateRing() {
+    const f = document.querySelector('.ring-fill');
+    if (!f) return;
+    const target = f.style.strokeDashoffset;
+    f.style.transition = 'none';
+    f.style.strokeDashoffset = '213.6';
+    void f.getBoundingClientRect();
+    f.style.transition = '';
+    requestAnimationFrame(() => { f.style.strokeDashoffset = target; });
+  }
+
   // Update the visible numbers in place (no full re-render) so a tap feels instant.
   function bumpNumbers() {
     const p = progress();
@@ -1799,6 +1814,7 @@
       await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: toMiles(el.dataset.amount), period: 'day' }) });
       await loadJourney();
       renderMain();
+      animateRing();
       toast(`Goal set: ${el.dataset.amount} ${units()} a day. Now take the first step.`);
     });
     if (action === 'goal-step-skip') { setFlag('goalOfferDismissed', true); renderMain(); toast('Your journey begins. Add your first miles!'); }
