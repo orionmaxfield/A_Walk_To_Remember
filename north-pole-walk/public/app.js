@@ -662,6 +662,19 @@
       <svg viewBox="0 0 24 24" aria-hidden="true">${iconPaths}</svg>${label}</button>`;
   }
 
+  // Postcards far down the strip draw their art only when they scroll near (big journeys have 20 stops).
+  function watchLazyArt() {
+    const lazy = document.querySelectorAll('.postcard-art[data-lazy-mile]');
+    if (!lazy.length || !window.JourneyScene) return;
+    const J = currentJourneyDef();
+    const draw = (el) => { const m = Number(el.dataset.lazyMile); delete el.dataset.lazyMile; el.innerHTML = JourneyScene.thumbnail(J, Math.max(0, m - 2)); };
+    if (!('IntersectionObserver' in window)) { lazy.forEach(draw); return; }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { draw(en.target); io.unobserve(en.target); } });
+    }, { root: null, rootMargin: '240px' });
+    lazy.forEach((el) => io.observe(el));
+  }
+
   function renderScreen(transition) {
     const $screen = document.getElementById('screen');
     if (!$screen) return;
@@ -680,6 +693,7 @@
     if (state.tab === 'journey') {
       positionScene();
       maybeCelebrate();
+      watchLazyArt();
     }
     if (state.tab === 'awards' && !state.awards) loadAwards().catch((e) => toast(e.message));
     if (state.tab === 'you' && !state.history) loadHistory(state.historyMonth).catch((e) => toast(e.message));
@@ -722,9 +736,6 @@
 
       ${momentBanner(p)}
       ${installHint()}
-      ${rhythmCard(p)}
-      ${recapCard(p)}
-      ${routeMapCard(p)}
 
       <div class="page hero progress-hero">
         <div class="kicker">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% of the way`}</div>
@@ -733,7 +744,10 @@
         <p class="small">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : where}</p>
         ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:8px">Replay the celebration</button>` : ''}
       </div>
-      </div>
+
+      ${rhythmCard(p)}
+      ${recapCard(p)}
+      ${routeMapCard(p)}
 
       <div class="page fact remember">
         <h2>${esc(card.heading)}</h2>
@@ -825,12 +839,12 @@
     const nextIdx = stops.findIndex((w) => w.mile > p.mile);
     const cards = stops.map((w, i) => {
       const open = w.mile <= p.mile;
-      const soon = !open && i <= nextIdx + 1; // the next two get real art, blurred
-      const art = open || soon ? JourneyScene.thumbnail(J, Math.max(0, w.mile - 2)) : '';
+      const now = i <= Math.max(3, nextIdx + 1); // the first few draw now; the rest as they scroll near
+      const art = now ? JourneyScene.thumbnail(J, Math.max(0, w.mile - 2)) : '';
       const when = open ? stopEarnedAt(w) : null;
       return `<li class="postcard ${open ? 'open' : 'locked'}">
         <button type="button" ${open ? `data-action="open-postcard" data-mile="${w.mile}"` : 'disabled'} aria-label="${esc(capitalize(w.name))}${open ? '' : ', locked'}">
-          <span class="postcard-art" aria-hidden="true">${art || '<span class="postcard-blank"></span>'}</span>
+          <span class="postcard-art" aria-hidden="true" ${now ? '' : `data-lazy-mile="${w.mile}"`}>${art || '<span class="postcard-blank"></span>'}</span>
           <span class="postcard-copy">
             <strong>${esc(capitalize(w.name))}</strong>
             <span>${open ? (when ? esc(earnedText(when).replace('Earned', 'Reached')) : 'Reached') : `${fmtDist(w.mile - p.mile)} to go`}</span>
@@ -869,8 +883,8 @@
 
   function routePoint(f) {
     // A gentle S-curve across the card; f runs 0..1 from start to finish.
-    const x = 22 + f * 356;
-    const y = 72 + 22 * Math.sin(f * Math.PI * 2.2 + 0.4);
+    const x = 24 + f * 352;
+    const y = 82 + 38 * Math.sin(f * Math.PI * 2.2 + 0.4);
     return [x, y];
   }
   function routePath(f0, f1) {
@@ -891,29 +905,47 @@
     const stops = J.waypoints.filter((w) => w.mile > 0);
     const [mx, my] = routePoint(cur);
     const nextIdx = stops.findIndex((w) => w.mile > p.mile);
+    // Labels, by priority: the next stop, the finish, the last stop passed, the start.
+    // A label sits on the open side of the curve (above a dot on the lower bend, below one on
+    // the upper bend); any label that would collide with a higher-priority one is dropped.
+    const placed = [];
+    const labelFor = (x, y, name, priority) => {
+      const above = y > 82;
+      // The you-are-here marker sits on the trail too: push a label clear of it when they're close.
+      const nearHere = Math.hypot(x - mx, y - my) < 34;
+      const text = name.length > 26 ? name.slice(0, 25) + '…' : name;
+      const anchor = x > 300 ? 'end' : x < 100 ? 'start' : 'middle';
+      const w = text.length * 6.4;
+      const left = anchor === 'end' ? x - w : anchor === 'start' ? x : x - w / 2;
+      const hit = placed.some((l) => l.above === above && left < l.left + l.w + 10 && l.left < left + w + 10);
+      if (hit) return '';
+      placed.push({ left, w, above, priority });
+      return `<text x="${x.toFixed(1)}" y="${(above ? y - (nearHere ? 30 : 18) : y + (nearHere ? 38 : 26)).toFixed(1)}" text-anchor="${anchor}">${esc(text)}</text>`;
+    };
+    const order = [nextIdx, stops.length - 1, nextIdx - 1].filter((i) => i >= 0 && i < stops.length);
+    const labels = {};
+    for (const i of order) if (labels[i] == null) { const w = stops[i]; const [x, y] = routePoint(w.mile / total); labels[i] = labelFor(x, y, capitalize(w.name).replace(/^The /, ''), order.indexOf(i)); }
+    const [sx, sy] = routePoint(0);
+    const startLabel = cur > 0.06 ? labelFor(sx, sy, capitalize(J.start), 9) : '';
     const dots = stops.map((w, i) => {
-      const f = w.mile / total;
-      const [x, y] = routePoint(f);
+      const [x, y] = routePoint(w.mile / total);
       const passed = w.mile <= p.mile;
       const isNext = i === nextIdx;
-      const label = isNext || i === stops.length - 1 || (passed && i === nextIdx - 1);
-      const name = capitalize(w.name).replace(/^The /, '');
-      const anchor = f > 0.8 ? 'end' : f < 0.25 ? 'start' : 'middle';
       return `<g class="stop ${passed ? 'passed' : ''} ${isNext ? 'next' : ''}" data-action="route-stop" data-name="${esc(capitalize(w.name))}" data-mile="${w.mile}">
-          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="12" fill="transparent"/>
-          <circle class="dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${isNext ? 5 : 3.5}"/>
-          ${label ? `<text x="${(x + (anchor === 'start' ? 10 : 0)).toFixed(1)}" y="${(y + (isNext ? -16 : 24)).toFixed(1)}" text-anchor="${anchor}">${esc(name.length > 18 ? name.slice(0, 17) + '…' : name)}</text>` : ''}
+          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="14" fill="transparent"/>
+          <circle class="dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${isNext ? 5.5 : 4}"/>
+          ${labels[i] || ''}
         </g>`;
     }).join('');
     return `
       <div class="page route">
         <div class="kicker">Route · ${fmtDist(total)}</div>
-        <svg class="route-map" viewBox="0 0 400 140" role="img" aria-label="Route map: ${esc(p.here.name)} to ${esc(J.end)}">
+        <svg class="route-map" viewBox="0 0 400 164" role="img" aria-label="Route map: ${esc(p.here.name)} to ${esc(J.end)}">
           <path class="trail" d="${routePath(0, 1)}"/>
           <path class="trail done" d="${routePath(0, cur)}"/>
           <g class="endpoints">
-            <circle cx="22" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>
-            ${cur > 0.06 ? `<text x="22" y="${(routePoint(0)[1] + 24).toFixed(1)}" text-anchor="start">${esc(capitalize(J.start)).slice(0, 18)}</text>` : ''}
+            <circle cx="24" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>
+            ${startLabel}
           </g>
           ${dots}
           <g class="here" transform="translate(${mx.toFixed(1)} ${my.toFixed(1)})">
