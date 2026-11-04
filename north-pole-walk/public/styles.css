@@ -751,3 +751,4 @@ body { overscroll-behavior-y: contain; }
 .scene-page.shared .scene { transition: transform 260ms var(--ease-out); }
 .scene-page.shared.compact .scene { transform: translateY(13%); }
 @media (min-width: 900px) { .scene-page.shared { height: 380px; } .scene-page.shared.compact { height: 150px; } }
+@media (min-width: 900px) { .progress-hero > .arrived-actions { grid-column: 1 / -1; } }

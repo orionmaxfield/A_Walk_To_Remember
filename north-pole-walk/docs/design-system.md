@@ -38,7 +38,9 @@ Contrast (WCAG AA): `--text` on `--surface` 15.6:1; `--text-2` on `--surface` 7.
 - Depth: cards sit flat on the background with a hairline border; `--shadow-card` is a soft, low shadow (`0 8px 24px rgba(0,0,0,0.35)`); hero cards add `--glow` (`0 0 0 1px rgba(255,122,26,0.18), 0 12px 40px rgba(232,93,4,0.14)`).
 - Icons: 24px, 1.75px stroke, round caps, `currentColor`. No filled icons except the active tab.
 - Award badges: the badge art is drawn in many colors; earned badges are tinted to the warm orange with a CSS filter so the trophy case reads as one set, and locked ones are dim gray.
-- Scenes: one premium dusk style for every destination (sky tinted by the destination's accent, ember horizon, silhouette hills, one warm light, vignette). Signposts are a single dark board with the name and the mile. The walker is muted with a rim light and an orange scarf as its one accent.
+- Scenes: one premium dusk style for every destination (sky tinted by the destination's accent, ember horizon, silhouette hills, one warm light, vignette). Signposts are a single dark board with the name and the mile. The walker is muted with a rim light and an orange scarf as its one accent. At the finish a finale adds an accent glow and fireworks.
+- The scene is a shared header: it sits above the tab content, stays mounted across tab changes, folds to a strip centered on the walker off the Journey (118px phone, 150px desktop, 260ms ease) and rebuilds only when the walk or the mile changes.
+- Postcards render each stop at its own hour of the day with a landmark silhouette picked from the stop's name, so a strip of them reads as different places.
 
 ## Motion
 
