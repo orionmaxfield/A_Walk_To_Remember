@@ -261,15 +261,21 @@
     }
     rememberPendingJoin();
 
-    try { state.config = await api('/api/config'); } catch (e) { /* keep defaults */ }
-
-    try {
-      const me = await api('/api/me');
-      state.user = me.user;
-      state.teams = me.teams;
-    } catch (e) {
-      state.user = null;
-    }
+    // index.html fires /api/config and /api/me before this script arrives; use those
+    // answers when they're there, and fetch normally otherwise. The two run side by side.
+    const early = window.__early || {};
+    const earlyOr = async (key, path) => {
+      if (early[key]) {
+        try { const res = await early[key]; if (res && res.ok) return await res.json(); if (res && res.status === 401) throw new Error('Not signed in.'); } catch (e) { if (e.message === 'Not signed in.') throw e; }
+      }
+      return api(path);
+    };
+    const [config, me] = await Promise.all([
+      earlyOr('config', '/api/config').catch(() => null),
+      earlyOr('me', '/api/me').catch(() => null),
+    ]);
+    if (config) state.config = config;
+    if (me) { state.user = me.user; state.teams = me.teams; } else { state.user = null; }
 
     if (!state.user) return renderCover();
     if (readQueue().length) { try { await flushQueue(); } catch (e) { /* later */ } }
@@ -301,14 +307,28 @@
     renderMain();
   }
 
+  // The first load can use the answers index.html requested before this script arrived
+  // (only for the walk that was open last time, and only once).
+  async function earlyJson(key) {
+    const early = window.__early;
+    if (!early || !early[key]) return null;
+    const pending = early[key]; early[key] = null;
+    try { const res = await pending; return res && res.ok ? await res.json() : null; } catch (e) { return null; }
+  }
   async function loadJourney() {
     const before = state.journey && state.journey.team.id;
+    const useEarly = window.__early && window.__early.teamId === state.teamId && window.__early.journey;
+    const get = async (key, path, optional) => {
+      if (useEarly) { const v = await earlyJson(key); if (v) return v; }
+      return optional ? api(path).catch(() => null) : api(path);
+    };
     const [journey, rhythm, recap, awards] = await Promise.all([
-      api('/api/journey?team=' + encodeURIComponent(state.teamId)),
-      api('/api/rhythm').catch(() => null),
-      api('/api/recap?team=' + encodeURIComponent(state.teamId)).catch(() => null),
-      api('/api/awards?team=' + encodeURIComponent(state.teamId)).catch(() => null),
+      get('journey', '/api/journey?team=' + encodeURIComponent(state.teamId), false),
+      get('rhythm', '/api/rhythm', true),
+      get('recap', '/api/recap?team=' + encodeURIComponent(state.teamId), true),
+      get('awards', '/api/awards?team=' + encodeURIComponent(state.teamId), true),
     ]);
+    if (window.__early) window.__early.teamId = null;
     state.journey = journey;
     state.rhythm = rhythm;
     state.recap = recap;

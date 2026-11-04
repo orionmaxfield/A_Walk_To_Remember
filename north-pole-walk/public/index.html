@@ -24,6 +24,7 @@
   <link rel="apple-touch-startup-image" href="/icons/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
   <link rel="apple-touch-startup-image" href="/icons/splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
   <link rel="apple-touch-startup-image" href="/icons/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+  <script>/* Start the two first requests before the app's scripts have even arrived. */window.__early={config:fetch('/api/config').catch(function(){return null}),me:fetch('/api/me',{credentials:'include'}).catch(function(){return null})};try{var t=localStorage.getItem('teamId');if(t){var q='?team='+encodeURIComponent(t);window.__early.teamId=t;window.__early.journey=fetch('/api/journey'+q,{credentials:'include'}).catch(function(){return null});window.__early.rhythm=fetch('/api/rhythm',{credentials:'include'}).catch(function(){return null});window.__early.recap=fetch('/api/recap'+q,{credentials:'include'}).catch(function(){return null});window.__early.awards=fetch('/api/awards'+q,{credentials:'include'}).catch(function(){return null});}}catch(e){}</script>
   <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/fraunces-latin-wght.woff2">
   <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/inter-latin-wght.woff2">
   <link rel="stylesheet" href="/styles.css">
