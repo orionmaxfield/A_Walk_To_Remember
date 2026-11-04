@@ -388,10 +388,12 @@
 
   /* ---------- Near layer: ground, path, signs, and the theme's finish ---------- */
 
-  function plankShape(w, small) {
-    const h = small ? 15 : 18;
-    if (small) return `M${-w / 2} 0 H${w / 2} V${h} H${-w / 2} Z`;
-    return `M${-w / 2} 0 H${w / 2 - 8} L${w / 2} ${h / 2} L${w / 2 - 8} ${h} H${-w / 2} Z`;
+  const PLANK_H = 32;
+  // One board, rounded, with an arrow end pointing the way (left once passed).
+  function plankShape(w, flip) {
+    const h = PLANK_H, r = 4, a = 9, hw = w / 2;
+    if (!flip) return `M${-hw + r} 0 H${hw - a} L${hw} ${h / 2} L${hw - a} ${h} H${-hw + r} Q${-hw} ${h} ${-hw} ${h - r} V${r} Q${-hw} 0 ${-hw + r} 0 Z`;
+    return `M${hw - r} 0 H${-hw + a} L${-hw} ${h / 2} L${-hw + a} ${h} H${hw - r} Q${hw} ${h} ${hw} ${h - r} V${r} Q${hw} 0 ${hw - r} 0 Z`;
   }
 
   // Where a sign's post stands: passed signs end a fixed gap behind the walker,
@@ -401,26 +403,22 @@
   }
 
   function signpost(wp, tall, passed) {
-    const lines = wp.sign || [wp.name];
+    const name = (wp.sign || [wp.name]).join(' ');
     const milesText = wp.mile === 0 ? 'Start' : `${Number(wp.mile).toLocaleString('en-US')} mi`;
-    const top = tall ? 122 : 164;
-    let y = top, out = '', maxW = 0;
-    lines.forEach((line, i) => {
-      const w = clamp(Math.round(line.length * 6.6 + 18), 44, 96);
-      maxW = Math.max(maxW, w);
-      out += `<g class="plank" transform="translate(0 ${y}) rotate(${i % 2 ? 1.4 : -1.6})"><path d="${plankShape(w, false)}"/><text x="-3" y="13">${esc(line)}</text></g>`;
-      y += 20;
-    });
-    const mw = clamp(Math.round(milesText.length * 5.6 + 12), 36, 80);
-    out += `<g class="plank plank-mi" transform="translate(0 ${y})"><path d="${plankShape(mw, true)}"/><text x="0" y="11">${esc(milesText)}</text></g>`;
+    const top = tall ? 134 : 168;
+    const w = clamp(Math.round(name.length * 6.6 + 26), 64, 170);
     const star = wp.scene === 'halfway'
-      ? `<path transform="translate(-4 ${top - 9})" d="M0 -8 L2.4 -2.5 L8 -2 L3.8 1.8 L5 7.5 L0 4.5 L-5 7.5 L-3.8 1.8 L-8 -2 L-2.4 -2.5Z" fill="#e2b04c" stroke="#b98624" stroke-width="1"/>`
+      ? `<path transform="translate(0 ${top - 10})" d="M0 -8 L2.4 -2.5 L8 -2 L3.8 1.8 L5 7.5 L0 4.5 L-5 7.5 L-3.8 1.8 L-8 -2 L-2.4 -2.5Z" fill="#FF8A33" stroke="#E85D04" stroke-width="1"/>`
       : '';
-    const x = signX(wp.mile, maxW, passed);
-    return `<g class="sign" data-mile="${wp.mile}" data-passed="${passed ? 1 : 0}" data-w="${maxW}" data-x="${x.toFixed(1)}" transform="translate(${x.toFixed(1)} 0)">
-      <rect class="post" x="-3.5" y="${top + 6}" width="7" height="${SIGN_BASE - top - 6}" rx="1"/>
-      <rect x="-4" y="${SIGN_BASE - 3}" width="8" height="5" rx="2" fill="#fbfbf7" opacity="0.9"/>
-      ${star}${out}
+    const x = signX(wp.mile, w, passed);
+    return `<g class="sign" data-mile="${wp.mile}" data-passed="${passed ? 1 : 0}" data-w="${w}" data-x="${x.toFixed(1)}" transform="translate(${x.toFixed(1)} 0)">
+      <rect class="post" x="-3" y="${top + PLANK_H - 2}" width="6" height="${SIGN_BASE - top - PLANK_H + 2}" rx="1"/>
+      ${star}
+      <g class="plank" data-flip="${passed ? 1 : 0}" transform="translate(0 ${top}) rotate(${tall ? -1.2 : 1})">
+        <path d="${plankShape(w, passed)}"/>
+        <text class="sign-name" x="${passed ? 3 : -3}" y="14">${esc(name)}</text>
+        <text class="sign-mi" x="${passed ? 3 : -3}" y="26">${esc(milesText)}</text>
+      </g>
     </g>`;
   }
 
@@ -576,35 +574,44 @@
   // A hiker with a red pack, a brimmed hat and a trekking pole. Same moving parts
   // (and class names) as the elf, so the walk cycle in styles.css applies to both.
   function hiker(cx) {
+    // Dusk palette: muted cloth, warm skin, a rim of light on the right (the warm light
+    // sits ahead of the walker) and an orange scarf as the one bright accent.
+    const C = { shirt: '#3F4D63', shirtLit: '#6C7E99', pants: '#4D5240', pantsLit: '#737A60', boot: '#2E1F14', skin: '#E9C39F', skinLit: '#FFE1C2', hair: '#3E2A1A', hat: '#B8924E', hatLit: '#E0B873', pack: '#8C3A2B', packLit: '#C2634F', scarf: '#E85D04', scarfLit: '#FF8A33', stick: '#6F4A2A' };
     const leg = (cls, x) => pivot(cls, x, -32, 40,
-      `<rect x="${x - 4.5}" y="-33" width="9" height="28" rx="3" fill="#6b7a4a"/>
-       <path d="M${x - 5.5} -7 h10 q8 0 9 5 q-2 3 -6 1 h-13 z" fill="#5a3415"/>
-       <path d="M${x - 5} -7 h10" stroke="#e2b04c" stroke-width="1.4"/>`);
+      `<rect x="${x - 4.5}" y="-33" width="9" height="28" rx="3" fill="${C.pants}"/>
+       <rect x="${x + 2.2}" y="-31" width="2" height="22" rx="1" fill="${C.pantsLit}" opacity="0.7"/>
+       <path d="M${x - 5.5} -7 h10 q8 0 9 5 q-2 3 -6 1 h-13 z" fill="${C.boot}"/>
+       <path d="M${x - 5} -7 h10" stroke="${C.scarf}" stroke-width="1.2" opacity="0.8"/>`);
     return `<g class="elf hiker" transform="translate(${cx} ${FEET})">
-      <ellipse class="elf-shadow" cy="3" rx="18" ry="4" fill="rgba(0,0,0,0.18)"/>
+      <ellipse class="elf-shadow" cy="3" rx="18" ry="4" fill="rgba(0,0,0,0.28)"/>
       <g class="elf-walk">
-        ${pivot('elf-arm-b', -9, -54, 34, `<path d="M-9 -54 L-16 -36" stroke="#3b6ea8" stroke-width="6" stroke-linecap="round"/><circle cx="-16.5" cy="-34" r="3.4" fill="#f6d6b8"/>`)}
+        ${pivot('elf-arm-b', -9, -54, 34, `<path d="M-9 -54 L-16 -36" stroke="${C.shirt}" stroke-width="6" stroke-linecap="round"/><circle cx="-16.5" cy="-34" r="3.4" fill="${C.skin}"/>`)}
         ${leg('elf-leg-b', -4)}
         ${leg('elf-leg-f', 4)}
-        <rect x="-27" y="-64" width="16" height="28" rx="6" fill="#b8462f"/>
-        <rect x="-27" y="-52" width="16" height="4" fill="#8a2f22"/>
-        <rect x="-29" y="-40" width="20" height="7" rx="3.5" fill="#3b7a7a"/>
-        <rect x="-13" y="-60" width="26" height="30" rx="5" fill="#3b6ea8"/>
-        <rect x="-13" y="-37" width="26" height="5" fill="#5a3415"/>
-        <rect x="-3" y="-38" width="7" height="6" rx="1" fill="#e2b04c"/>
-        <path d="M-10 -58 h-4 v18" stroke="#8a2f22" stroke-width="3" fill="none"/>
-        <circle cy="-72" r="11.5" fill="#f6d6b8"/>
-        <path d="M-11 -74 q11 -14 22 0 v4 h-22z" fill="#5a3415"/>
+        <rect x="-27" y="-64" width="16" height="28" rx="6" fill="${C.pack}"/>
+        <rect x="-27" y="-52" width="16" height="4" fill="#5E2619"/>
+        <rect x="-29" y="-40" width="20" height="7" rx="3.5" fill="#2F4A4A"/>
+        <rect x="-13" y="-60" width="26" height="30" rx="5" fill="${C.shirt}"/>
+        <path d="M11 -56 v22" stroke="${C.shirtLit}" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>
+        <rect x="-13" y="-37" width="26" height="5" fill="${C.boot}"/>
+        <rect x="-3" y="-38" width="7" height="6" rx="1" fill="${C.hat}"/>
+        <path d="M-10 -58 h-4 v18" stroke="#5E2619" stroke-width="3" fill="none"/>
+        <path d="M-12 -62 q12 6 24 0 l-1 5 q-11 5 -22 0z" fill="${C.scarf}"/>
+        <path d="M-12 -62 q-6 10 -4 18 l4 -1 q-1 -8 3 -14z" fill="${C.scarf}"/>
+        <path d="M8 -60 q4 1 4 3" stroke="${C.scarfLit}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <circle cy="-72" r="11.5" fill="${C.skin}"/>
+        <path d="M9 -80 a11.5 11.5 0 0 1 2 14" stroke="${C.skinLit}" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.9"/>
+        <path d="M-11 -74 q11 -14 22 0 v4 h-22z" fill="${C.hair}"/>
         <circle cx="4" cy="-73" r="1.6" fill="#2b241f"/><circle cx="9.5" cy="-73" r="1.6" fill="#2b241f"/>
         <path d="M4 -66 q3.5 3.5 7 0" stroke="#8a4a3a" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-        <circle cx="1" cy="-68" r="2.2" fill="#f0a3a3" opacity="0.6"/><circle cx="11" cy="-68" r="2" fill="#f0a3a3" opacity="0.6"/>
-        <ellipse cx="0" cy="-80" rx="19" ry="4.5" fill="#b98624"/>
-        <path d="M-11 -80 q0 -12 11 -12 q11 0 11 12z" fill="#e2b04c"/>
-        <path d="M-11 -81 h22" stroke="#8a2f22" stroke-width="2.5"/>
-        ${pivot('elf-arm-f', 9, -54, 28, `<path d="M9 -54 L17 -46 L20 -44" stroke="#3b6ea8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          <path d="M21 -52 L25 -2" stroke="#8b5a2b" stroke-width="2.5" stroke-linecap="round"/>
+        <ellipse cx="0" cy="-80" rx="19" ry="4.5" fill="#8A6B36"/>
+        <path d="M-11 -80 q0 -12 11 -12 q11 0 11 12z" fill="${C.hat}"/>
+        <path d="M4 -91 q7 1 7 10" stroke="${C.hatLit}" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M-11 -81 h22" stroke="#5E2619" stroke-width="2.5"/>
+        ${pivot('elf-arm-f', 9, -54, 28, `<path d="M9 -54 L17 -46 L20 -44" stroke="${C.shirt}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M21 -52 L25 -2" stroke="${C.stick}" stroke-width="2.5" stroke-linecap="round"/>
           <circle cx="21" cy="-53" r="2.2" fill="#2b241f"/>
-          <circle cx="21" cy="-44" r="3.4" fill="#f6d6b8"/>`)}
+          <circle cx="21" cy="-44" r="3.4" fill="${C.skinLit}"/>`)}
       </g>
     </g>`;
   }
@@ -824,7 +831,7 @@
       }
       // The Scarecrow on his pole, in the cornfield behind the road
       if (marks.corn != null) {
-        const sx = mx(marks.corn) + 95;
+        const sx = mx(marks.corn) + 170;
         out += `<g transform="translate(${sx.toFixed(0)} ${HORIZON + 8}) scale(0.85)">
           <rect x="-2" y="-62" width="4" height="62" fill="#8b5a2b"/><rect x="-22" y="-50" width="44" height="4" fill="#8b5a2b"/>
           <path d="M-12 -48 h24 v24 h-24z" fill="#3b6ea8"/><path d="M-22 -48 h10 v6 h-10z M12 -48 h10 v6 h-10z" fill="#3b6ea8"/>
@@ -1632,10 +1639,9 @@
         let w = 0;
         try { w = text.getComputedTextLength(); } catch (e) { /* not laid out yet */ }
         if (!w) { maxW = 0; break; }
-        const small = plank.classList.contains('plank-mi');
-        const width = Math.max(small ? 34 : 44, Math.ceil(w + (small ? 12 : 20)));
-        plank.querySelector('path').setAttribute('d', plankShape(width, small));
-        if (!small) maxW = Math.max(maxW, width);
+        const width = Math.max(64, Math.ceil(w + 26));
+        plank.querySelector('path').setAttribute('d', plankShape(width, plank.getAttribute('data-flip') === '1'));
+        maxW = Math.max(maxW, width);
       }
       if (!maxW) continue;
       const x = signX(Number(g.getAttribute('data-mile')), maxW, g.getAttribute('data-passed') === '1');
