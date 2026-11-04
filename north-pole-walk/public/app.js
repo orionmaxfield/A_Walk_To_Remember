@@ -371,15 +371,20 @@
   }
 
   // The Stroll mark: a wooden signpost with two arrows and a path running off into the distance.
+  // The Stroll mark: the Journey tab's winding trail, with the sun as the end point.
   function markSvg() {
-    return `<svg class="cover-mark" viewBox="0 0 96 96" aria-hidden="true">
-      <ellipse cx="48" cy="84" rx="30" ry="6" fill="rgba(255,255,255,0.12)"/>
-      <path d="M22 84 Q48 70 74 84" fill="none" stroke="#e2b04c" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 5"/>
-      <rect x="44" y="30" width="8" height="54" rx="2" fill="#7b4a21"/>
-      <path d="M20 36 h38 l8 7 l-8 7 h-38 z" fill="#ecd9ae" stroke="#7b4a21" stroke-width="2" stroke-linejoin="round" transform="rotate(-3 39 43)"/>
-      <path d="M76 54 h-38 l-8 7 l8 7 h38 z" fill="#ecd9ae" stroke="#7b4a21" stroke-width="2" stroke-linejoin="round" transform="rotate(2 57 61)"/>
-      <circle cx="48" cy="22" r="7" fill="#e2b04c"/><circle cx="48" cy="22" r="7" fill="none" stroke="#b98624" stroke-width="1.5"/>
+    return `<svg class="cover-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="18.5" cy="6.5" r="4" fill="#FF8A33" opacity="0.35" style="filter:blur(2px)"/>
+      <path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="#E85D04" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="18.5" cy="6.5" r="2.3" fill="#FF8A33"/>
     </svg>`;
+  }
+
+  // A different destination's dusk each time the cover opens.
+  function coverArt() {
+    const ids = JOURNEY_ORDER.filter((id) => id !== 'north-pole');
+    const J = JOURNEYS[ids[Math.floor(Date.now() / 60000) % ids.length]];
+    return destinationArt(J);
   }
 
   function renderCover() {
@@ -389,11 +394,14 @@
 
     $app.innerHTML = `
       <section class="cover">
-        ${markSvg()}
-        <h1 class="cover-title">Stroll</h1>
-        <p class="cover-sub">Why not walk somewhere amazing this year?<br>Pick a destination, log your miles, watch yourself get there.</p>
-        <div class="signin"><div id="google-button"></div></div>
-        <p class="cover-places">${JOURNEY_ORDER.map((id) => `<span>${esc(JOURNEYS[id].end)}</span>`).join('')}</p>
+        <div class="cover-art" aria-hidden="true">${coverArt()}</div>
+        <div class="cover-body">
+          ${markSvg()}
+          <h1 class="cover-title">Stroll</h1>
+          <p class="cover-sub">Walk somewhere amazing this year.<br>Pick a destination, log your miles, watch yourself get there.</p>
+          <div class="signin"><div id="google-button"></div></div>
+          <p class="cover-places">${JOURNEY_ORDER.filter((id) => id !== 'north-pole').map((id) => `<span>${esc(JOURNEYS[id].end)}</span>`).join('')}</p>
+        </div>
         ${setupItems.length ? `
           <div class="page setup-note">
             <h2>Almost ready</h2>
