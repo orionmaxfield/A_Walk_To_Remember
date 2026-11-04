@@ -21,7 +21,7 @@ ios app (Capacitor, WKWebView)
   ```html
   <script>window.STROLL_API_BASE = 'https://north-pole-walk.pages.dev'; window.STROLL_WEB_ORIGIN = 'https://north-pole-walk.pages.dev';</script>
   ```
-  `STROLL_API_BASE` prefixes every `/api/…` call (requests are sent with credentials); `STROLL_WEB_ORIGIN` is used for invite links so they open on the web, not `capacitor://localhost`. On the website both are unset and everything stays relative.
+  `STROLL_API_BASE` prefixes every `/api/…` call (requests are sent with credentials); `STROLL_WEB_ORIGIN` is used for invite links so they open on the web, not `capacitor://localhost`. On the website both are unset and everything stays relative. Put that script **before** the small inline script already in the head: it fires the first API requests (config, sign-in, last walk) and reads `STROLL_API_BASE` too.
 - **Icons and launch images** in the new colors live in `public/icons/` (1024px master can be rendered from `scratchpad`'s icon script; the 512 is the same art).
 
 ## What has to change for the wrapper
