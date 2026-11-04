@@ -588,3 +588,18 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .fold summary h2::after { content: ''; width: 10px; height: 10px; border-right: 2px solid var(--text-2); border-bottom: 2px solid var(--text-2); transform: rotate(45deg); margin-right: 4px; transition: transform 200ms var(--ease-out); }
 .fold[open] summary h2::after { transform: rotate(-135deg); }
 .fold[open] summary { margin-bottom: var(--s2); }
+
+/* ---------- Route map ---------- */
+.route-map { display: block; width: 100%; height: auto; overflow: visible; }
+.route-map .trail { fill: none; stroke: var(--raised-2); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.route-map .trail.done { stroke: var(--accent); filter: drop-shadow(0 0 6px rgba(255, 122, 26, 0.55)); }
+.route-map .stop { cursor: pointer; }
+.route-map .stop .dot { fill: var(--raised-2); stroke: var(--surface); stroke-width: 2; }
+.route-map .stop.passed .dot { fill: var(--accent); }
+.route-map .stop.next .dot { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
+.route-map text { font-family: var(--font-body); font-size: 11px; font-weight: 500; fill: var(--text-2); }
+.route-map .stop.next text { fill: var(--text); font-weight: 600; }
+.route-map .endpoints circle { fill: var(--accent); }
+.route-map .here circle { fill: var(--accent); }
+.route-map .here .halo { fill: var(--accent); opacity: 0.25; animation: here-pulse 2.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes here-pulse { 0% { transform: scale(0.6); opacity: 0.45; } 100% { transform: scale(1.6); opacity: 0; } }

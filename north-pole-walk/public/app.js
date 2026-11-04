@@ -625,6 +625,7 @@
       ${installHint()}
       ${rhythmCard(p)}
       ${recapCard(p)}
+      ${routeMapCard(p)}
 
       <div class="page hero progress-hero">
         <div class="kicker">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% of the way`}</div>
@@ -705,6 +706,66 @@
       <strong>+${fmtDist(m.miles)}</strong><span>You are here. ${next}</span>
     </div>`;
   }
+
+  /* ---------- Route map: a stylized path with the stops and a you-are-here marker ---------- */
+
+  function routePoint(f) {
+    // A gentle S-curve across the card; f runs 0..1 from start to finish.
+    const x = 22 + f * 356;
+    const y = 72 + 22 * Math.sin(f * Math.PI * 2.2 + 0.4);
+    return [x, y];
+  }
+  function routePath(f0, f1) {
+    const n = 48;
+    let d = '';
+    for (let i = 0; i <= n; i++) {
+      const f = f0 + (f1 - f0) * (i / n);
+      const [x, y] = routePoint(f);
+      d += (i ? ' L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }
+    return d;
+  }
+
+  function routeMapCard(p) {
+    const J = p.J;
+    const total = J.totalMiles;
+    const cur = clampNum(p.mile / total, 0, 1);
+    const stops = J.waypoints.filter((w) => w.mile > 0);
+    const [mx, my] = routePoint(cur);
+    const nextIdx = stops.findIndex((w) => w.mile > p.mile);
+    const dots = stops.map((w, i) => {
+      const f = w.mile / total;
+      const [x, y] = routePoint(f);
+      const passed = w.mile <= p.mile;
+      const isNext = i === nextIdx;
+      const label = isNext || i === stops.length - 1 || (passed && i === nextIdx - 1);
+      const name = capitalize(w.name).replace(/^The /, '');
+      const anchor = f > 0.8 ? 'end' : f < 0.25 ? 'start' : 'middle';
+      return `<g class="stop ${passed ? 'passed' : ''} ${isNext ? 'next' : ''}" data-action="route-stop" data-name="${esc(capitalize(w.name))}" data-mile="${w.mile}">
+          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="12" fill="transparent"/>
+          <circle class="dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${isNext ? 5 : 3.5}"/>
+          ${label ? `<text x="${(x + (anchor === 'start' ? 10 : 0)).toFixed(1)}" y="${(y + (isNext ? -16 : 24)).toFixed(1)}" text-anchor="${anchor}">${esc(name.length > 18 ? name.slice(0, 17) + '…' : name)}</text>` : ''}
+        </g>`;
+    }).join('');
+    return `
+      <div class="page route">
+        <div class="kicker">Route · ${fmtDist(total)}</div>
+        <svg class="route-map" viewBox="0 0 400 140" role="img" aria-label="Route map: ${esc(p.here.name)} to ${esc(J.end)}">
+          <path class="trail" d="${routePath(0, 1)}"/>
+          <path class="trail done" d="${routePath(0, cur)}"/>
+          <g class="endpoints">
+            <circle cx="22" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>
+            ${cur > 0.06 ? `<text x="22" y="${(routePoint(0)[1] + 24).toFixed(1)}" text-anchor="start">${esc(capitalize(J.start)).slice(0, 18)}</text>` : ''}
+          </g>
+          ${dots}
+          <g class="here" transform="translate(${mx.toFixed(1)} ${my.toFixed(1)})">
+            <circle class="halo" r="12"/>
+            <circle r="6"/>
+          </g>
+        </svg>
+      </div>`;
+  }
+  function clampNum(x, a, b) { return Math.max(a, Math.min(b, x)); }
 
   /* ---------- Daily rhythm: today's ring, streak, next stop ---------- */
 
@@ -1468,6 +1529,7 @@
     });
 
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
+    if (action === 'route-stop') toast(`${el.dataset.name} · ${fmtDist(Number(el.dataset.mile))}`);
     if (action === 'awards-all') { state.awardsAll = true; renderScreen(); }
     if (action === 'awards-less') { state.awardsAll = false; renderScreen(); }
     if (action === 'dismiss-recap') { try { localStorage.setItem('recapDismissed', state.recap ? state.recap.weekStart : '1'); } catch (e) { /* ok */ } renderScreen(); }
