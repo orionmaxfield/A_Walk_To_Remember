@@ -273,6 +273,18 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .scene-svg .hiker .elf-walk { animation: hiker-bob 0.23s ease-in-out infinite alternate; }
 .scene.arrived .hiker .elf-leg-f, .scene.arrived .hiker .elf-leg-b, .scene.arrived .hiker .elf-walk { animation: none; }
 
+/* Premium dusk: layers are muted silhouettes, clouds soft; particles drift */
+.scene-svg .layer.mid, .scene-svg .layer.near { filter: saturate(0.72) brightness(0.86); }
+.scene-svg .layer.far { filter: saturate(0.5) brightness(0.7); }
+.scene-svg .clouds { filter: brightness(0.55); }
+.scene-svg .vignette { pointer-events: none; }
+@keyframes firefly { 0%, 100% { opacity: 0.05; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-6px); } }
+.scene-svg .firefly { animation: firefly 3s ease-in-out infinite; transform-box: fill-box; }
+@keyframes p-rise { from { transform: translateY(20px); } to { transform: translateY(-60px); } }
+.scene-svg .p-rise { animation: p-rise 7s linear infinite; }
+@keyframes p-drift { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
+.scene-svg .p-drift { animation: p-drift 12s ease-in-out infinite alternate; }
+
 /* Sky, lights, lava, snow, clouds */
 @keyframes twinkle { from { opacity: 0.35; } to { opacity: 1; } }
 .scene-svg .star-tw { animation: twinkle 2.2s ease-in-out infinite alternate; }

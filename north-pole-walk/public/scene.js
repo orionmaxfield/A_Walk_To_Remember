@@ -121,6 +121,15 @@
       <radialGradient id="${id('glow')}" cx="0.5" cy="0.5" r="0.5">
         <stop offset="0" stop-color="#ffe9a0" stop-opacity="0.75"/><stop offset="1" stop-color="#ffe9a0" stop-opacity="0"/>
       </radialGradient>
+      <radialGradient id="${id('light')}" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0" stop-color="${c.lightColor || '#FFB15C'}" stop-opacity="0.55"/><stop offset="0.35" stop-color="${c.lightColor || '#FFB15C'}" stop-opacity="0.18"/><stop offset="1" stop-color="${c.lightColor || '#FFB15C'}" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="${id('horizon')}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${c.ember || '#E85D04'}" stop-opacity="0"/><stop offset="1" stop-color="${c.ember || '#E85D04'}" stop-opacity="${f2(c.emberOp == null ? 0.45 : c.emberOp)}"/>
+      </linearGradient>
+      <linearGradient id="${id('vignette')}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0B0B0C" stop-opacity="0.35"/><stop offset="0.3" stop-color="#0B0B0C" stop-opacity="0"/><stop offset="0.8" stop-color="#0B0B0C" stop-opacity="0"/><stop offset="1" stop-color="#0B0B0C" stop-opacity="0.55"/>
+      </linearGradient>
       <radialGradient id="${id('emglow')}" cx="0.5" cy="0.5" r="0.5">
         <stop offset="0" stop-color="#8ff2b8" stop-opacity="0.55"/><stop offset="1" stop-color="#8ff2b8" stop-opacity="0"/>
       </radialGradient>
@@ -204,17 +213,16 @@
       }
       clouds = `<g class="clouds" opacity="${f2(c.clouds * 0.85)}">${clouds}</g>`;
     }
+    const lx = (VW * 0.74).toFixed(0), ly = (c.sunY == null ? 70 : clamp(c.sunY, 40, 120)).toFixed(0);
     return `
       <rect x="0" y="0" width="${VW}" height="${H}" fill="${ref('sky')}"/>
-      <g opacity="${f2(c.sunOp)}">
-        <circle cx="${(VW * 0.76).toFixed(0)}" cy="${c.sunY.toFixed(0)}" r="34" fill="${c.sunColor}" opacity="0.28"/>
-        <circle cx="${(VW * 0.76).toFixed(0)}" cy="${c.sunY.toFixed(0)}" r="17" fill="${c.sunColor}"/>
-      </g>
-      <g opacity="${f2(c.moonOp)}" transform="translate(${(VW * 0.2).toFixed(0)} ${c.moonY.toFixed(0)})">
-        <circle r="26" fill="#fff6d6" opacity="0.14"/><circle r="14" fill="#fff6d6"/>
-        <circle cx="-4" cy="-3" r="3" fill="#efe4c4"/><circle cx="5" cy="4" r="2" fill="#efe4c4"/><circle cx="2" cy="-7" r="1.5" fill="#efe4c4"/>
-      </g>
       <g class="stars" fill="#fff4d6" opacity="${f2(c.stars)}">${stars}</g>
+      <g opacity="${f2(c.sunOp == null ? 1 : Math.max(0.6, c.sunOp))}">
+        <circle cx="${lx}" cy="${ly}" r="${c.lightR || 150}" fill="${ref('light')}"/>
+        <circle cx="${lx}" cy="${ly}" r="34" fill="${c.lightColor || '#FFB15C'}" opacity="0.22"/>
+        <circle cx="${lx}" cy="${ly}" r="18" fill="${c.discColor || '#FFE2B0'}"/>
+      </g>
+      <rect x="0" y="${HORIZON - 110}" width="${VW}" height="${110 + 8}" fill="${ref('horizon')}"/>
       ${theme.sky ? theme.sky(c, VW) : ''}
       <g class="aurora" opacity="${f2(c.aurora)}" transform="scale(${sx} 1)">
         <path class="ribbon r1" d="M-40 76 C 60 36, 130 100, 210 60 S 350 20, 430 66 L430 118 C 350 76, 260 142, 180 100 S 50 76, -40 128 Z" fill="${ref('aur1')}"/>
@@ -247,8 +255,9 @@
     if (scale === 0) return '';
     const back = mountains(x0, x1, HORIZON + 8, 55 * scale, 100 * scale, r);
     const front = mountains(x0, x1, HORIZON + 4, 60 * scale, 140 * scale, r);
-    return `<path d="${back}" fill="${c.rockBack}"/><path d="${back}" fill="${ref('snowcap')}" opacity="0.8"/>
-            <path d="${front}" fill="${c.rock}"/><path d="${front}" fill="${ref('snowcap')}"/>`;
+    const caps = c.snowLine < 1 ? `<path d="${back}" fill="${ref('snowcap')}" opacity="0.5"/>` : '';
+    const capsF = c.snowLine < 1 ? `<path d="${front}" fill="${ref('snowcap')}" opacity="0.7"/>` : '';
+    return `<path d="${back}" fill="${c.rockBack}"/>${caps}<path d="${front}" fill="${c.rock}"/>${capsF}`;
   }
 
   /* ---------- Mid layer: hills, forest, and the theme's landmarks ---------- */
@@ -602,6 +611,33 @@
 
   /* ---------- Falling snow, or embers ---------- */
 
+  // Atmosphere: fireflies, sea spray, dust or embers, by theme.
+  function particles(VW, kind) {
+    const r = rng(29);
+    if (!kind || kind === 'none') return '';
+    if (kind === 'fireflies') {
+      let dots = '';
+      for (let i = 0; i < 16; i++) dots += `<circle class="firefly" cx="${(r() * VW).toFixed(0)}" cy="${(HORIZON - 70 + r() * 90).toFixed(0)}" r="${(1.2 + r() * 1.4).toFixed(1)}" style="animation-delay:${(-r() * 4).toFixed(1)}s;animation-duration:${(2.4 + r() * 2.6).toFixed(1)}s"/>`;
+      return `<g fill="#FFD27A" opacity="0.9">${dots}</g>`;
+    }
+    if (kind === 'spray') {
+      let dots = '';
+      for (let i = 0; i < 26; i++) dots += `<circle cx="${(r() * VW).toFixed(0)}" cy="${(HORIZON - 30 + r() * 60).toFixed(0)}" r="${(0.8 + r() * 1.2).toFixed(1)}"/>`;
+      return `<g class="p-rise" fill="#E8F4FF" opacity="0.55" style="animation-duration:7s">${dots}</g>`;
+    }
+    if (kind === 'dust') {
+      let dots = '';
+      for (let i = 0; i < 22; i++) dots += `<circle cx="${(r() * VW).toFixed(0)}" cy="${(HORIZON - 90 + r() * 110).toFixed(0)}" r="${(0.7 + r() * 1).toFixed(1)}"/>`;
+      return `<g class="p-drift" fill="#FFD9A0" opacity="0.4" style="animation-duration:12s">${dots}</g>`;
+    }
+    if (kind === 'embers') {
+      let dots = '';
+      for (let i = 0; i < 28; i++) dots += `<circle class="firefly" cx="${(r() * VW).toFixed(0)}" cy="${(HORIZON - 40 + r() * 120).toFixed(0)}" r="${(1 + r() * 1.6).toFixed(1)}" style="animation-delay:${(-r() * 3).toFixed(1)}s;animation-duration:${(1.6 + r() * 2).toFixed(1)}s"/>`;
+      return `<g class="p-rise" fill="#FF8A33" opacity="0.85" style="animation-duration:6s">${dots}</g>`;
+    }
+    return '';
+  }
+
   function snowfall(VW, c, color) {
     const groups = [[20, c.snowA, 9, 1.5], [26, c.snowB, 7.5, 1.8], [34, c.snowC, 6, 2.2]];
     const r = rng(23);
@@ -733,6 +769,7 @@
   /* --- Oz: yellow bricks from the blue Munchkin farms to the green city --- */
   THEMES.oz = {
     walker: 'hiker',
+    particles: 'fireflies',
     path: 'bricks',
     hillAmp: 0.8,
     farScale: 0.6,
@@ -834,6 +871,7 @@
   /* --- Neverland: London night, then the clouds, then the island at morning --- */
   THEMES.neverland = {
     walker: 'hiker',
+    particles: 'spray',
     hillAmp: 0.9,
     farScale: 0.7,
     fracs: { rooftops: 0.09, clouds: 0.23, sea: 0.4, lagoon: 0.52 },
@@ -935,6 +973,7 @@
   /* --- Camelot: green England, castles and a sword in a lake --- */
   THEMES.camelot = {
     walker: 'hiker',
+    particles: 'fireflies',
     hillAmp: 1.1,
     farScale: 0.5,
     fracs: { wood: 0.22, lake: 0.35, tor: 0.85 },
@@ -1039,6 +1078,7 @@
   /* --- Atlantis: a causeway across a bright sea to a sunken temple --- */
   THEMES.atlantis = {
     walker: 'hiker',
+    particles: 'spray',
     hillAmp: 0.25,
     farScale: 0.35,
     palette(t) {
@@ -1135,6 +1175,7 @@
   /* --- The Dark Mountain: green dales to ash plains to fire --- */
   THEMES.volcano = {
     walker: 'hiker',
+    particles: 'embers',
     fracs: { wood: 0.19, pass: 0.3, lake: 0.53, marsh: 0.65, ash: 0.77, fires: 0.88 },
     palette(t, k) {
       const dark = smooth(k.marsh, k.fires, t);
@@ -1231,6 +1272,7 @@
   /* --- Camino: Pyrenees, vineyards, the golden meseta, green Galicia --- */
   THEMES.camino = {
     walker: 'hiker',
+    particles: 'dust',
     fracs: { vines: 0.2, meseta: 0.36, galicia: 0.79 },
     palette(t, k) {
       const meseta = smooth(k.vines + 0.04, k.meseta, t) * (1 - smooth(k.galicia - 0.1, k.galicia, t));
@@ -1317,6 +1359,7 @@
   /* --- Appalachian: green ridges turning to autumn, ending on a rocky summit --- */
   THEMES.appalachian = {
     walker: 'hiker',
+    particles: 'fireflies',
     hillAmp: 1.3,
     farScale: 1.1,
     fracs: { autumn: 0.73, whites: 0.85, wilderness: 0.95 },
@@ -1400,6 +1443,7 @@
   /* --- Road: any real place to any other; plain countryside with a town at each end --- */
   THEMES.road = {
     walker: 'hiker',
+    particles: 'fireflies',
     hillAmp: 1,
     farScale: 0.7,
     palette(t) {
@@ -1473,6 +1517,44 @@
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
   }
 
+  // Every theme is drawn in the same premium dusk: deep sky tinted by the
+  // destination's accent, an ember horizon, hills as layered silhouettes, one
+  // warm light. Theme palettes still decide the relative tones; this darkens,
+  // desaturates and warms them so landmarks and walker read as lit silhouettes.
+  function desaturate(col, k) {
+    const [r, g, b] = parseColor(col); const l = 0.3 * r + 0.59 * g + 0.11 * b;
+    return `rgb(${Math.round(lerp(r, l, k))},${Math.round(lerp(g, l, k))},${Math.round(lerp(b, l, k))})`;
+  }
+  function premium(c, accent, hour) {
+    const h = hour == null ? new Date().getHours() : hour;
+    const night = (h >= 20 || h < 6) ? 1 : (h >= 17 ? (h - 17) / 3 : h < 8 ? (8 - h) / 2 : 0);
+    const dark = (col, k) => mix(col, '#0B0B0C', k);
+    const out = Object.assign({}, c);
+    out.skyTop = mix(mix('#0B0B0C', accent, 0.12), '#05050A', night * 0.5);
+    out.skyMid = mix(mix('#1A1320', accent, 0.26), '#0B0B0C', night * 0.45);
+    out.skyBot = mix(mix('#4A2210', '#E85D04', 0.3), '#1A0E08', night * 0.5);
+    out.ember = mix('#E85D04', accent, 0.25);
+    out.emberOp = 0.5 - night * 0.2;
+    out.lightColor = night > 0.6 ? '#FFE9C8' : '#FFB15C';
+    out.discColor = night > 0.6 ? '#FFF5E0' : '#FFE2B0';
+    out.lightR = night > 0.6 ? 110 : 160;
+    out.sunOp = 1; out.moonOp = 0;
+    out.stars = Math.max(c.stars || 0, 0.45 + night * 0.4);
+    out.aurora = c.aurora || 0;
+    out.rockBack = desaturate(dark(c.rockBack, 0.55), 0.45);
+    out.rock = desaturate(dark(c.rock, 0.62), 0.45);
+    out.hillFar = desaturate(dark(c.hillFar, 0.5), 0.5);
+    out.hillBack = desaturate(dark(c.hillBack, 0.6), 0.5);
+    out.hillFront = desaturate(dark(c.hillFront, 0.7), 0.45);
+    out.grass = desaturate(dark(c.grass, 0.72), 0.4);
+    out.path = mix(desaturate(dark(c.path, 0.55), 0.3), '#E85D04', 0.14);
+    out.tree = dark(c.tree, 0.7);
+    out.leaf = desaturate(dark(c.leaf || c.tree, 0.62), 0.35);
+    if (c.sea) { out.sea = desaturate(dark(c.sea, 0.45), 0.2); out.seaFar = desaturate(dark(c.seaFar || c.sea, 0.6), 0.2); }
+    out.clouds = (c.clouds || 0) * 0.5;
+    return out;
+  }
+
   // The sky follows the walker's clock: warm at dawn, bright by day, amber at dusk,
   // dark at night. A gentle tint over the theme's own palette (the office's arctic
   // scene keeps its own light).
@@ -1499,19 +1581,20 @@
     const k = {};
     for (const key in (theme.fracs || {})) k[key] = marks[key] != null ? marks[key] / total : theme.fracs[key];
     let c = theme.palette(t, k);
-    if (theme.walker === 'hiker' && !opts.still) c = timeOfDay(c, opts.hour);
     c.t = t;
     if (!c.hillFar) c.hillFar = mix(c.hillBack, c.skyBot, 0.55);
+    c = premium(c, J.accent || '#E85D04', opts.hour);
     const vars = `--tree:${c.tree};--leaf:${c.leaf || c.tree};--tree-snow:${f2(c.treeSnow || 0)};--patch:${f2(c.patch || 0)}`;
     const walker = theme.walker === 'hiker' ? hiker(VW / 2) : elf(VW / 2);
-    const weather = opts.still ? '' : snowfall(VW, c, c.embers ? '#ffb347' : null);
+    const weather = opts.still ? '' : snowfall(VW, c, c.embers ? '#ffb347' : null) + particles(VW, theme.particles);
     return `<svg class="scene-svg${opts.still ? ' still' : ''}" viewBox="0 0 ${VW} ${H}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${esc(opts.label || '')}" style="${vars}">
       ${defs(c)}
       ${sky(c, VW, theme)}
-      <g class="layer" data-speed="${SPEED.far}">${farLayer(total, VW, c, theme)}</g>
-      <g class="layer" data-speed="${SPEED.mid}">${midLayer(total, VW, c, J, marks, theme)}</g>
-      <g class="layer" data-speed="${SPEED.near}">${nearLayer(total, VW, c, J, marks, clamp(mile, 0, total), theme)}</g>
+      <g class="layer far" data-speed="${SPEED.far}">${farLayer(total, VW, c, theme)}</g>
+      <g class="layer mid" data-speed="${SPEED.mid}">${midLayer(total, VW, c, J, marks, theme)}</g>
+      <g class="layer near" data-speed="${SPEED.near}">${nearLayer(total, VW, c, J, marks, clamp(mile, 0, total), theme)}</g>
       ${walker}
+      <rect class="vignette" x="0" y="0" width="${VW}" height="${H}" fill="${ref('vignette')}"/>
       ${weather}
     </svg>`;
   }
