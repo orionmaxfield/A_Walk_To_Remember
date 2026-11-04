@@ -567,10 +567,12 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: var(--s3); }
 .cal-dow { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-3); padding-bottom: 2px; }
 .cal-cell { position: relative; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; font-size: var(--fs-13); font-weight: 500; color: var(--text-2); overflow: hidden; font-variant-numeric: tabular-nums; }
-.cal-cell i { position: absolute; inset: 3px; border-radius: 50%; background: var(--accent); opacity: 0; }
-.cal-cell.walked i { opacity: 0.9; }
+.cal-cell i { position: absolute; inset: 2px; border-radius: 50%; background: var(--accent); opacity: 0; box-shadow: 0 0 10px rgba(255, 122, 26, 0.35); }
+.cal-cell.walked i { opacity: 1; }
 .cal-cell.walked b, .cal-cell.walked small { position: relative; color: var(--on-accent); }
-.cal-cell small { font-size: 10px; font-weight: 600; line-height: 1; }
+.cal-cell.walked b { font-weight: 700; line-height: 1.05; }
+.cal-cell small { font-size: 10px; font-weight: 600; line-height: 1; margin-top: 1px; }
+.cal-cell.walked.today { box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 2px var(--surface) inset; }
 .cal-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
 .cal-cell.future { opacity: 0.35; }
 .cal-cell.empty { visibility: hidden; }

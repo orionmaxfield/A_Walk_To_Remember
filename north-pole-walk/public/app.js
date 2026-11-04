@@ -1495,7 +1495,7 @@
       const today = isThisMonth && d === Hs.today.day;
       const size = mi ? (0.45 + 0.55 * Math.min(1, mi / maxDay)).toFixed(2) : 0;
       cells += `<span class="cal-cell ${mi ? 'walked' : ''} ${today ? 'today' : ''} ${future ? 'future' : ''}" title="${mi ? fmt(mi, 1) + ' mi' : ''}">
-        <i style="transform:scale(${size})"></i><b>${d}</b>${mi ? `<small>${fmt(dnum(mi), dnum(mi) >= 10 ? 0 : 1)}</small>` : ''}</span>`;
+        <i></i><b>${d}</b>${mi ? `<small>${fmt(dnum(mi), dnum(mi) >= 10 ? 0 : 1)}</small>` : ''}</span>`;
     }
     const grouped = [];
     const shown = state.feedOpen ? Hs.entries : Hs.entries.slice(0, 30);
