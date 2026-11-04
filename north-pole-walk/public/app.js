@@ -808,7 +808,7 @@
     const heroMiles = solo ? R.myMiles : R.teamMiles;
     const you = solo
       ? `On ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.`
-      : `You added ${fmtDist(R.myMiles)} on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.${R.topName ? ` Most miles: ${esc(R.topName)}.` : ''}`;
+      : `You added ${fmtDist(R.myMiles)} on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.${R.topName ? ` Top walker: ${esc(R.topName)}.` : ''}`;
     const best = R.bestDay ? ` Your best day was ${R.bestDay.weekday}, ${fmtDist(R.bestDay.miles)}.` : '';
     return `<div class="page recap">
       <div class="cal-head"><div class="kicker">Last week</div><button type="button" class="button quiet small-btn" data-action="dismiss-recap" aria-label="Dismiss">✕</button></div>
@@ -1210,7 +1210,7 @@
       ${editing ? '' : `
       <div class="page">
         <details class="fold">
-          <summary><h2>Other movement counts too</h2><span class="small muted">100 calories = 1 mile · tap one to fill it in</span></summary>
+          <summary><h2>Other movement counts too</h2><span class="small muted">100 calories = ${isKm() ? '1.6 km' : '1 mile'} · tap one to fill it in</span></summary>
         <ul class="activity-list">
           ${ACTIVITIES.map((a) => `<li><button type="button" data-action="use-calories" data-cal="${a.cal}">
             <span class="activity-name">${esc(a.name)}</span>
