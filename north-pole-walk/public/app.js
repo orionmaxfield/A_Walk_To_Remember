@@ -227,15 +227,16 @@
 
   async function loadJourney() {
     const before = state.journey && state.journey.team.id;
-    const [journey, rhythm, recap] = await Promise.all([
+    const [journey, rhythm, recap, awards] = await Promise.all([
       api('/api/journey?team=' + encodeURIComponent(state.teamId)),
       api('/api/rhythm').catch(() => null),
       api('/api/recap?team=' + encodeURIComponent(state.teamId)).catch(() => null),
+      api('/api/awards?team=' + encodeURIComponent(state.teamId)).catch(() => null),
     ]);
     state.journey = journey;
     state.rhythm = rhythm;
     state.recap = recap;
-    state.awards = null; // miles changed, so awards may have too
+    state.awards = awards; // loaded with the journey: postcards and the Awards tab share it
     state.history = null;
     if (before !== state.journey.team.id) state.feedOpen = false;
   }
@@ -642,6 +643,8 @@
         <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile))}</p>
       </div>
 
+      ${postcardsCard(p)}
+
       ${isSolo() ? `
       <div class="page">
         <h2>Walk with a friend</h2>
@@ -705,6 +708,63 @@
     return `<div id="moment" class="moment" role="status">
       <strong>+${fmtDist(m.miles)}</strong><span>You are here. ${next}</span>
     </div>`;
+  }
+
+  /* ---------- Postcards: one unlocked at every stop you pass ---------- */
+
+  function stopEarnedAt(wp) {
+    const A = state.awards;
+    if (!A || !wp.badge) return null;
+    const a = A.team.find((x) => x.id === wp.badge.id);
+    return a && a.earned ? a.earnedAt : null;
+  }
+
+  function postcardsCard(p) {
+    const J = p.J;
+    const stops = J.waypoints.filter((w) => w.mile > 0 && w.badge);
+    if (!stops.length || !window.JourneyScene || !JourneyScene.thumbnail) return '';
+    const unlocked = stops.filter((w) => w.mile <= p.mile).length;
+    const nextIdx = stops.findIndex((w) => w.mile > p.mile);
+    const cards = stops.map((w, i) => {
+      const open = w.mile <= p.mile;
+      const soon = !open && i <= nextIdx + 1; // the next two get real art, blurred
+      const art = open || soon ? JourneyScene.thumbnail(J, Math.max(0, w.mile - 2)) : '';
+      const when = open ? stopEarnedAt(w) : null;
+      return `<li class="postcard ${open ? 'open' : 'locked'}">
+        <button type="button" ${open ? `data-action="open-postcard" data-mile="${w.mile}"` : 'disabled'} aria-label="${esc(capitalize(w.name))}${open ? '' : ', locked'}">
+          <span class="postcard-art" aria-hidden="true">${art || '<span class="postcard-blank"></span>'}</span>
+          <span class="postcard-copy">
+            <strong>${esc(capitalize(w.name))}</strong>
+            <span>${open ? (when ? esc(earnedText(when).replace('Earned', 'Reached')) : 'Reached') : `${fmtDist(w.mile - p.mile)} to go`}</span>
+          </span>
+        </button>
+      </li>`;
+    }).join('');
+    return `
+      <div class="page postcards-page">
+        <div class="cal-head"><h2>Postcards</h2><span class="small muted">${unlocked} of ${stops.length}</span></div>
+        <ul class="postcards">${cards}</ul>
+      </div>`;
+  }
+
+  function openPostcard(mile) {
+    const p = progress();
+    const wp = p.J.waypoints.find((w) => w.mile === mile);
+    if (!wp) return;
+    const card = stopCard(wp);
+    const when = stopEarnedAt(wp);
+    const $pop = document.getElementById('postcard-pop');
+    $pop.innerHTML = `
+      <div class="postcard-full page" role="dialog" aria-label="Postcard from ${esc(capitalize(wp.name))}">
+        <div class="postcard-full-art" aria-hidden="true">${JourneyScene.thumbnail(p.J, Math.max(0, wp.mile - 2))}</div>
+        <div class="postcard-full-copy">
+          <div class="kicker">${esc(p.J.title)} · ${fmtDist(wp.mile)}</div>
+          <h2>${esc(capitalize(wp.name))}</h2>
+          <p>${esc(card.text)}</p>
+          <p class="small muted">${when ? esc(earnedText(when).replace('Earned', 'Reached')) : 'Reached'} · tap to close</p>
+        </div>
+      </div>`;
+    $pop.hidden = false;
   }
 
   /* ---------- Route map: a stylized path with the stops and a you-are-here marker ---------- */
@@ -1498,6 +1558,8 @@
 
   document.addEventListener('click', (ev) => {
     if (!$awardPop.hidden && $awardPop.contains(ev.target)) { nextAwardPop(); return; }
+    const $pc = document.getElementById('postcard-pop');
+    if ($pc && !$pc.hidden && $pc.contains(ev.target)) { $pc.hidden = true; $pc.innerHTML = ''; return; }
     const el = ev.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
@@ -1530,6 +1592,7 @@
 
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
     if (action === 'route-stop') toast(`${el.dataset.name} · ${fmtDist(Number(el.dataset.mile))}`);
+    if (action === 'open-postcard') openPostcard(Number(el.dataset.mile));
     if (action === 'awards-all') { state.awardsAll = true; renderScreen(); }
     if (action === 'awards-less') { state.awardsAll = false; renderScreen(); }
     if (action === 'dismiss-recap') { try { localStorage.setItem('recapDismissed', state.recap ? state.recap.weekStart : '1'); } catch (e) { /* ok */ } renderScreen(); }

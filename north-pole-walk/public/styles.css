@@ -603,3 +603,30 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .route-map .here circle { fill: var(--accent); }
 .route-map .here .halo { fill: var(--accent); opacity: 0.25; animation: here-pulse 2.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes here-pulse { 0% { transform: scale(0.6); opacity: 0.45; } 100% { transform: scale(1.6); opacity: 0; } }
+
+/* ---------- Postcards ---------- */
+.postcards-page .cal-head { margin-bottom: var(--s3); }
+.postcards { list-style: none; margin: 0 calc(-1 * var(--s4)); padding: 0 var(--s4) var(--s1); display: flex; gap: var(--s3); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
+.postcards::-webkit-scrollbar { display: none; }
+.postcard { flex: 0 0 168px; scroll-snap-align: start; }
+.postcard button { width: 100%; display: block; padding: 0; border: 1px solid var(--hairline); border-radius: var(--r-control); overflow: hidden; background: var(--raised); color: var(--text); text-align: left; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease; }
+.postcard.open button:hover { transform: translateY(-2px); box-shadow: var(--glow); }
+.postcard button[disabled] { cursor: default; }
+.postcard-art { display: block; height: 96px; background: var(--bg); position: relative; }
+.postcard-art svg { display: block; width: 100%; height: 100%; }
+.postcard-blank { display: block; height: 100%; background: linear-gradient(135deg, var(--raised), var(--raised-2)); }
+.postcard.locked .postcard-art svg { filter: grayscale(0.7) blur(2px) brightness(0.5); }
+.postcard.locked .postcard-art::after { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='5' y='11' width='14' height='10' rx='2' fill='none' stroke='%23A8A29E' stroke-width='1.75'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3' fill='none' stroke='%23A8A29E' stroke-width='1.75' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / 26px; }
+.postcard-copy { display: block; padding: 10px 12px 12px; }
+.postcard-copy strong { display: block; font-family: var(--font-display); font-weight: 500; font-size: var(--fs-15); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.postcard-copy span { display: block; font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.postcard.open .postcard-copy span { color: var(--accent-text); }
+.postcard-pop { cursor: pointer; }
+.postcard-full { width: 100%; max-width: 420px; padding: 0; overflow: hidden; box-shadow: var(--glow); animation: award-in 420ms var(--ease-out); }
+.postcard-full-art { height: 220px; background: var(--bg); }
+.postcard-full-art svg { display: block; width: 100%; height: 100%; }
+.postcard-full-copy { padding: var(--s4) var(--s5) var(--s5); }
+.postcard-full-copy h2 { font-size: var(--fs-28); margin-bottom: var(--s2); }
+.postcard-full-copy p { font-family: var(--font-display); font-size: var(--fs-17); line-height: 1.5; }
+.postcard-full-copy p.small { font-family: var(--font-body); font-size: var(--fs-13); }
+@media (min-width: 900px) { #screen > .postcards-page { column-span: all; } .postcard { flex-basis: 200px; } .postcard-art { height: 110px; } }

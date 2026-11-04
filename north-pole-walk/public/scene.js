@@ -1700,11 +1700,11 @@
 
   // A still picture of a journey for the destination cards: the walker a little
   // way short of the finish, with the finish landmark in view. No animation.
-  function thumbnail(J) {
-    UID = 'th-' + String(J.id).replace(/[^a-z0-9]/gi, '');
+  function thumbnail(J, atMile) {
+    UID = 'th-' + String(J.id).replace(/[^a-z0-9]/gi, '') + (atMile != null ? '-' + Math.round(atMile) : '');
     const VW = 720;
     setWorld(J);
-    const mile = clamp(mileAt(worldX(J.totalMiles) - 150), 0, J.totalMiles);
+    const mile = atMile != null ? clamp(atMile, 0, J.totalMiles) : clamp(mileAt(worldX(J.totalMiles) - 150), 0, J.totalMiles);
     let svg = render(J, mile, VW, { still: true, label: '' });
     // Slide the layers into place, as mount() would, by baking the transforms in.
     svg = svg.replace(/<g class="layer" data-speed="([\d.]+)">/g, (m, s) => `<g class="layer" data-speed="${s}" transform="translate(${(VW / 2 - worldX(mile) * Number(s)).toFixed(2)} 0)">`);
