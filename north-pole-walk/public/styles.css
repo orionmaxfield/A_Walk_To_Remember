@@ -411,6 +411,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   box-shadow: 0 0 18px rgba(232, 93, 4, 0.22);
 }
 .badge-frame svg { width: 44px; height: 44px; display: block; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)); }
+/* Badge art is drawn in many colors; earned badges are tinted to the identity's warm orange so the case reads as one set */
+.badge-card.earned .badge-frame svg, .award-pop-card .badge-frame svg { filter: grayscale(1) sepia(1) saturate(3) hue-rotate(-18deg) brightness(1.05) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)); }
 .badge-card.locked .badge-frame { border: 1px dashed var(--hairline-2); background: var(--raised); box-shadow: none; }
 .badge-card.locked .badge-frame svg { filter: grayscale(1); opacity: 0.4; }
 .badge-card.locked h3 { color: var(--text-2); }
