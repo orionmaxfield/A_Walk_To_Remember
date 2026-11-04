@@ -305,8 +305,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 /* Sky, lights, lava, snow, clouds */
 @keyframes twinkle { from { opacity: 0.35; } to { opacity: 1; } }
 .scene-svg .star-tw { animation: twinkle 2.2s ease-in-out infinite alternate; }
-.scene-svg .bulb-a { animation: twinkle 1.4s ease-in-out infinite alternate; }
-.scene-svg .bulb-b { animation: twinkle 1.4s ease-in-out infinite alternate-reverse; }
 @keyframes lava { from { opacity: 0.55; } to { opacity: 1; } }
 .scene-svg .lava-glow { animation: lava 2.4s ease-in-out infinite alternate; }
 @keyframes aurora-sway { from { transform: translateX(-14px) scaleY(1); opacity: 0.7; } to { transform: translateX(14px) scaleY(1.1); opacity: 1; } }
@@ -333,22 +331,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .header h1 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ---------- Journey: mile post (legacy) & progress ---------- */
-.milepost-page { display: flex; gap: var(--s4); align-items: stretch; }
-.milepost { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; width: 104px; }
-.milepost .board {
-  width: 100%; background: var(--raised); border: 1px solid var(--hairline-2); border-radius: var(--r-control);
-  text-align: center; padding: 10px 6px 12px;
-}
-.milepost .board .label { font-size: 11px; font-weight: 600; color: var(--text-2); letter-spacing: 0.08em; }
-.milepost .board .number { font-family: var(--font-display); font-size: var(--fs-34); font-weight: 600; line-height: 1; color: var(--accent-text); margin-top: 4px; font-variant-numeric: tabular-nums; }
-.milepost .post { width: 6px; flex: 1; min-height: 28px; background: var(--raised-2); border-radius: 0 0 3px 3px; }
-.milepost .ground { width: 56px; height: 6px; background: var(--raised-2); border-radius: 50%; margin-top: -2px; }
-.progress-copy { flex: 1; min-width: 0; }
-.progress-copy h2 { font-size: var(--fs-28); line-height: var(--lh-28); }
 .progress-bar { height: 8px; border-radius: var(--r-pill); background: var(--raised-2); overflow: hidden; margin: 10px 0 8px; }
 .progress-bar div { height: 100%; min-width: 8px; background: var(--accent); border-radius: var(--r-pill); transition: width var(--t-fill) var(--ease-out); box-shadow: 0 0 12px rgba(255, 122, 26, 0.5); }
 @keyframes post-pulse { 0% { transform: scale(1); } 35% { transform: scale(1.06); box-shadow: 0 0 0 10px var(--accent-soft); } 100% { transform: scale(1); } }
-.milepost .board.pulse { animation: post-pulse 900ms ease; }
 
 /* ---------- Fact & lists ---------- */
 .fact { border-left: 3px solid var(--accent); }
@@ -377,8 +362,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .standings .rank.first { color: var(--accent-text); }
 .standings li.me { background: var(--raised); border: 1px solid var(--hairline-2); border-left: 3px solid var(--accent); margin: 0 calc(-1 * var(--s2)); padding-left: calc(var(--s2) + 2px); padding-right: var(--s2); border-radius: 12px; }
 
-.big-number { font-family: var(--font-display); font-size: var(--fs-44); line-height: var(--lh-44); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
-.big-number small { font-size: var(--fs-15); font-weight: 500; color: var(--text-2); margin-left: 6px; font-family: var(--font-body); }
 
 .invite-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); background: var(--raised); border: 1px dashed var(--hairline-2); border-radius: var(--r-control); padding: var(--s3) var(--s4); margin: var(--s3) 0; }
 .invite-card .invite-code { margin: 0; font-size: var(--fs-28); }
@@ -482,8 +465,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .stop-mile { flex: 0 0 52px; font-family: var(--font-display); font-weight: 600; color: var(--accent-text); text-align: right; font-size: var(--fs-15); font-variant-numeric: tabular-nums; }
 .found { color: var(--accent-text); font-weight: 500; margin: -8px 0 12px; }
 form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; margin: -8px 0 12px; border: 1px solid var(--hairline-2); border-radius: var(--r-control); background: var(--raised); color: var(--text); min-height: 48px; }
-.route-summary { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--hairline); }
-.route-summary h2 { font-size: var(--fs-34); }
 
 /* ---------- Add miles ---------- */
 .conversion { font-size: var(--fs-13); color: var(--text-2); margin: -6px 0 var(--s4); min-height: 20px; }

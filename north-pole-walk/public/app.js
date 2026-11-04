@@ -392,15 +392,6 @@
 
   /* ---------- Screens ---------- */
 
-  function poleSvg(size) {
-    return `<svg class="cover-pole" width="${size}" height="${size * 1.3}" viewBox="0 0 60 78" aria-hidden="true">
-      <ellipse cx="30" cy="70" rx="26" ry="6" fill="#fbfbf7" opacity="0.9"/>
-      <rect x="25" y="14" width="10" height="56" rx="3" fill="#fbfbf7"/>
-      <path d="M25 20 l10 6 M25 30 l10 6 M25 40 l10 6 M25 50 l10 6 M25 60 l10 6" stroke="#c9553d" stroke-width="4"/>
-      <circle cx="30" cy="12" r="7" fill="#e2b04c"/>
-      <circle cx="30" cy="12" r="7" fill="none" stroke="#b98624" stroke-width="1.5"/>
-    </svg>`;
-  }
 
   // The Stroll mark: a wooden signpost with two arrows and a path running off into the distance.
   // The Stroll mark: the Journey tab's winding trail, with the sun as the end point.
