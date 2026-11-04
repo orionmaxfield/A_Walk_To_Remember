@@ -125,7 +125,7 @@
   // A stored mile value as the number the walker sees.
   function dnum(miles) { return isKm() ? Number(miles) * KM_PER_MILE : Number(miles); }
   // "2.5 mi" / "4 km"
-  function fmtDist(miles, digits = 1) { return `${fmt(dnum(miles), digits)} ${units()}`; }
+  function fmtDist(miles, digits = 1) { return `${fmt(dnum(miles), digits)}\u00a0${units()}`; } // number and unit never split across lines
   // The long unit word: "miles" / "kilometers"
   function unitWord() { return isKm() ? 'km' : 'miles'; }
   // A typed number in the walker's unit, as miles for the server.
@@ -164,6 +164,10 @@
 
   function isSolo() {
     return Boolean(state.journey && state.journey.team.kind === 'solo');
+  }
+  // "You" rather than "your team" whenever you are the only one walking, solo walk or not.
+  function soloVoice() {
+    return isSolo() || Boolean(state.journey && state.journey.members && state.journey.members.length < 2);
   }
 
   // "The elf" on the office's walk, "the walker" everywhere else.
@@ -784,7 +788,7 @@
     const all = state.journey.recent;
     const recent = state.feedOpen ? all : all.slice(0, 6);
 
-    const who = isSolo() ? 'You are' : 'Your team is';
+    const who = soloVoice() ? 'You are' : 'Your team is';
     const where = p.arrived
       ? `${who} ${esc(p.J.waypoints[p.J.waypoints.length - 1].region)}.`
       : `${who} ${esc(p.here.region)}.`;
@@ -805,7 +809,7 @@
         <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
         <p class="small hero-copy">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `${nextHead}<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : `${nextHead}${where}`}</p>
         ${p.arrived ? `<div class="arrived-actions"><button class="button" data-action="share-arrival">Share my arrival</button><button class="button quiet" data-action="replay-celebration">Replay the celebration</button></div>` : ''}
-        ${isSolo() ? '' : `<div class="hero-foot"><span class="kicker">Your share</span><b>${fmtDist(state.journey.myTotal)}</b><span class="small muted">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</span></div>`}
+        ${soloVoice() ? '' : `<div class="hero-foot"><span class="kicker">Your share</span><b>${fmtDist(state.journey.myTotal)}</b><span class="small muted">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</span></div>`}
       </div>
 
       ${rhythmCard(p)}
@@ -850,7 +854,7 @@
     const forced = location.search.includes('recap=1');
     if ((!R.isMonday && !forced) || dismissed === R.weekStart) return '';
     if (R.teamMiles <= 0) return '';
-    const solo = isSolo();
+    const solo = soloVoice();
     const moved = R.endMile > R.startMile
       ? `The marker moved from ${isKm() ? 'km' : 'mile'} ${fmt(dnum(R.startMile))} to ${fmt(dnum(R.endMile))}${R.stopsPassed.length ? `, passing ${esc(listNames(R.stopsPassed.map(capitalize)))}` : ''}.`
       : 'The marker stayed put.';
@@ -1259,7 +1263,7 @@
             <summary>${editing ? 'Change the day' : 'Missed a day? Log it for another date'}</summary>
             <label class="field"><span>Day</span><input name="date" type="date" value="${editDate}" max="${today}"></label>
           </details>
-          <button class="button wide" type="submit">${editing ? 'Save changes' : isSolo() ? 'Add to my walk' : 'Add to the team'}</button>
+          <button class="button wide" type="submit">${editing ? 'Save changes' : soloVoice() ? 'Add to my walk' : 'Add to the team'}</button>
           ${editing ? `<div class="row" style="margin-top:8px"><button class="button quiet" type="button" data-action="cancel-edit">Cancel</button><button class="button quiet" type="button" data-action="delete-entry" data-id="${editing.id}">Remove entry</button></div>` : ''}
         </form>
       </div>
@@ -1442,7 +1446,7 @@
       return `<div class="page hero" aria-busy="true"><div class="kicker">Earned</div><div class="skeleton" style="height:44px;width:40%;margin:6px 0 14px"></div><div class="skeleton" style="height:120px"></div></div><div class="page"><div class="skeleton" style="height:28px;width:35%;margin-bottom:12px"></div><div class="skeleton" style="height:120px"></div></div>`;
     }
     const hero = A.hero || 'Elf';
-    const solo = isSolo();
+    const solo = soloVoice();
     const all = [...A.team.map((a) => ({ ...a, section: 'team' })), ...A.personal.map((a) => ({ ...a, section: 'personal' }))];
     const earned = all.filter((a) => a.earned).sort((a, b) => String(b.earnedAt).localeCompare(String(a.earnedAt)));
     const ratio = (a) => (a.progress && a.progress.goal ? a.progress.value / a.progress.goal : -1);
