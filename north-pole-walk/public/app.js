@@ -396,6 +396,27 @@
     return destinationArt(J);
   }
 
+  // The invite behind a /join link, looked up for the cover so a friend knows why they're here.
+  let coverInvite = null;
+  async function loadCoverInvite() {
+    let code = null;
+    try { code = localStorage.getItem('pendingJoin'); } catch (e) { /* no storage */ }
+    if (!code || coverInvite) return;
+    try {
+      const res = await api('/api/join?code=' + encodeURIComponent(code));
+      coverInvite = res.invite;
+      const el = document.getElementById('cover-invite');
+      if (el && coverInvite) el.outerHTML = coverInviteHtml();
+    } catch (e) { /* the code may be wrong; the join step after sign-in says so */ }
+  }
+  function coverInviteHtml() {
+    const inv = coverInvite;
+    if (!inv) return '<div id="cover-invite"></div>';
+    const J = journeyDefFor({ journey_id: inv.journey_id, custom: inv.custom });
+    const who = inv.kind === 'solo' ? `${esc(inv.name)} is walking there` : `${esc(inv.name)} · ${inv.walkers} ${inv.walkers === 1 ? 'walker' : 'walkers'}`;
+    return `<div id="cover-invite" class="cover-invite"><span class="kicker">You're invited</span><strong>Walk to ${esc(J.end)}</strong><span class="small muted">${who}. Sign in and your miles count too.</span></div>`;
+  }
+
   function renderCover() {
     const setupItems = [];
     if (!state.config.dbReady) setupItems.push('Connect the D1 database (the <code>DB</code> binding in <code>wrangler.toml</code>).');
@@ -408,6 +429,7 @@
           ${markSvg()}
           <h1 class="cover-title">Stroll</h1>
           <p class="cover-sub">Walk somewhere amazing this year.<br>Pick a destination, log your miles, watch yourself get there.</p>
+          ${coverInviteHtml()}
           <div class="signin"><div id="google-button"></div></div>
           <p class="cover-places">${JOURNEY_ORDER.filter((id) => id !== 'north-pole').map((id) => `<span>${esc(JOURNEYS[id].end)}</span>`).join('')}</p>
         </div>
@@ -419,6 +441,7 @@
           </div>` : ''}
       </section>`;
     mountGoogleButton();
+    loadCoverInvite();
   }
 
   /* ---------- Choose a destination ---------- */

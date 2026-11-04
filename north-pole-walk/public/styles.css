@@ -698,3 +698,8 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .toast.error { border-left: 3px solid var(--danger); }
 
 .award-pop-how { font-size: var(--fs-15); line-height: var(--lh-15); color: var(--text-2); margin: 0 0 var(--s3); }
+
+/* Invite line on the cover */
+.cover-invite { display: flex; flex-direction: column; gap: 2px; align-items: center; margin: calc(-1 * var(--s2)) auto var(--s5); padding: var(--s3) var(--s4); max-width: 360px; background: var(--surface); border: 1px solid rgba(255, 122, 26, 0.35); border-radius: var(--r-control); box-shadow: var(--glow); }
+.cover-invite .kicker { margin: 0; }
+.cover-invite strong { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-22); line-height: var(--lh-22); }
