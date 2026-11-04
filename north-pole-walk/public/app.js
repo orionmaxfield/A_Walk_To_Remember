@@ -209,9 +209,12 @@
   }
 
   let toastTimer = null;
-  function toast(message, action) {
+  // kind: 'error' styles the toast as a problem (red edge, role=alert, stays longer).
+  function toast(message, action, kind) {
     clearTimeout(toastTimer);
     $toast.innerHTML = esc(message) + (action ? ` <button type="button" id="toast-action">${esc(action.label)}</button>` : '');
+    $toast.classList.toggle('error', kind === 'error');
+    $toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     $toast.hidden = false;
     if (action) {
       document.getElementById('toast-action').addEventListener('click', () => {
@@ -219,7 +222,7 @@
         action.run();
       });
     }
-    toastTimer = setTimeout(() => { $toast.hidden = true; }, action ? 8000 : 3500);
+    toastTimer = setTimeout(() => { $toast.hidden = true; }, action ? 8000 : kind === 'error' ? 5000 : 3500);
   }
 
   function rememberPendingJoin() {
@@ -1714,7 +1717,12 @@
   async function withBusy(fn) {
     if (state.busy) return;
     state.busy = true;
-    try { await fn(); } catch (e) { toast(e.message); } finally { state.busy = false; }
+    try { await fn(); }
+    catch (e) {
+      // No signal: offer to try the same thing again. Anything else: say what went wrong.
+      toast(e.message, e.offline ? { label: 'Try again', run: () => withBusy(fn) } : null, 'error');
+    }
+    finally { state.busy = false; }
   }
 
   document.addEventListener('click', (ev) => {
