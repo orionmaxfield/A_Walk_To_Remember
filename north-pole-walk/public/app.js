@@ -1706,12 +1706,14 @@
       const last = grouped[grouped.length - 1];
       if (last && last.day === e.day) last.items.push(e); else grouped.push({ day: e.day, items: [e] });
     }
+    // A lifetime total like 10,199 is wider than a phone tile at the display size, so long numbers step down a size.
+    const statCell = (v, label) => { const t = String(v); return `<li><strong class="${t.length >= 5 ? 'long' : ''}">${t}</strong><span>${label}</span></li>`; };
     const stats = R ? `
         <ul class="stat-row">
-          <li><strong>${R.streak}</strong><span>streak</span></li>
-          <li><strong>${R.bestStreak}</strong><span>best run</span></li>
-          <li><strong>${fmt(dnum(Hs.allTimeMiles), Hs.allTimeMiles >= 1000 ? 0 : 1)}</strong><span>${unitWord()}</span></li>
-          <li><strong>${R.daysWalked}</strong><span>days</span></li>
+          ${statCell(R.streak, 'streak')}
+          ${statCell(R.bestStreak, 'best run')}
+          ${statCell(fmt(dnum(Hs.allTimeMiles), Hs.allTimeMiles >= 1000 ? 0 : 1), unitWord())}
+          ${statCell(R.daysWalked, 'days')}
         </ul>
         <p class="small muted" style="margin:10px 0 0">${R.graceUsed ? 'This streak has used its grace day: one missed day is forgiven per streak, and that was it.' : 'One missed day per streak is forgiven, so a day off never erases weeks of walking.'}</p>` : '';
     return `
