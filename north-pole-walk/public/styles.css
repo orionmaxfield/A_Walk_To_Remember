@@ -198,9 +198,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   padding: var(--s2) 0 var(--s4); margin-bottom: var(--s2);
 }
 .header > div:first-child { min-width: 0; }
-.header h1 { font-size: var(--fs-28); line-height: var(--lh-28); font-weight: 500; color: var(--text); }
+.header h1 { font-size: var(--fs-22); line-height: var(--lh-22); font-weight: 500; color: var(--text); }
 .header .team-name { font-size: var(--fs-13); color: var(--text-2); margin-top: 2px; }
-.header-tools { display: flex; align-items: center; gap: var(--s2); flex: 0 1 auto; min-width: 0; max-width: 62%; }
+.header-tools { display: flex; align-items: center; gap: var(--s2); flex: 0 1 auto; min-width: 0; max-width: 52%; }
 .header select, .header-tools select {
   flex: 1 1 auto; min-width: 0; max-width: 100%;
   font: inherit; font-size: var(--fs-13); font-weight: 500; min-height: 40px;
@@ -239,7 +239,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .scene-page { position: relative; padding: 0; overflow: hidden; background: var(--bg); }
 .scene { position: relative; width: 100%; height: clamp(260px, 72vw, 300px); background: var(--bg); }
 .scene-svg { display: block; width: 100%; height: 100%; }
-.scene-page::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--hairline); }
+.scene-page::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--hairline); background: linear-gradient(to bottom, rgba(11, 11, 12, 0.18), transparent 22%, transparent 78%, rgba(11, 11, 12, 0.55)); }
 
 /* Signposts */
 .scene-svg .post { fill: #6b3f1d; stroke: #4a2a10; stroke-width: 1; }
@@ -293,7 +293,17 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .scene-svg .clouds { animation: cloud-drift 26s ease-in-out infinite alternate; }
 .scene-svg.still, .scene-svg.still * { animation: none !important; }
 
-/* ---------- Journey: mile post & progress ---------- */
+/* ---------- Journey: hero progress ---------- */
+.kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-2); margin-bottom: var(--s2); }
+.hero-number { display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; margin-bottom: var(--s3); border-radius: 12px; }
+.hero-number b { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-44); line-height: var(--lh-44); color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.hero-number small { font-size: var(--fs-15); color: var(--text-2); font-weight: 500; }
+.hero-number.pulse { animation: post-pulse 900ms ease; }
+.progress-hero .progress-bar { height: 10px; margin: 0 0 var(--s3); }
+.progress-hero .small { color: var(--text-2); }
+.header h1 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ---------- Journey: mile post (legacy) & progress ---------- */
 .milepost-page { display: flex; gap: var(--s4); align-items: stretch; }
 .milepost { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; width: 104px; }
 .milepost .board {

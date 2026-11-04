@@ -619,19 +619,13 @@
       ${rhythmCard(p)}
       ${recapCard(p)}
 
-      <div class="page milepost-page">
-        <div class="milepost" aria-hidden="true">
-          <div class="board"><div class="label">${isKm() ? 'KM' : 'MILE'}</div><div class="number">${fmt(Math.floor(dnum(p.mile)), 0)}</div></div>
-          <div class="post"></div>
-          <div class="ground"></div>
-        </div>
-        <div class="progress-copy">
-          <h2>${fmt(dnum(p.total))} of ${fmtDist(p.goal)}</h2>
-          <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
-          <p class="small">${p.arrived ? 'Journey complete' : p.total <= 0 ? `<strong>Take your first step.</strong> ${fmtDist(p.goal)} to ${esc(p.J.end)}` : `${Math.floor(p.pct)}% there, ${fmtDist(p.goal - p.total)} to go`}</p>
-          <p class="small muted">${p.total <= 0 ? `The marker is waiting at ${esc(p.J.start)}. Your first walk moves it.` : where}</p>
-          ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:6px">Replay the celebration</button>` : ''}
-        </div>
+      <div class="page hero progress-hero">
+        <div class="kicker">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% of the way`}</div>
+        <div class="hero-number" id="hero-number"><b>${fmt(dnum(p.total))}</b><small>of ${fmtDist(p.goal)}</small></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
+        <p class="small">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : where}</p>
+        ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:8px">Replay the celebration</button>` : ''}
+      </div>
       </div>
 
       <div class="page fact remember">
@@ -642,18 +636,14 @@
 
       ${isSolo() ? `
       <div class="page">
-        <h2>Walk with friends</h2>
-        <p class="small muted">Walking is easier with company. Invite a friend and their miles join yours on this trail.</p>
-        <div class="row" style="margin-top:10px">
-          <button class="button" data-action="tab" data-tab="log">Add miles</button>
-          <button class="button quiet" data-action="copy-link" data-link="${esc(inviteLink)}">Copy invite link</button>
-        </div>
+        <h2>Walk with a friend</h2>
+        <p class="small muted">Their miles join yours on this trail.</p>
+        <button class="button quiet" data-action="copy-link" data-link="${esc(inviteLink)}" style="margin-top:8px">Copy invite link</button>
       </div>` : `
       <div class="page">
-        <h2>Your ${unitWord()}</h2>
-        <div class="big-number">${fmt(dnum(state.journey.myTotal))}<small>${unitWord()} so far</small></div>
-        <p class="small muted" style="margin-top:8px">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team along the trail.</p>
-        <button class="button" data-action="tab" data-tab="log" style="margin-top:8px">Add miles</button>
+        <div class="kicker">Your share</div>
+        <div class="big-number">${fmt(dnum(state.journey.myTotal))}<small>${unitWord()}</small></div>
+        <p class="small muted" style="margin-top:6px">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</p>
       </div>`}
 
       <div class="page">
@@ -832,7 +822,7 @@
       label: sceneLabel(p),
     });
 
-    const post = document.querySelector('.milepost .board');
+    const post = document.getElementById('hero-number');
     if (post && from != null && Math.abs(from - p.mile) >= 0.05) { post.classList.remove('pulse'); void post.offsetWidth; post.classList.add('pulse'); }
     if (fill) {
       const was = from == null ? p.mile : from;
