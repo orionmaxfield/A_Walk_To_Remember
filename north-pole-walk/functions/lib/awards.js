@@ -66,6 +66,7 @@ export function toSql(ms) {
 
 const PERSONAL = {
   laced: { id: 'laced-up', title: 'Laced Up', icon: 'boots', how: 'Log your first miles.' },
+  steadyWeek: { id: 'steady-week', title: 'Steady Week', icon: 'checks', how: 'Walk on 3 different days in one Monday-to-Sunday week.', goal: 3 },
   milestones: [
     { id: 'miles-25', title: 'Trail Ready', icon: 'footprints', goal: 25 },
     { id: 'miles-100', title: 'Century Elf', icon: 'medal', goal: 100 },
@@ -232,6 +233,20 @@ export function computeAwards({ journeyId, kind, custom, entries, members, userI
     personal.push(make({ ...s, how: `Log miles ${s.goal} days in a row.` }, streakEarned[s.id],
       { value: Math.min(bestStreak, s.goal), goal: s.goal, text: `Best streak: ${Math.min(bestStreak, s.goal)} / ${s.goal} days` }));
   }
+
+  // Steady Week: three different days in one Monday-to-Sunday week (the weekly mini-goal)
+  const weekDaySets = {}; // weekIndex -> Set of dayIndex
+  let steadyMs = null;
+  for (const e of mine) {
+    const w = e.at.weekIndex;
+    weekDaySets[w] = weekDaySets[w] || new Set();
+    weekDaySets[w].add(e.at.dayIndex);
+    if (steadyMs == null && weekDaySets[w].size >= PERSONAL.steadyWeek.goal) steadyMs = e.ms;
+  }
+  const thisWeek = denver(now).weekIndex;
+  const daysThisWeek = weekDaySets[thisWeek] ? weekDaySets[thisWeek].size : 0;
+  personal.push(make(PERSONAL.steadyWeek, steadyMs,
+    { value: Math.min(daysThisWeek, PERSONAL.steadyWeek.goal), goal: PERSONAL.steadyWeek.goal, text: `This week: ${Math.min(daysThisWeek, PERSONAL.steadyWeek.goal)} / ${PERSONAL.steadyWeek.goal} days` }));
 
   personal.push(make(named({ ...PERSONAL.elf, how: solo ? 'Log the most miles on your walk in a Monday-to-Sunday week.' : PERSONAL.elf.how }), myWins.length ? weekEndUtc(myWins[0]) : null, null, { count: myWins.length }));
   personal.push(make(PERSONAL.early, earlyMs, null));

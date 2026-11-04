@@ -864,6 +864,7 @@
       </div>
 
       ${rhythmCard(p)}
+      ${weekCard()}
       ${recapCard(p)}
       <div class="pair">
       ${routeMapCard(p)}
@@ -895,6 +896,27 @@
       </div>`;
   }
 
+  /* ---------- The weekly mini-goal: walk on 3 different days, Monday to Sunday ---------- */
+  function weekCard() {
+    const R = state.rhythm;
+    if (!R || !R.weekFlags) return '';
+    const goal = R.weekDaysGoal || 3, done = R.weekDays || 0, today = R.todayIndexInWeek;
+    const met = done >= goal;
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const left = goal - done;
+    const daysLeft = 7 - today; // today included
+    const copy = met ? 'Steady week, done. Anything more is a bonus.'
+      : left > daysLeft ? `${done} of ${goal} this week. A fresh week starts Monday.`
+      : `${left === 1 ? 'One more day' : `${left} more days`} this week for a steady week${R.walkedToday ? '' : ', starting today'}.`;
+    return `<div class="page week ${met ? 'met' : ''}">
+      <div class="week-head"><div><div class="kicker">This week</div><strong>${done} of ${goal} days</strong></div>${met ? '<span class="week-badge">Steady week</span>' : ''}</div>
+      <ol class="week-dots" aria-label="Days walked this week">
+        ${labels.map((l, i) => `<li class="${R.weekFlags[i] ? 'on' : ''} ${i === today ? 'today' : ''} ${i > today ? 'future' : ''}"><i></i><span>${l}</span></li>`).join('')}
+      </ol>
+      <p class="small muted">${esc(copy)}</p>
+    </div>`;
+  }
+
   /* ---------- Monday recap: last week on this walk ---------- */
 
   function recapCard(p) {
@@ -918,6 +940,7 @@
       <div class="cal-head"><div class="kicker">Last week</div><button type="button" class="button quiet small-btn" data-action="dismiss-recap" aria-label="Dismiss">✕</button></div>
       <div class="hero-number"><b>${fmt(dnum(heroMiles))}</b><small>${unitWord()}${solo ? '' : ', the whole team'}</small></div>
       <p class="small">${you}${best}</p>
+      <p class="small ${R.myDays >= 3 ? 'week-met' : 'muted'}">${R.myDays >= 3 ? 'Steady week: three or more days walked. ✓' : `Steady week: ${R.myDays} of 3 days. This week is a fresh start.`}</p>
       <p class="small muted">${moved}${R.arrived ? ' Journey complete!' : ''}</p>
     </div>`;
   }

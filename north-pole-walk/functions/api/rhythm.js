@@ -18,12 +18,13 @@ export async function onRequestGet({ env, data }) {
 
   const byDay = {};
   let todayMiles = 0, weekMiles = 0;
+  const weekFlags = [false, false, false, false, false, false, false]; // Monday .. Sunday of this week
   for (const r of rows.results) {
     const at = denver(parseSql(r.logged_at));
     const miles = Number(r.miles);
     byDay[at.dayIndex] = (byDay[at.dayIndex] || 0) + miles;
     if (at.dayIndex === today.dayIndex) todayMiles += miles;
-    if (at.weekIndex === today.weekIndex) weekMiles += miles;
+    if (at.weekIndex === today.weekIndex) { weekMiles += miles; weekFlags[(at.weekday + 6) % 7] = true; }
   }
 
   // Streak: days in a row with a walk, counting back from today (or from
@@ -59,6 +60,10 @@ export async function onRequestGet({ env, data }) {
   return json({
     todayMiles: round(todayMiles),
     weekMiles: round(weekMiles),
+    weekFlags,                                   // which days of this week (Mon..Sun) had a walk
+    weekDays: weekFlags.filter(Boolean).length,
+    weekDaysGoal: 3,                             // the weekly mini-goal: walk on 3 different days
+    todayIndexInWeek: (today.weekday + 6) % 7,
     streak,
     walkedToday,
     graceUsed,
