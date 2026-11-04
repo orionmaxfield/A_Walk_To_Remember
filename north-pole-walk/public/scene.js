@@ -1706,12 +1706,16 @@
 
   // A still picture of a journey for the destination cards: the walker a little
   // way short of the finish, with the finish landmark in view. No animation.
-  function thumbnail(J, atMile) {
-    UID = 'th-' + String(J.id).replace(/[^a-z0-9]/gi, '') + (atMile != null ? '-' + Math.round(atMile) : '');
+  // opts.hour fixes the time of day (0-23); opts.mark adds a stop's own landmark silhouette
+  // (a waypoint object) so postcards for different stops look different.
+  function thumbnail(J, atMile, opts) {
+    opts = opts || {};
+    UID = 'th-' + String(J.id).replace(/[^a-z0-9]/gi, '') + (atMile != null ? '-' + Math.round(atMile) : '') + (opts.hour != null ? '-h' + opts.hour : '');
     const VW = 720;
     setWorld(J);
     const mile = atMile != null ? clamp(atMile, 0, J.totalMiles) : clamp(mileAt(worldX(J.totalMiles) - 150), 0, J.totalMiles);
-    let svg = render(J, mile, VW, { still: true, label: '' });
+    let svg = render(J, mile, VW, { still: true, label: '', hour: opts.hour });
+    if (opts.mark) svg = svg.replace('</svg>', stopMark(opts.mark, VW) + '</svg>');
     // Slide the layers into place, as mount() would, by baking the transforms in.
     svg = svg.replace(/<g class="layer" data-speed="([\d.]+)">/g, (m, s) => `<g class="layer" data-speed="${s}" transform="translate(${(VW / 2 - worldX(mile) * Number(s)).toFixed(2)} 0)">`);
     const offset = VW / 2 - worldX(mile);
@@ -1719,6 +1723,39 @@
       (m, mi, p, w, x) => `${m} opacity="${signOpacity(Number(x), Number(w), offset, VW).toFixed(2)}"`);
     UID = 'sc';
     return svg;
+  }
+
+  // A stop's own landmark, as a dark silhouette on the right of a postcard, chosen from
+  // words in its name: forest, river, mountain, city, field, bridge, village, cathedral...
+  function stopMark(wp, VW) {
+    const name = String(wp.name || '').toLowerCase() + ' ' + String(wp.scene || '').toLowerCase();
+    const has = (...ws) => ws.some((w) => name.includes(w));
+    const x0 = VW - 250, base = HORIZON + 6;
+    const ink = 'rgba(8, 8, 10, 0.82)';
+    let g = '';
+    if (has('forest', 'wood', 'tree', 'grove', 'jungle')) {
+      g = [0, 42, 78, 118, 150, 190].map((dx, i) => { const h = 70 + (i % 3) * 22; return `<path d="M${x0 + dx} ${base} l-20 0 l20 -${h} l20 ${h} z" fill="${ink}"/><rect x="${x0 + dx - 3}" y="${base - 2}" width="6" height="12" fill="${ink}"/>`; }).join('');
+    } else if (has('river', 'crossing', 'lake', 'lagoon', 'sea', 'bay', 'shore', 'harbor', 'harbour', 'falls', 'ford')) {
+      g = `<path d="M${x0 - 40} ${base + 10} q60 -16 120 0 t120 0 t80 -4 v30 h-320z" fill="${ink}"/><path d="M${x0 + 10} ${base + 16} q40 -8 80 0 M${x0 + 120} ${base + 22} q40 -8 80 0" stroke="rgba(255,200,150,0.35)" stroke-width="2" fill="none"/>`;
+    } else if (has('mountain', 'gulch', 'pass', 'ridge', 'peak', 'summit', 'cliff', 'canyon', 'hill', 'mount', 'volcano')) {
+      g = `<path d="M${x0 - 30} ${base} l70 -120 l40 50 l50 -90 l80 160 z" fill="${ink}"/><path d="M${x0 + 40} ${base - 120} l-12 20 l24 0 z" fill="rgba(245,241,234,0.5)"/><path d="M${x0 + 130} ${base - 160} l-14 24 l28 0 z" fill="rgba(245,241,234,0.5)"/>`;
+    } else if (has('city', 'gates', 'gate', 'castle', 'cathedral', 'tower', 'palace', 'abbey', 'temple', 'fort', 'town', 'santiago', 'camelot', 'atlantis')) {
+      g = [[0, 90, 34], [40, 130, 28], [76, 110, 40], [124, 150, 30], [162, 100, 36]].map(([dx, h, w]) => `<rect x="${x0 + dx}" y="${base - h}" width="${w}" height="${h}" fill="${ink}"/><path d="M${x0 + dx} ${base - h} l${w / 2} -${w * 0.6} l${w / 2} ${w * 0.6} z" fill="${ink}"/>`).join('') + `<rect x="${x0 + 86}" y="${base - 60}" width="6" height="10" fill="rgba(255,200,120,0.55)"/><rect x="${x0 + 136}" y="${base - 90}" width="6" height="10" fill="rgba(255,200,120,0.55)"/>`;
+    } else if (has('bridge', 'viaduct')) {
+      g = `<path d="M${x0 - 20} ${base - 20} h240 v12 h-240z" fill="${ink}"/>` + [0, 60, 120, 180].map((dx) => `<path d="M${x0 + dx} ${base - 8} a30 30 0 0 1 60 0 v8 h-60z" fill="${ink}"/>`).join('');
+    } else if (has('village', 'inn', 'farm', 'cottage', 'house', 'home', 'mice', 'camp', 'station')) {
+      g = [[0, 40, 44], [60, 56, 52], [128, 44, 48]].map(([dx, h, w]) => `<rect x="${x0 + dx}" y="${base - h}" width="${w}" height="${h}" fill="${ink}"/><path d="M${x0 + dx - 6} ${base - h} l${w / 2 + 6} -${h * 0.6} l${w / 2 + 6} ${h * 0.6} z" fill="${ink}"/><rect x="${x0 + dx + w / 2 - 4}" y="${base - h * 0.55}" width="8" height="9" fill="rgba(255,200,120,0.6)"/>`).join('');
+    } else if (has('field', 'meadow', 'clearing', 'plain', 'prairie', 'poppy', 'garden', 'corn')) {
+      g = [...Array(26)].map((_, i) => `<path d="M${x0 - 20 + i * 10} ${base + 8} q4 -22 8 -40 q4 18 8 40z" fill="${ink}"/>`).join('');
+    } else if (has('desert', 'dune', 'sand')) {
+      g = `<path d="M${x0 - 40} ${base + 10} q80 -60 160 -10 t140 0 v30 h-300z" fill="${ink}"/>`;
+    } else if (has('cave', 'mine', 'tunnel')) {
+      g = `<path d="M${x0} ${base + 10} q110 -150 220 0z" fill="${ink}"/><path d="M${x0 + 60} ${base + 10} q50 -70 100 0z" fill="rgba(0,0,0,0.9)"/>`;
+    } else {
+      // A lone signpost-style cairn and a tree for stops with no better match
+      g = `<path d="M${x0 + 120} ${base} l-20 0 l20 -80 l20 80 z" fill="${ink}"/><rect x="${x0 + 117}" y="${base - 2}" width="6" height="12" fill="${ink}"/><path d="M${x0 + 40} ${base} l10 -30 l12 30z M${x0 + 46} ${base - 28} l6 -14 l6 14z" fill="${ink}"/>`;
+    }
+    return `<g class="stop-mark" opacity="0.9">${g}</g>`;
   }
 
   // Rebuild at the current spot if the scene's box changes size (rotation, desktop resize).

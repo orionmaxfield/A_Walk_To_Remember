@@ -707,7 +707,7 @@
     const lazy = document.querySelectorAll('.postcard-art[data-lazy-mile]');
     if (!lazy.length || !window.JourneyScene) return;
     const J = currentJourneyDef();
-    const draw = (el) => { const m = Number(el.dataset.lazyMile); delete el.dataset.lazyMile; el.innerHTML = JourneyScene.thumbnail(J, Math.max(0, m - 2)); };
+    const draw = (el) => { const m = Number(el.dataset.lazyMile), i = Number(el.dataset.lazyI || 0); delete el.dataset.lazyMile; const w = J.waypoints.find((x) => x.mile === m) || { mile: m, name: '' }; el.innerHTML = postcardArt(J, w, i); };
     if (!('IntersectionObserver' in window)) { lazy.forEach(draw); return; }
     const io = new IntersectionObserver((entries) => {
       entries.forEach((en) => { if (en.isIntersecting) { draw(en.target); io.unobserve(en.target); } });
@@ -788,6 +788,7 @@
 
       ${rhythmCard(p)}
       ${recapCard(p)}
+      <div class="pair">
       ${routeMapCard(p)}
 
       <div class="page fact remember">
@@ -795,14 +796,15 @@
         <p>${esc(card.text)}</p>
         <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile))}</p>
       </div>
+      </div>
 
       ${postcardsCard(p)}
 
       ${isSolo() ? `
-      <div class="page">
-        <h2>Walk with a friend</h2>
-        <p class="small muted">Their miles join yours on this trail.</p>
-        <button class="button quiet" data-action="copy-link" data-link="${esc(inviteLink)}" style="margin-top:8px">Copy invite link</button>
+      <div class="page friend-page">
+        <div><h2>Walk with a friend</h2>
+        <p class="small muted">Their miles join yours on this trail, and it becomes a group walk the moment they sign in.</p></div>
+        <button class="button quiet" data-action="copy-link" data-link="${esc(inviteLink)}">Copy invite link</button>
       </div>` : ''}
 
       <div class="page feed-page">
@@ -869,6 +871,13 @@
     return a && a.earned ? a.earnedAt : null;
   }
 
+  // Each stop's postcard: the scene just short of the stop, at its own hour of the day
+  // (dawn, day, dusk, night in turn), with the stop's landmark silhouette on the right.
+  const POSTCARD_HOURS = [7, 13, 18, 21, 9, 16, 20, 23];
+  function postcardArt(J, w, i) {
+    return JourneyScene.thumbnail(J, Math.max(0, w.mile - 2), { hour: POSTCARD_HOURS[i % POSTCARD_HOURS.length], mark: w });
+  }
+
   function postcardsCard(p) {
     const J = p.J;
     const stops = J.waypoints.filter((w) => w.mile > 0 && w.badge);
@@ -878,11 +887,11 @@
     const cards = stops.map((w, i) => {
       const open = w.mile <= p.mile;
       const now = i <= Math.max(3, nextIdx + 1); // the first few draw now; the rest as they scroll near
-      const art = now ? JourneyScene.thumbnail(J, Math.max(0, w.mile - 2)) : '';
+      const art = now ? postcardArt(J, w, i) : '';
       const when = open ? stopEarnedAt(w) : null;
       return `<li class="postcard ${open ? 'open' : 'locked'}">
         <button type="button" ${open ? `data-action="open-postcard" data-mile="${w.mile}"` : 'disabled'} aria-label="${esc(capitalize(w.name))}${open ? '' : ', locked'}">
-          <span class="postcard-art" aria-hidden="true" ${now ? '' : `data-lazy-mile="${w.mile}"`}>${art || '<span class="postcard-blank"></span>'}</span>
+          <span class="postcard-art" aria-hidden="true" ${now ? '' : `data-lazy-mile="${w.mile}" data-lazy-i="${i}"`}>${art || '<span class="postcard-blank"></span>'}</span>
           <span class="postcard-copy">
             <strong>${esc(capitalize(w.name))}</strong>
             <span>${open ? (when ? esc(earnedText(when).replace('Earned', 'Reached')) : 'Reached') : `${fmtDist(w.mile - p.mile)} to go`}</span>
@@ -906,7 +915,7 @@
     const $pop = document.getElementById('postcard-pop');
     $pop.innerHTML = `
       <div class="postcard-full page" role="dialog" aria-label="Postcard from ${esc(capitalize(wp.name))}">
-        <div class="postcard-full-art" aria-hidden="true">${JourneyScene.thumbnail(p.J, Math.max(0, wp.mile - 2))}</div>
+        <div class="postcard-full-art" aria-hidden="true">${postcardArt(p.J, wp, p.J.waypoints.filter((w) => w.mile > 0 && w.badge).findIndex((w) => w.mile === wp.mile))}</div>
         <div class="postcard-full-copy">
           <div class="kicker">${esc(p.J.title)} · ${fmtDist(wp.mile)}</div>
           <h2>${esc(capitalize(wp.name))}</h2>
@@ -948,7 +957,11 @@
     // the upper bend); any label that would collide with a higher-priority one is dropped.
     const placed = [];
     const labelFor = (x, y, name, priority) => {
-      const above = y > 82;
+      // Put the label on the side the path is moving away from: look a little ahead and
+      // behind along the curve and go opposite to where the line is heading.
+      const f0 = (x - 24) / 352;
+      const yAhead = routePoint(Math.min(1, f0 + 0.08))[1], yBehind = routePoint(Math.max(0, f0 - 0.08))[1];
+      const above = (yAhead + yBehind) / 2 >= y;
       // The you-are-here marker sits on the trail too: push a label clear of it when they're close.
       const nearHere = Math.hypot(x - mx, y - my) < 34;
       const text = name.length > 26 ? name.slice(0, 25) + '…' : name;
@@ -982,7 +995,7 @@
           <path class="trail" d="${routePath(0, 1)}"/>
           <path class="trail done" d="${routePath(0, cur)}"/>
           <g class="endpoints">
-            <circle cx="24" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>
+            ${cur > 0.04 ? `<circle cx="24" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>` : ''}
             ${startLabel}
           </g>
           ${dots}

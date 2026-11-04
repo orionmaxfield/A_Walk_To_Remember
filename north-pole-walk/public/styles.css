@@ -703,3 +703,16 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .cover-invite { display: flex; flex-direction: column; gap: 2px; align-items: center; margin: calc(-1 * var(--s2)) auto var(--s5); padding: var(--s3) var(--s4); max-width: 360px; background: var(--surface); border: 1px solid rgba(255, 122, 26, 0.35); border-radius: var(--r-control); box-shadow: var(--glow); }
 .cover-invite .kicker { margin: 0; }
 .cover-invite strong { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-22); line-height: var(--lh-22); }
+
+/* Route map and story share a row on desktop, equal height; the friend card spans the row */
+.pair { display: contents; }
+.friend-page { display: flex; flex-direction: column; gap: var(--s3); }
+.friend-page .button { align-self: flex-start; }
+@media (min-width: 900px) {
+  #screen > .pair { column-span: all; display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); align-items: stretch; margin-bottom: var(--s4); }
+  .pair > .page { margin-bottom: 0; }
+  .pair > .route { display: flex; flex-direction: column; }
+  .pair > .route .route-map { flex: 1; }
+  #screen > .friend-page { column-span: all; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--s5); }
+  .friend-page .button { align-self: center; flex: 0 0 auto; }
+}
