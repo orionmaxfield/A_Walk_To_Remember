@@ -501,7 +501,7 @@
         <section class="landing-dest">
           <h2>Where will you walk?</h2>
           <p class="small muted">Seven trails to choose from, or any two real places. Each takes about a year at a gentle pace.</p>
-          <ul class="destinations">${pub.map((id) => destinationCard(JOURNEYS[id]).replace('data-action="pick-destination"', 'data-action="landing-pick"')).join('')}</ul>
+          <ul class="destinations">${pub.map((id) => destinationCard(JOURNEYS[id], true).replace('data-action="pick-destination"', 'data-action="landing-pick"')).join('')}</ul>
         </section>
         <section class="landing-cta">
           <button class="button" type="button" data-action="landing-start">Start walking free</button>
@@ -538,6 +538,17 @@
       </section>`;
     mountGoogleButton();
     loadCoverInvite();
+    watchLazyDest();
+  }
+
+  // Landing-page destination cards draw their scene as they scroll into view.
+  function watchLazyDest() {
+    const lazy = document.querySelectorAll('.destination-art[data-lazy-journey]');
+    if (!lazy.length) return;
+    const draw = (el) => { const J = JOURNEYS[el.dataset.lazyJourney]; delete el.dataset.lazyJourney; if (J) el.innerHTML = destinationArt(J); };
+    if (!('IntersectionObserver' in window)) { lazy.forEach(draw); return; }
+    const io = new IntersectionObserver((entries) => { entries.forEach((en) => { if (en.isIntersecting) { draw(en.target); io.unobserve(en.target); } }); }, { rootMargin: '300px' });
+    lazy.forEach((el) => io.observe(el));
   }
 
   /* ---------- Choose a destination ---------- */
@@ -592,10 +603,11 @@
     return `${word} · about ${fmtDist(perDay, 1)} a day`;
   }
 
-  function destinationCard(J) {
+  // lazy: leave the art out and draw it when the card scrolls near (the landing page has many).
+  function destinationCard(J, lazy) {
     return `<li class="destination theme-${esc(J.theme)}" style="--dest:${esc(J.accent || '#E85D04')}">
       <button type="button" data-action="pick-destination" data-journey="${esc(J.id)}" aria-label="${esc(J.title)}, ${fmtDist(J.totalMiles)}">
-        <span class="destination-art" aria-hidden="true">${destinationArt(J)}</span>
+        <span class="destination-art" aria-hidden="true" ${lazy ? `data-lazy-journey="${esc(J.id)}"` : ''}>${lazy ? '' : destinationArt(J)}</span>
         <span class="destination-overlay">
           <span class="dest-chip">${esc(feelOf(J))}</span>
           <strong>${esc(J.title)}</strong>
