@@ -301,7 +301,12 @@
       }
     }
 
-    if (!state.teams.length) return renderPick();
+    if (!state.teams.length) {
+      let pre = null;
+      try { pre = localStorage.getItem('preferredJourney'); localStorage.removeItem('preferredJourney'); } catch (e) { /* ok */ }
+      if (pre && JOURNEYS[pre] && JOURNEYS[pre].public !== false) return renderDestination(JOURNEYS[pre]);
+      return renderPick();
+    }
 
     const saved = localStorage.getItem('teamId');
     if (!state.teamId) state.teamId = state.teams.some((t) => t.id === saved) ? saved : state.teams[0].id;
@@ -435,6 +440,49 @@
     return `<div id="cover-invite" class="cover-invite"><span class="kicker">You're invited</span><strong>Walk to ${esc(inSentence(J.end))}</strong><span class="small muted">${who}. Sign in and your miles count too.</span></div>`;
   }
 
+  // The signed-out landing: what Stroll is, how it works, what it looks like, where you can go.
+  function landingHtml() {
+    const pub = JOURNEY_ORDER.filter((id) => id !== 'north-pole');
+    const oz = JOURNEYS.oz, camino = JOURNEYS.camino;
+    const th = (J, mile, opts) => (window.JourneyScene ? JourneyScene.thumbnail(J, mile, opts) : '');
+    const pcStops = oz.waypoints.filter((w) => w.mile > 0 && w.badge).slice(0, 3);
+    return `
+      <div class="landing">
+        <section class="landing-how">
+          <h2>How it works</h2>
+          <ol class="benefits">
+            <li><span class="benefit-n">1</span><strong>Pick a destination.</strong><span>Oz, the Camino, Camelot, Atlantis, the Appalachian Trail, or any two real places on the map.</span></li>
+            <li><span class="benefit-n">2</span><strong>Log your miles, any way you move.</strong><span>Walks, steps, a workout. One tap from the home screen. Friends can pool miles with you.</span></li>
+            <li><span class="benefit-n">3</span><strong>Watch yourself get there.</strong><span>A scene that moves with you, a postcard at every stop, awards along the way, and a finale when you arrive.</span></li>
+          </ol>
+        </section>
+        <section class="landing-phones" aria-label="What Stroll looks like">
+          <div class="phone"><div class="phone-screen">
+            <div class="mock-scene">${th(oz, 28)}</div>
+            <div class="mock-card hero"><div class="kicker">6% of the way</div><div class="mock-number"><b>28.4</b><small>of 450 mi</small></div><div class="progress-bar"><div style="width:6.3%"></div></div><p>Next: The Scarecrow's cornfield · 1.6 mi</p></div>
+          </div><p class="phone-caption">Your journey, every day</p></div>
+          <div class="phone"><div class="phone-screen">
+            <div class="mock-card"><div class="cal-head"><h3>Postcards</h3><span>3 of 9</span></div>
+              <ul class="mock-postcards">${pcStops.map((w, i) => `<li><span class="mock-pc-art">${postcardArt(oz, w, i)}</span><strong>${esc(capitalize(w.name))}</strong></li>`).join('')}</ul>
+            </div>
+          </div><p class="phone-caption">A postcard at every stop</p></div>
+          <div class="phone"><div class="phone-screen">
+            <div class="mock-finale">${th(camino, camino.totalMiles, { hour: 19, walker: false })}<div class="mock-finale-copy"><span class="kicker">Journey complete</span><strong>I walked to Santiago de Compostela</strong><span>485 mi · Stroll</span></div></div>
+          </div><p class="phone-caption">A card to share when you arrive</p></div>
+        </section>
+        <section class="landing-dest">
+          <h2>Where will you walk?</h2>
+          <p class="small muted">Seven trails to choose from, or any two real places. Each takes about a year at a gentle pace.</p>
+          <ul class="destinations">${pub.map((id) => destinationCard(JOURNEYS[id]).replace('data-action="pick-destination"', 'data-action="landing-pick"')).join('')}</ul>
+        </section>
+        <section class="landing-cta">
+          <button class="button" type="button" data-action="landing-start">Start walking free</button>
+          <p class="small muted">Sign in with Google and you're on the trail in a minute. No card, no catch.</p>
+          <p class="small muted"><a class="tap-link" href="/privacy.html">Privacy</a></p>
+        </section>
+      </div>`;
+  }
+
   function renderCover() {
     const setupItems = [];
     if (!state.config.dbReady) setupItems.push('Connect the D1 database (the <code>DB</code> binding in <code>wrangler.toml</code>).');
@@ -449,8 +497,9 @@
           <p class="cover-sub">Walk somewhere amazing this year.<br>Pick a destination, log your miles, watch yourself get there.</p>
           ${coverInviteHtml()}
           <div class="signin"><div id="google-button"></div></div>
-          <p class="cover-places">${JOURNEY_ORDER.filter((id) => id !== 'north-pole').map((id) => `<span>${esc(JOURNEYS[id].end)}</span>`).join('')}</p>
+          <p class="small muted cover-free">Free. Nothing to install. Works on any phone.</p>
         </div>
+        ${landingHtml()}
         ${setupItems.length ? `
           <div class="page setup-note">
             <h2>Almost ready</h2>
@@ -2002,6 +2051,17 @@
     if (action === 'scene-home' && state.tab !== 'journey') { state.tab = 'journey'; editing = null; renderScreen(true); }
 
     if (action === 'pick-open') renderPick();
+    if (action === 'landing-pick') {
+      try { localStorage.setItem('preferredJourney', el.dataset.journey); } catch (e) { /* this visit only */ }
+      const J = JOURNEYS[el.dataset.journey];
+      toast(J ? `Sign in and ${J.title} is yours to start.` : 'Sign in to start.');
+      const btn = document.getElementById('google-button');
+      if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.classList.remove('flash'); void btn.offsetWidth; btn.classList.add('flash'); }
+    }
+    if (action === 'landing-start') {
+      const btn = document.getElementById('google-button');
+      if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.classList.remove('flash'); void btn.offsetWidth; btn.classList.add('flash'); }
+    }
     if (action === 'goal-step-pick') withBusy(async () => {
       await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: toMiles(el.dataset.amount), period: 'day' }) });
       await loadJourney();

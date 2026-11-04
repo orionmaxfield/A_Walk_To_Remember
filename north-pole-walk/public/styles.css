@@ -748,3 +748,54 @@ body { overscroll-behavior-y: contain; }
 @media (min-width: 900px) { .hero-next { font-size: var(--fs-22); line-height: var(--lh-22); } .progress-hero > p.small.hero-copy { font-size: var(--fs-15); } }
 /* Story card: text centered in the space it shares with the route map */
 .fact { display: flex; flex-direction: column; justify-content: center; }
+
+/* ---------- Signed-out landing ---------- */
+.cover-free { margin: -8px 0 var(--s6); }
+.landing { text-align: left; max-width: 980px; margin: var(--s6) auto 0; padding-bottom: var(--s7); }
+.landing h2 { font-size: var(--fs-28); line-height: var(--lh-28); margin-bottom: var(--s4); }
+.landing section { margin-bottom: var(--s7); }
+.benefits { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s3); }
+.benefits li { display: grid; grid-template-columns: 36px 1fr; grid-template-rows: auto auto; column-gap: var(--s3); row-gap: 2px; padding: var(--s4); background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-card); }
+.benefit-n { grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 600; font-size: var(--fs-17); }
+.benefits strong { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-17); }
+.benefits li > span:last-child { color: var(--text-2); font-size: var(--fs-15); line-height: var(--lh-15); }
+.landing-phones { display: flex; gap: var(--s4); overflow-x: auto; scroll-snap-type: x proximity; padding: var(--s2) var(--s4) var(--s3); margin: 0 calc(-1 * var(--s4)); scrollbar-width: none; }
+.landing-phones::-webkit-scrollbar { display: none; }
+.phone { flex: 0 0 236px; scroll-snap-align: center; }
+.phone-screen { width: 236px; height: 420px; border-radius: 36px; border: 6px solid #2A2A2E; background: var(--bg); overflow: hidden; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.06); padding: 18px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.phone-caption { text-align: center; color: var(--text-2); font-size: var(--fs-13); margin: var(--s3) 0 0; }
+.mock-scene { height: 150px; border-radius: 16px; overflow: hidden; background: var(--bg); flex: 0 0 auto; }
+.mock-scene svg { display: block; width: 100%; height: 100%; }
+.mock-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 12px; }
+.mock-card.hero { box-shadow: var(--glow); border-color: rgba(255, 122, 26, 0.35); }
+.mock-card .kicker { font-size: 10px; }
+.mock-number b { font-family: var(--font-display); font-size: 30px; font-weight: 600; line-height: 1; }
+.mock-number small { font-size: 12px; color: var(--text-2); margin-left: 6px; }
+.mock-card .progress-bar { margin: 10px 0 8px; }
+.mock-card p { margin: 0; font-size: 11px; color: var(--text-2); }
+.mock-card h3 { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.mock-card .cal-head { margin-bottom: 8px; }
+.mock-card .cal-head span { font-size: 11px; color: var(--text-2); }
+.mock-postcards { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mock-postcards li { border-radius: 12px; overflow: hidden; background: var(--raised); border: 1px solid var(--hairline); }
+.mock-pc-art { display: block; height: 60px; background: var(--bg); }
+.mock-pc-art svg { display: block; width: 100%; height: 100%; }
+.mock-postcards strong { display: block; padding: 6px 8px 8px; font-family: var(--font-display); font-weight: 500; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-finale { position: relative; flex: 1; border-radius: 16px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; justify-content: flex-end; }
+.mock-finale > svg { position: absolute; inset: 0; width: 100%; height: 62%; }
+.mock-finale::before { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(11, 11, 12, 0) 30%, rgba(11, 11, 12, 0.9) 62%, var(--bg) 70%); }
+.mock-finale-copy { position: relative; padding: 0 14px 18px; display: flex; flex-direction: column; gap: 6px; }
+.mock-finale-copy .kicker { font-size: 10px; margin: 0; }
+.mock-finale-copy strong { font-family: var(--font-display); font-weight: 600; font-size: 20px; line-height: 1.15; }
+.mock-finale-copy > span:last-child { font-size: 11px; color: var(--text-2); }
+.landing-dest .destinations { margin-top: var(--s4); }
+.landing-cta { text-align: center; padding: var(--s5) var(--s4); background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-card); }
+.landing-cta .button { min-width: 240px; font-size: var(--fs-17); margin-bottom: var(--s3); }
+@keyframes flash-ring { 0% { box-shadow: 0 0 0 0 rgba(255, 122, 26, 0.9); } 100% { box-shadow: 0 0 0 18px rgba(255, 122, 26, 0); } }
+#google-button.flash { border-radius: 999px; animation: flash-ring 900ms ease-out 2; }
+@media (min-width: 900px) {
+  .benefits { grid-template-columns: repeat(3, 1fr); }
+  .landing-phones { justify-content: center; overflow: visible; margin: 0; padding: var(--s2) 0; }
+  .landing h2 { text-align: center; }
+  .landing-dest .small { text-align: center; }
+}
