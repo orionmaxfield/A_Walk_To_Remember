@@ -799,3 +799,9 @@ body { overscroll-behavior-y: contain; }
   .landing h2 { text-align: center; }
   .landing-dest .small { text-align: center; }
 }
+
+/* Daily reminder */
+.nudge-time { margin-top: var(--s3); }
+.nudge-time.is-off { opacity: 0.45; }
+.nudge-time input[type="time"] { font-size: 16px; box-sizing: border-box; height: 48px; width: 100%; -webkit-appearance: none; appearance: none; }
+.notice.nudge { border-left-color: var(--accent); }

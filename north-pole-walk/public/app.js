@@ -314,6 +314,7 @@
 
     await loadJourney();
     renderMain();
+    setTimeout(() => { try { nudgeCheck(); } catch (e) { /* ok */ } }, 1500);
   }
 
   // The first load can use the answers index.html requested before this script arrived
@@ -848,6 +849,7 @@
     return `
       ${routeNotice()}
       ${offlineNotice()}
+      ${nudgeBanner()}
 
       ${momentBanner(p)}
       ${installHint()}
@@ -1564,6 +1566,15 @@
         <p class="small muted">Used everywhere, including what you type. Friends can use either.</p>
       </div>
       <div class="page">
+        <h2>Daily reminder</h2>
+        <div class="unit-toggle" role="radiogroup" aria-label="Daily reminder">
+          <label><input type="radio" name="nudge" value="off" data-action="set-nudge" ${nudgePref().on ? '' : 'checked'}><span>Off</span></label>
+          <label><input type="radio" name="nudge" value="on" data-action="set-nudge" ${nudgePref().on ? 'checked' : ''}><span>On</span></label>
+        </div>
+        <label class="field nudge-time ${nudgePref().on ? '' : 'is-off'}"><span>Remind me at</span><input type="time" name="nudge-time" value="${esc(nudgePref().time)}" data-action="set-nudge-time" ${nudgePref().on ? '' : 'disabled'}></label>
+        <p class="small muted">On days you haven't walked yet, a nudge at this time: "Walk today to keep your streak." On the web it shows while Stroll is open${('Notification' in window) ? ', and as a notification if you allow them' : ''}. The iPhone app will send it even when closed.</p>
+      </div>
+      <div class="page">
         <h2>Sounds</h2>
         <div class="unit-toggle" role="radiogroup" aria-label="Sounds">
           <label><input type="radio" name="sound" value="off" data-action="set-sound" ${soundOn() ? '' : 'checked'}><span>Off</span></label>
@@ -1825,7 +1836,7 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     toast('Your arrival card is saved. Share it anywhere.');
   }
-  window.Stroll = Object.assign(window.Stroll || {}, { arrivalCard, chime });
+  window.Stroll = Object.assign(window.Stroll || {}, { arrivalCard, chime, nudgeCheck });
 
   let celebrationFrame = null;
   function showCelebration() {
@@ -1879,6 +1890,53 @@
   function hideCelebration() {
     $celebration.hidden = true;
     cancelAnimationFrame(celebrationFrame);
+  }
+
+  /* ---------- Daily reminder: opt-in, local to this device for now ---------- */
+  // Stored as { on, time: 'HH:MM' }. The iPhone wrapper reads the same preference and
+  // schedules a local notification; the web shows it while Stroll is open.
+  function nudgePref() {
+    try { const v = JSON.parse(localStorage.getItem('nudge') || 'null'); if (v && typeof v === 'object') return { on: Boolean(v.on), time: /^\d\d:\d\d$/.test(v.time || '') ? v.time : '18:00' }; } catch (e) { /* fall through */ }
+    return { on: false, time: '18:00' };
+  }
+  function setNudge(patch) { try { localStorage.setItem('nudge', JSON.stringify(Object.assign(nudgePref(), patch))); } catch (e) { /* this visit only */ } }
+  function nudgeTimeText() {
+    const [h, m] = nudgePref().time.split(':').map(Number);
+    const d = new Date(); d.setHours(h, m, 0, 0);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  function nudgeMessage() {
+    const R = state.rhythm;
+    if (R && R.streak >= 2) return `Walk today to keep your ${R.streak}-day streak.`;
+    if (R && R.streak === 1) return 'Walk today and you have a 2-day streak.';
+    return 'A short walk today moves you along the trail.';
+  }
+  // Runs every minute while the app is open. Fires once per day, after the chosen time, if nothing was logged today.
+  function nudgeCheck(now, opts) {
+    const pref = nudgePref();
+    const walked = state.rhythm && state.rhythm.walkedToday && !(opts && opts.ignoreWalked);
+    if (!pref.on || !state.user || !state.rhythm || walked) return false;
+    now = now || new Date();
+    const [h, m] = pref.time.split(':').map(Number);
+    if (now.getHours() * 60 + now.getMinutes() < h * 60 + m) return false;
+    const dayKey = now.toDateString();
+    let shown = null;
+    try { shown = localStorage.getItem('nudgeShown'); } catch (e) { /* ok */ }
+    if (shown === dayKey) return false;
+    try { localStorage.setItem('nudgeShown', dayKey); } catch (e) { /* ok */ }
+    const text = nudgeMessage();
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try { new Notification('Stroll', { body: text, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', tag: 'stroll-nudge' }); } catch (e) { /* some browsers only allow this from a service worker */ }
+    }
+    state.nudge = text;
+    if (state.tab === 'journey' && document.getElementById('screen')) renderScreen();
+    return true;
+  }
+  setInterval(() => { try { nudgeCheck(); } catch (e) { /* never break the app for a reminder */ } }, 60000);
+  function nudgeBanner() {
+    if (!state.nudge) return '';
+    const text = state.nudge; state.nudge = null; // shows once
+    return `<div class="page notice nudge" role="status"><p><strong>${esc(text)}</strong> Tap a quick-add button and you're done.</p><button class="button quiet" type="button" data-action="dismiss-nudge">Later</button></div>`;
   }
 
   /* ---------- Sounds: a soft chime, off by default ---------- */
@@ -2094,6 +2152,7 @@
       location.reload();
     });
 
+    if (action === 'dismiss-nudge') { const el = document.querySelector('.notice.nudge'); if (el) el.remove(); }
     if (action === 'sync-now') withBusy(async () => {
       const before = readQueue().length;
       await syncQueued(true);
@@ -2218,6 +2277,15 @@
 
   document.addEventListener('change', (ev) => {
     if (ev.target.name === 'unit' && ev.target.form) { applyUnit(ev.target.form, ev.target.value); return; }
+    if (ev.target.dataset.action === 'set-nudge') {
+      const on = ev.target.value === 'on';
+      setNudge({ on });
+      if (on && 'Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission().then(() => renderScreen()); } catch (e) { /* older browsers */ } }
+      toast(on ? `Reminder on, ${nudgeTimeText()} on days you haven't walked.` : 'Reminder off');
+      renderScreen();
+      return;
+    }
+    if (ev.target.dataset.action === 'set-nudge-time') { setNudge({ time: ev.target.value || '18:00' }); toast(`Reminder at ${nudgeTimeText()}`); return; }
     if (ev.target.dataset.action === 'set-sound') { setSound(ev.target.value === 'on'); if (ev.target.value === 'on') chime('log'); toast(ev.target.value === 'on' ? 'Sounds on' : 'Sounds off'); return; }
     if (ev.target.dataset.action === 'set-units') { setUnits(ev.target.value); state.lastShownMile = null; toast(ev.target.value === 'km' ? 'Showing kilometers' : 'Showing miles'); renderScreen(); return; }
     if (ev.target.dataset.action === 'custom-choose') {
