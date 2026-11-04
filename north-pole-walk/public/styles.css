@@ -539,11 +539,13 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
   display: flex; align-items: center; gap: var(--s3); margin: -4px 0 var(--s3); padding: var(--s3) var(--s4);
   background: var(--raised); color: var(--text); border: 1px solid rgba(255, 122, 26, 0.35); border-radius: var(--r-control);
   box-shadow: var(--glow);
-  animation: moment-in 420ms var(--ease-out); transition: opacity 600ms ease, transform 600ms ease;
+  animation: moment-in 420ms var(--ease-out);
+  max-height: 160px; overflow: hidden;
+  transition: opacity 600ms ease, transform 600ms ease, max-height 500ms ease 500ms, margin 500ms ease 500ms, padding 500ms ease 500ms, border-width 500ms ease 500ms;
 }
 .moment strong { font-family: var(--font-display); font-size: var(--fs-22); color: var(--accent-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .moment span { font-size: var(--fs-15); line-height: 1.3; }
-.moment.gone { opacity: 0; transform: translateY(-6px); }
+.moment.gone { opacity: 0; transform: translateY(-6px); max-height: 0; margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
 .moment.first { background: linear-gradient(135deg, #2A1708, var(--raised)); border-color: var(--accent); }
 .moment.first b { color: var(--accent-text); }
 @keyframes moment-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
