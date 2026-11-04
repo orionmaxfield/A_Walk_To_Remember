@@ -36,6 +36,7 @@
 
 const JOURNEYS = {
   'north-pole': {
+    accent: '#93C5FD',
     id: 'north-pole',
     title: 'The Walk to the North Pole',
     start: 'Layton, Utah',
@@ -237,6 +238,7 @@ const JOURNEYS = {
 
   /* ---------- The Yellow Brick Road (L. Frank Baum, 1900; public domain) ---------- */
   oz: {
+    accent: '#34D399',
     id: 'oz',
     title: 'The Yellow Brick Road',
     start: 'where the house landed',
@@ -286,6 +288,7 @@ const JOURNEYS = {
 
   /* ---------- Second Star to the Right (J. M. Barrie, 1911; public domain in the US) ---------- */
   neverland: {
+    accent: '#38BDF8',
     id: 'neverland',
     title: 'Second Star to the Right',
     start: 'the nursery window',
@@ -335,6 +338,7 @@ const JOURNEYS = {
 
   /* ---------- The Road to Camelot (Arthurian legend; public domain) ---------- */
   camelot: {
+    accent: '#A78BFA',
     id: 'camelot',
     title: 'The Road to Camelot',
     start: 'Tintagel',
@@ -384,6 +388,7 @@ const JOURNEYS = {
 
   /* ---------- Across the Sea to Atlantis (Plato's myth; public domain) ---------- */
   atlantis: {
+    accent: '#22D3EE',
     id: 'atlantis',
     title: 'Across the Sea to Atlantis',
     start: 'the Pillars of Heracles',
@@ -433,6 +438,7 @@ const JOURNEYS = {
 
   /* ---------- The Quest to the Dark Mountain (our own world) ---------- */
   'dark-mountain': {
+    accent: '#FB7185',
     id: 'dark-mountain',
     title: 'The Quest to the Dark Mountain',
     start: 'Hollowmere',
@@ -485,6 +491,7 @@ const JOURNEYS = {
 
   /* ---------- The Camino de Santiago (a real pilgrimage route; miles approximate) ---------- */
   camino: {
+    accent: '#FBBF24',
     id: 'camino',
     title: 'The Camino de Santiago',
     start: 'Saint-Jean-Pied-de-Port',
@@ -541,6 +548,7 @@ const JOURNEYS = {
 
   /* ---------- The Appalachian Trail (a real trail; miles approximate) ---------- */
   appalachian: {
+    accent: '#4ADE80',
     id: 'appalachian',
     title: 'The Appalachian Trail',
     start: 'Springer Mountain, Georgia',

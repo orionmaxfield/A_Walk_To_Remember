@@ -350,20 +350,20 @@
       <section>
         <div class="header">
           <div>
-            <h1>${hasWalks ? 'Start another journey' : `Hello, ${esc(first)}`}</h1>
-            <div class="team-name">Where will you walk this year?</div>
+            <h1>${hasWalks ? 'Another journey' : `Where to, ${esc(first)}?`}</h1>
+            <div class="team-name">${hasWalks ? 'Pick a new destination.' : 'Pick a destination. Swipe to see them all.'}</div>
           </div>
           ${hasWalks ? `<button class="button quiet on-night" type="button" data-action="pick-back" style="min-height:40px;padding:6px 14px">Back</button>` : ''}
         </div>
         <ul class="destinations">
           ${JOURNEY_ORDER.map((id) => destinationCard(JOURNEYS[id])).join('')}
-          <li class="destination theme-road">
-            <button type="button" data-action="pick-custom">
+          <li class="destination theme-road" style="--dest:#F59E0B">
+            <button type="button" data-action="pick-custom" aria-label="Somewhere real: any place on the map">
               <span class="destination-art" aria-hidden="true">${destinationArt(customJourney(CUSTOM_SAMPLE))}</span>
-              <span class="destination-copy">
+              <span class="destination-overlay">
+                <span class="dest-chip">Your own route</span>
                 <strong>Somewhere real</strong>
-                <span class="destination-miles">Any place on the map · you pick the start and the finish</span>
-                <span class="destination-blurb">Grandma's house, the beach you love, a city you've always wanted to see. Type the two places and we'll measure the road between them.</span>
+                <span class="destination-miles">Any two places on the map</span>
               </span>
             </button>
           </li>
@@ -383,14 +383,21 @@
     window.scrollTo({ top: 0 });
   }
 
+  // "Gentle · about 1.2 mi a day" — how a trail feels over a year of walking.
+  function feelOf(J) {
+    const perDay = J.totalMiles / 365;
+    const word = J.totalMiles < 600 ? 'Gentle' : J.totalMiles < 1300 ? 'Steady' : 'Epic';
+    return `${word} · about ${fmtDist(perDay, 1)} a day`;
+  }
+
   function destinationCard(J) {
-    return `<li class="destination theme-${esc(J.theme)}">
-      <button type="button" data-action="pick-destination" data-journey="${esc(J.id)}">
+    return `<li class="destination theme-${esc(J.theme)}" style="--dest:${esc(J.accent || '#E85D04')}">
+      <button type="button" data-action="pick-destination" data-journey="${esc(J.id)}" aria-label="${esc(J.title)}, ${fmtDist(J.totalMiles)}">
         <span class="destination-art" aria-hidden="true">${destinationArt(J)}</span>
-        <span class="destination-copy">
+        <span class="destination-overlay">
+          <span class="dest-chip">${esc(feelOf(J))}</span>
           <strong>${esc(J.title)}</strong>
           <span class="destination-miles">${fmtDist(J.totalMiles)} · ${esc(J.start)} to ${esc(J.end)}</span>
-          <span class="destination-blurb">${esc(J.blurb)}</span>
         </span>
       </button>
     </li>`;

@@ -46,6 +46,7 @@ function customJourney(custom) {
 
   return {
     id: 'custom',
+    accent: '#F59E0B',
     title: `The Walk to ${shortEnd}`,
     start,
     end,
