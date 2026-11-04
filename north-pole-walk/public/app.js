@@ -33,10 +33,15 @@
 
   /* ---------- Helpers ---------- */
 
+  // Inside the iPhone wrapper the pages are served from the app bundle, so the API and the
+  // share links live on the web origin instead. Both default to "here" on the website.
+  const API_BASE = (window.STROLL_API_BASE || '').replace(/\/$/, '');
+  const WEB_ORIGIN = window.STROLL_WEB_ORIGIN || location.origin;
+
   async function api(path, options = {}) {
     let res;
     try {
-      res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+      res = await fetch(API_BASE + path, { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options });
     } catch (e) {
       const err = new Error('No signal right now. Check your connection and try again.');
       err.offline = true;
@@ -729,7 +734,7 @@
       ? `${who} ${esc(p.J.waypoints[p.J.waypoints.length - 1].region)}.`
       : `${who} ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(capitalize(p.next.name))}, ${fmtDist(p.next.mile - p.mile)} ahead.` : ''}`;
     const card = stopCard(p.here);
-    const inviteLink = `${location.origin}/join/${state.journey.team.invite_code}`;
+    const inviteLink = `${WEB_ORIGIN}/join/${state.journey.team.invite_code}`;
 
     return `
       ${routeNotice()}
@@ -1241,7 +1246,7 @@
   function teamScreen() {
     const team = state.journey.team;
     const J = currentJourneyDef();
-    const link = `${location.origin}/join/${team.invite_code}`;
+    const link = `${WEB_ORIGIN}/join/${team.invite_code}`;
     const members = state.journey.members;
     const solo = isSolo();
     const invite = `
