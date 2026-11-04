@@ -735,3 +735,11 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .scene-svg .fw.fw-still { animation: none; transform: scale(1); opacity: 0.85; }
 .arrived-actions, .celebration-actions { display: flex; gap: var(--s2); flex-wrap: wrap; justify-content: center; margin-top: var(--s3); }
 .arrived-actions { justify-content: flex-start; }
+
+/* Pull to refresh indicator */
+body { overscroll-behavior-y: contain; }
+.ptr { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 50%; width: 40px; height: 40px; border-radius: 50%; background: var(--raised-2); color: var(--accent-text); border: 1px solid var(--hairline-2); box-shadow: var(--shadow-card); display: flex; align-items: center; justify-content: center; opacity: 0; transform: translate(-50%, 0); z-index: 30; pointer-events: none; transition: opacity 160ms ease; }
+.ptr svg { width: 22px; height: 22px; }
+.ptr.armed { background: var(--accent); color: var(--on-accent); }
+@keyframes ptr-spin { to { transform: translate(-50%, 56px) rotate(540deg); } }
+.ptr.spin { animation: ptr-spin 900ms linear infinite; }

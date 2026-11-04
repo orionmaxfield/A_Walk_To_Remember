@@ -1483,6 +1483,14 @@
         <p class="small muted">Used everywhere, including what you type. Friends can use either.</p>
       </div>
       <div class="page">
+        <h2>Sounds</h2>
+        <div class="unit-toggle" role="radiogroup" aria-label="Sounds">
+          <label><input type="radio" name="sound" value="off" data-action="set-sound" ${soundOn() ? '' : 'checked'}><span>Off</span></label>
+          <label><input type="radio" name="sound" value="on" data-action="set-sound" ${soundOn() ? 'checked' : ''}><span>On</span></label>
+        </div>
+        <p class="small muted">A soft chime when you log miles, and a flourish when you reach a stop. Off unless you turn it on.</p>
+      </div>
+      <div class="page">
         <h2>On your phone</h2>
         <p class="small muted">Full screen, one tap away.</p>
         ${installHelp()}
@@ -1735,7 +1743,7 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     toast('Your arrival card is saved. Share it anywhere.');
   }
-  window.Stroll = Object.assign(window.Stroll || {}, { arrivalCard });
+  window.Stroll = Object.assign(window.Stroll || {}, { arrivalCard, chime });
 
   let celebrationFrame = null;
   function showCelebration() {
@@ -1789,6 +1797,32 @@
   function hideCelebration() {
     $celebration.hidden = true;
     cancelAnimationFrame(celebrationFrame);
+  }
+
+  /* ---------- Sounds: a soft chime, off by default ---------- */
+  function soundOn() { try { return localStorage.getItem('sound') === 'on'; } catch (e) { return false; } }
+  function setSound(on) { try { localStorage.setItem('sound', on ? 'on' : 'off'); } catch (e) { /* this visit only */ } }
+  let audioCtx = null;
+  // kind: 'log' (two soft notes) or 'stop' (a short rising flourish). Synthesized, so no files to load.
+  function chime(kind) {
+    if (!soundOn()) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audioCtx = audioCtx || new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const notes = kind === 'stop' ? [[523, 0], [659, 0.12], [784, 0.24], [1047, 0.38]] : [[660, 0], [880, 0.14]];
+      const t0 = audioCtx.currentTime + 0.01;
+      notes.forEach(([freq, at]) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t0 + at);
+        g.gain.exponentialRampToValueAtTime(0.09, t0 + at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + (kind === 'stop' ? 0.5 : 0.35));
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(t0 + at); o.stop(t0 + at + 0.6);
+      });
+    } catch (e) { /* no audio here */ }
   }
 
   // A tiny tap of haptic feedback where the platform offers it (Android browsers today;
@@ -1848,9 +1882,13 @@
       toast(`No signal. ${fmtDist(miles)} is saved on your phone and will send when you're back online.`);
       return 'queued';
     }
+    const before = state.journey ? state.journey.teamTotal : 0;
     await loadJourney();
     state.tab = 'journey';
     state.moment = { miles: added.miles, first: firstEver };
+    const J0 = currentJourneyDef();
+    const passedStop = J0.waypoints.some((w) => w.mile > 0 && w.mile > before && w.mile <= state.journey.teamTotal);
+    chime(passedStop ? 'stop' : 'log');
     try { if (!localStorage.getItem('installHintDue')) localStorage.setItem('installHintDue', '1'); } catch (e) { /* no storage */ }
     renderScreen();
     if (firstEver) burst();
@@ -1864,6 +1902,46 @@
       }),
     });
   }
+
+  /* ---------- Pull to refresh (touch screens) ---------- */
+  (function pullToRefresh() {
+    let startY = null, pulling = false, armed = false;
+    const THRESHOLD = 72;
+    let $ptr = null;
+    const indicator = () => {
+      if (!$ptr) { $ptr = document.createElement('div'); $ptr.className = 'ptr'; $ptr.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="6.5" r="2.3" fill="currentColor"/></svg>'; document.body.appendChild($ptr); }
+      return $ptr;
+    };
+    document.addEventListener('touchstart', (e) => {
+      if (!state.user || !state.journey || state.busy || window.scrollY > 0 || !document.getElementById('screen')) { startY = null; return; }
+      startY = e.touches[0].clientY; pulling = false; armed = false;
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (startY == null) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy < 8 || window.scrollY > 0) return;
+      pulling = true;
+      const el = indicator();
+      const k = Math.min(1, dy / THRESHOLD);
+      el.style.opacity = String(k);
+      el.style.transform = `translate(-50%, ${Math.round(k * 56)}px) rotate(${Math.round(k * 180)}deg)`;
+      armed = dy >= THRESHOLD;
+      el.classList.toggle('armed', armed);
+    }, { passive: true });
+    const end = async () => {
+      if (startY == null) return;
+      startY = null;
+      const el = indicator();
+      if (!pulling) return;
+      if (!armed) { el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; return; }
+      el.classList.add('spin');
+      try { await loadJourney(); if (state.tab === 'awards') state.awards = null; if (state.tab === 'you') state.history = null; renderScreen(); }
+      catch (err) { toast(err.message, null, 'error'); }
+      finally { el.classList.remove('spin', 'armed'); el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; pulling = false; armed = false; }
+    };
+    document.addEventListener('touchend', end, { passive: true });
+    document.addEventListener('touchcancel', end, { passive: true });
+  })();
 
   /* ---------- Actions ---------- */
 
@@ -2045,6 +2123,7 @@
 
   document.addEventListener('change', (ev) => {
     if (ev.target.name === 'unit' && ev.target.form) { applyUnit(ev.target.form, ev.target.value); return; }
+    if (ev.target.dataset.action === 'set-sound') { setSound(ev.target.value === 'on'); if (ev.target.value === 'on') chime('log'); toast(ev.target.value === 'on' ? 'Sounds on' : 'Sounds off'); return; }
     if (ev.target.dataset.action === 'set-units') { setUnits(ev.target.value); state.lastShownMile = null; toast(ev.target.value === 'km' ? 'Showing kilometers' : 'Showing miles'); renderScreen(); return; }
     if (ev.target.dataset.action === 'custom-choose') {
       const f = customForm;
