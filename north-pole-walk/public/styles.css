@@ -689,3 +689,5 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 .tap-link { display: inline-block; padding: 12px 8px; margin: -12px -8px; }
 
 .toast.error { border-left: 3px solid var(--danger); }
+
+.award-pop-how { font-size: var(--fs-15); line-height: var(--lh-15); color: var(--text-2); margin: 0 0 var(--s3); }

@@ -1563,6 +1563,7 @@
         <div class="badge-frame earned">${badgeIcon(a.icon)}</div>
         <p class="award-pop-kicker">New ${a.section === 'team' ? (isSolo() ? 'journey ' : 'team ') : ''}award!</p>
         <h2>${esc(a.title)}</h2>
+        ${a.how ? `<p class="award-pop-how">${esc(a.how)}</p>` : ''}
         <p class="small muted">${popQueue.length ? 'Tap for the next one' : 'Tap to continue'}</p>
       </div>`;
     $awardPop.hidden = false;
@@ -1582,7 +1583,7 @@
     burstCanvas.width = W * dpr; burstCanvas.height = H * dpr;
     const ctx = burstCanvas.getContext('2d');
     ctx.scale(dpr, dpr);
-    const colors = ['#e2b04c', '#6fe3b4', '#fbfbf7', '#c9553d', '#6fb4ff'];
+    const colors = ['#E85D04', '#FF8A33', '#FBBF24', '#F5F1EA', '#C2410C'];
     const bits = Array.from({ length: 90 }, () => {
       const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = 6 + Math.random() * 9;
       return { x: W / 2, y: H * 0.42, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, w: 5 + Math.random() * 5, h: 7 + Math.random() * 7, rot: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: colors[Math.floor(Math.random() * colors.length)] };
@@ -1636,7 +1637,7 @@
     canvas.height = window.innerHeight * dpr;
     ctx.scale(dpr, dpr);
     const W = window.innerWidth, H = window.innerHeight;
-    const colors = ['#e2b04c', '#6fe3b4', '#fbfbf7', '#c9553d', '#f5ecd8'];
+    const colors = ['#E85D04', '#FF8A33', '#FBBF24', '#F5F1EA', '#C2410C'];
     const bits = Array.from({ length: 140 }, () => ({
       x: Math.random() * W, y: -20 - Math.random() * H,
       w: 4 + Math.random() * 6, h: 6 + Math.random() * 8,
