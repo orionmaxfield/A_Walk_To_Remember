@@ -1264,7 +1264,7 @@
           <div><p class="small muted" style="margin-bottom:2px">Invite code</p><p class="invite-code">${esc(team.invite_code)}</p></div>
           <div class="invite-actions">
             <button class="button" type="button" data-action="copy-link" data-link="${esc(link)}">Copy link</button>
-            ${navigator.share ? `<button class="button quiet" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(solo ? J.title : team.name)}" data-end="${esc(J.end)}">Share</button>` : ''}
+            ${navigator.share ? `<button class="button quiet" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(solo ? J.title : team.name)}" data-solo="${solo ? 1 : 0}" data-end="${esc(J.end)}">Share</button>` : ''}
           </div>
         </div>
 `;
@@ -1852,7 +1852,7 @@
     }
 
     if (action === 'share-link') {
-      navigator.share({ title: `Walk with me to ${el.dataset.end}`, text: `Join ${el.dataset.team} on the walk to ${el.dataset.end}`, url: el.dataset.link }).catch(() => {});
+      navigator.share({ title: `Walk with me to ${el.dataset.end}`, text: el.dataset.solo === '1' ? `I'm walking to ${el.dataset.end} on Stroll. Come with me: your miles count with mine.` : `Join ${el.dataset.team} on the walk to ${el.dataset.end}. Every mile you log moves the whole team.`, url: el.dataset.link }).catch(() => {});
     }
 
     if (action === 'delete-entry') withBusy(async () => {
