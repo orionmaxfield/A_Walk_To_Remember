@@ -2,6 +2,8 @@
 // The browser sends the Google sign-in token here. We ask Google to confirm it,
 // save the person in the users table, and hand back a session cookie.
 
+import { bump } from '../../lib/funnel.js';
+
 const SESSION_DAYS = 90;
 
 export async function onRequestPost({ request, env }) {
@@ -29,11 +31,13 @@ export async function onRequestPost({ request, env }) {
   }
 
   const name = (info.name || info.email.split('@')[0]).slice(0, 80);
+  const existing = await env.DB.prepare(`SELECT 1 AS ok FROM users WHERE id = ?`).bind(info.sub).first();
 
   await env.DB.prepare(
     `INSERT INTO users (id, email, name, picture) VALUES (?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET email = excluded.email, name = excluded.name, picture = excluded.picture`
   ).bind(info.sub, info.email, name, info.picture || null).run();
+  if (!existing) await bump(env, 'signin');
 
   const token = randomHex(32);
   const expires = sqlDate(Date.now() + SESSION_DAYS * 86400 * 1000);

@@ -1,5 +1,6 @@
-/* The Walk to the North Pole — front-end app.
-   Plain JavaScript, no build step. Screens are rendered into #app. */
+/* Stroll — front-end app.
+   Plain JavaScript, no build step. Screens are rendered into #app.
+   A "team" row is any walk: a solo journey (kind 'solo') or a group walk (kind 'team'). */
 
 (function () {
   'use strict';
@@ -15,7 +16,16 @@
     teamId: null,
     journey: null,      // response from /api/journey
     awards: null,       // response from /api/awards (fetched when the Awards tab opens)
+    rhythm: null,       // response from /api/rhythm (streak, today, goal)
+    history: null,      // response from /api/history (the You tab)
+    historyMonth: null, // 'YYYY-MM' being shown on the You tab
+    moment: null,       // { miles, next } shown over the scene right after an entry
+    goalOpen: false,    // the goal form on the Journey tab
     tab: 'journey',
+    picking: null,       // destination picker: null, or { journeyId: null | 'oz' … }
+    awardsAll: false,    // Awards tab: the full list, or Earned + Next up
+    recap: null,         // response from /api/recap (last week on this walk)
+    feedOpen: false,     // "Latest on the trail" shows 6 entries, or all of them
     lastShownMile: null, // so the walker animates from where it was
     busy: false,
     noticeDismissed: false, // fallback when localStorage is unavailable
@@ -23,20 +33,75 @@
 
   /* ---------- Helpers ---------- */
 
+  // Inside the iPhone wrapper the pages are served from the app bundle, so the API and the
+  // share links live on the web origin instead. Both default to "here" on the website.
+  const API_BASE = (window.STROLL_API_BASE || '').replace(/\/$/, '');
+  const WEB_ORIGIN = window.STROLL_WEB_ORIGIN || location.origin;
+
   async function api(path, options = {}) {
-    const res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
+    let res;
+    try {
+      res = await fetch(API_BASE + path, { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options });
+    } catch (e) {
+      const err = new Error('No signal right now. Check your connection and try again.');
+      err.offline = true;
+      throw err;
+    }
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Something went wrong. Try again.');
+    if (!res.ok) {
+      const err = new Error(body.error || 'Something went wrong. Try again.');
+      if (body.offline || res.status === 503) err.offline = true;
+      throw err;
+    }
     return body;
   }
+
+  /* ---------- Offline queue: miles logged with no signal wait on the phone ---------- */
+  const QUEUE_KEY = 'strollQueue';
+  function readQueue() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; } }
+  function writeQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) { /* no storage */ } }
+  function queuedFor(teamId) { return readQueue().filter((q) => q.team_id === teamId); }
+
+  let flushing = false;
+  async function flushQueue() {
+    if (flushing) return 0;
+    flushing = true;
+    let sent = 0;
+    try {
+      let q = readQueue();
+      while (q.length) {
+        const item = q[0];
+        try {
+          await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: item.team_id, miles: item.miles, note: item.note, date: item.date }) });
+        } catch (e) {
+          if (e.offline) break;           // still no signal: try again later
+          // The server refused it (walk gone, bad date): drop it rather than retry forever.
+        }
+        q = q.slice(1);
+        writeQueue(q);
+        sent++;
+      }
+    } finally { flushing = false; }
+    return sent;
+  }
+
+  async function syncQueued(quiet) {
+    if (!readQueue().length || !state.user) return;
+    const sent = await flushQueue();
+    if (!sent) return;
+    try { await loadJourney(); } catch (e) { /* offline again */ }
+    if (document.getElementById('screen')) renderScreen();
+    if (!quiet) toast(sent === 1 ? 'Back online. Your walk is saved.' : `Back online. ${sent} walks saved.`);
+  }
+  window.addEventListener('online', () => syncQueued(false));
 
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+
+  // "The North Pole" reads as "the North Pole" in the middle of a sentence.
+  function inSentence(name) { return String(name || '').replace(/^The /, 'the '); }
 
   function capitalize(s) {
     return String(s).charAt(0).toUpperCase() + String(s).slice(1);
@@ -44,6 +109,33 @@
 
   function fmt(n, digits = 1) {
     return Number(n).toLocaleString('en-US', { maximumFractionDigits: digits });
+  }
+
+  /* ---------- Units: miles are stored; kilometers are a display preference ---------- */
+  const KM_PER_MILE = 1.609344;
+  function units() {
+    try { return localStorage.getItem('units') === 'km' ? 'km' : 'mi'; } catch (e) { return 'mi'; }
+  }
+  function setUnits(u) {
+    try { localStorage.setItem('units', u === 'km' ? 'km' : 'mi'); } catch (e) { /* stays for this visit only */ }
+  }
+  const isKm = () => units() === 'km';
+  function flag(name) { try { return localStorage.getItem(name) === '1'; } catch (e) { return false; } }
+  function setFlag(name, on) { try { if (on) localStorage.setItem(name, '1'); else localStorage.removeItem(name); } catch (e) { /* no storage */ } }
+  // A stored mile value as the number the walker sees.
+  function dnum(miles) { return isKm() ? Number(miles) * KM_PER_MILE : Number(miles); }
+  // "2.5 mi" / "4 km"
+  function fmtDist(miles, digits = 1) { return `${fmt(dnum(miles), digits)}\u00a0${units()}`; } // number and unit never split across lines
+  // The long unit word: "miles" / "kilometers"
+  function unitWord() { return isKm() ? 'km' : 'miles'; }
+  // A typed number in the walker's unit, as miles for the server.
+  function toMiles(n) { return isKm() ? Number(n) / KM_PER_MILE : Number(n); }
+  // Awards progress text comes from the server in miles; swap it when showing km.
+  function progressText(a) {
+    const t = a.progress && a.progress.text ? a.progress.text : '';
+    if (!isKm()) return t;
+    const m = t.match(/^(.*?)([\d,.]+) \/ ([\d,.]+) miles$/);
+    return m ? `${m[1]}${fmt(dnum(a.progress.value), 1)} / ${fmt(dnum(a.progress.goal))} km` : t;
   }
 
   function whenText(sqlDate) {
@@ -57,9 +149,49 @@
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  function journeyDefFor(team) {
+    if (!team) return JOURNEYS['north-pole'];
+    if (team.journey_id === 'custom' && team.custom) return customJourney(team.custom);
+    return JOURNEYS[team.journey_id] || JOURNEYS['north-pole'];
+  }
+
   function currentJourneyDef() {
-    const id = (state.journey && state.journey.team.journey_id) || 'north-pole';
-    return JOURNEYS[id] || JOURNEYS['north-pole'];
+    return journeyDefFor(state.journey && state.journey.team);
+  }
+
+  // The sample shown on the "somewhere real" card.
+  const CUSTOM_SAMPLE = { start: { name: 'Your front door' }, end: { name: 'Anywhere' }, miles: 500 };
+
+  function isSolo() {
+    return Boolean(state.journey && state.journey.team.kind === 'solo');
+  }
+  // "You" rather than "your team" whenever you are the only one walking, solo walk or not.
+  function soloVoice() {
+    return isSolo() || Boolean(state.journey && state.journey.members && state.journey.members.length < 2);
+  }
+
+  // "The elf" on the office's walk, "the walker" everywhere else.
+  function heroWord(J) {
+    return (J.hero || 'elf') === 'elf' ? 'elf' : 'walker';
+  }
+
+  // "About 1.2 miles a day for a year" — how a destination compares to a year of walking.
+  function dailyHint(J) {
+    const perDay = J.totalMiles / 365;
+    if (perDay < 1) return `About ${fmt(Math.round(perDay * STEPS_PER_MILE / 100) * 100, 0)} steps a day gets you there in a year.`;
+    return `About ${fmtDist(perDay, 1)} a day gets you there in a year.`;
+  }
+
+  // The card under the mile post: the office poster's "Remember" note, a "Did you know?" fact, or road lore.
+  function stopCard(wp) {
+    if (wp.remember) return { heading: 'Remember', text: wp.remember };
+    if (wp.lore) return { heading: 'Road lore', text: wp.lore };
+    return { heading: 'Did you know?', text: wp.fact || '' };
+  }
+
+  function teamLabel(t) {
+    const J = journeyDefFor(t);
+    return t.kind === 'solo' ? `${t.name} · ${J.end}` : t.name;
   }
 
   // One-time note about the switch to the real route. Remembered in localStorage,
@@ -72,18 +204,29 @@
     state.noticeDismissed = true;
     try { localStorage.setItem(ROUTE_NOTICE_KEY, '1'); } catch (e) { /* no storage; it stays dismissed for this visit */ }
   }
+  function offlineNotice() {
+    const q = queuedFor(state.teamId);
+    if (!q.length) return '';
+    const total = q.reduce((n, x) => n + Number(x.miles || 0), 0);
+    return `<div class="page notice offline-notice"><p><strong>${fmtDist(total)} waiting to send.</strong> ${q.length === 1 ? 'It was' : `${q.length} entries were`} saved on your phone with no signal${navigator.onLine ? '' : ', and you still look offline'}.</p><button class="button quiet" type="button" data-action="sync-now">Send now</button></div>`;
+  }
+
   function routeNotice() {
-    if (routeNoticeDismissed()) return '';
+    // A one-time note for walkers whose team predates the real route. A brand-new team has nothing to be told.
+    if (currentJourneyDef().id !== 'north-pole' || routeNoticeDismissed() || !(state.journey.teamTotal > 0)) return '';
     return `<div class="page notice" role="status">
-      <p><strong>We've switched to the real route: 3,381 miles to the North Pole!</strong> Your miles are all still here; the trail just got longer, and some badges moved.</p>
+      <p><strong>We've switched to the real route: ${fmtDist(3381, 0)} to the North Pole!</strong> Your ${unitWord()} are all still here; the trail just got longer, and some badges moved.</p>
       <button class="button quiet" type="button" data-action="dismiss-notice">Got it</button>
     </div>`;
   }
 
   let toastTimer = null;
-  function toast(message, action) {
+  // kind: 'error' styles the toast as a problem (red edge, role=alert, stays longer).
+  function toast(message, action, kind) {
     clearTimeout(toastTimer);
     $toast.innerHTML = esc(message) + (action ? ` <button type="button" id="toast-action">${esc(action.label)}</button>` : '');
+    $toast.classList.toggle('error', kind === 'error');
+    $toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     $toast.hidden = false;
     if (action) {
       document.getElementById('toast-action').addEventListener('click', () => {
@@ -91,7 +234,7 @@
         action.run();
       });
     }
-    toastTimer = setTimeout(() => { $toast.hidden = true; }, action ? 8000 : 3500);
+    toastTimer = setTimeout(() => { $toast.hidden = true; }, action ? 8000 : kind === 'error' ? 5000 : 3500);
   }
 
   function rememberPendingJoin() {
@@ -106,22 +249,58 @@
 
   /* ---------- Boot ---------- */
 
+  function skeleton() {
+    return `<div class="skel-screen" aria-busy="true" aria-label="Loading">
+      <div class="skeleton" style="height:28px;width:60%;margin:8px 0 18px"></div>
+      <div class="skeleton" style="height:240px;border-radius:20px"></div>
+      <div class="skeleton" style="height:120px;border-radius:20px;margin-top:12px"></div>
+      <div class="skeleton" style="height:140px;border-radius:20px;margin-top:12px"></div>
+    </div>`;
+  }
+
   async function boot() {
-    $app.innerHTML = '<p class="loading">Opening the map…</p>';
+    $app.innerHTML = skeleton();
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      navigator.serviceWorker.register('/sw.js').catch(() => { /* the app works without it */ });
+    }
     rememberPendingJoin();
 
-    try { state.config = await api('/api/config'); } catch (e) { /* keep defaults */ }
-
-    try {
-      const me = await api('/api/me');
-      state.user = me.user;
-      state.teams = me.teams;
-    } catch (e) {
-      state.user = null;
-    }
+    // index.html fires /api/config and /api/me before this script arrives; use those
+    // answers when they're there, and fetch normally otherwise. The two run side by side.
+    const early = window.__early || {};
+    const earlyOr = async (key, path) => {
+      if (early[key]) {
+        try { const res = await early[key]; if (res && res.ok) return await res.json(); if (res && res.status === 401) throw new Error('Not signed in.'); } catch (e) { if (e.message === 'Not signed in.') throw e; }
+      }
+      return api(path);
+    };
+    const [config, me] = await Promise.all([
+      earlyOr('config', '/api/config').catch(() => null),
+      earlyOr('me', '/api/me').catch(() => null),
+    ]);
+    if (config) state.config = config;
+    loadAnalytics();
+    if (me) { state.user = me.user; state.teams = me.teams; } else { state.user = null; }
 
     if (!state.user) return renderCover();
+    if (readQueue().length) { try { await flushQueue(); } catch (e) { /* later */ } }
     await afterSignIn();
+  }
+
+  // Cloudflare Web Analytics: page counts with no cookies, loaded only when Orion has set the token.
+  function loadAnalytics() {
+    const token = state.config && state.config.analyticsToken;
+    if (!token || document.querySelector('script[data-cf-beacon]')) return;
+    const s = document.createElement('script');
+    s.defer = true; s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+    s.setAttribute('data-cf-beacon', JSON.stringify({ token }));
+    document.head.appendChild(s);
+  }
+  // The launch funnel's first step: one count per browser per day when the signed-out page shows.
+  function countLanding() {
+    const day = new Date().toISOString().slice(0, 10);
+    try { if (localStorage.getItem('funnel:landing') === day) return; localStorage.setItem('funnel:landing', day); } catch (e) { /* count anyway */ }
+    api('/api/funnel', { method: 'POST', body: JSON.stringify({ step: 'landing' }) }).catch(() => {});
   }
 
   async function afterSignIn() {
@@ -139,7 +318,12 @@
       }
     }
 
-    if (!state.teams.length) return renderBegin();
+    if (!state.teams.length) {
+      let pre = null;
+      try { pre = localStorage.getItem('preferredJourney'); localStorage.removeItem('preferredJourney'); } catch (e) { /* ok */ }
+      if (pre && JOURNEYS[pre] && JOURNEYS[pre].public !== false) return renderDestination(JOURNEYS[pre]);
+      return renderPick();
+    }
 
     const saved = localStorage.getItem('teamId');
     if (!state.teamId) state.teamId = state.teams.some((t) => t.id === saved) ? saved : state.teams[0].id;
@@ -147,11 +331,44 @@
 
     await loadJourney();
     renderMain();
+    setTimeout(() => { try { nudgeCheck(); } catch (e) { /* ok */ } }, 1500);
   }
 
+  // The first load can use the answers index.html requested before this script arrived
+  // (only for the walk that was open last time, and only once).
+  async function earlyJson(key) {
+    const early = window.__early;
+    if (!early || !early[key]) return null;
+    const pending = early[key]; early[key] = null;
+    try { const res = await pending; return res && res.ok ? await res.json() : null; } catch (e) { return null; }
+  }
   async function loadJourney() {
-    state.journey = await api('/api/journey?team=' + encodeURIComponent(state.teamId));
-    state.awards = null; // miles changed, so awards may have too
+    const before = state.journey && state.journey.team.id;
+    const useEarly = window.__early && window.__early.teamId === state.teamId && window.__early.journey;
+    const get = async (key, path, optional) => {
+      if (useEarly) { const v = await earlyJson(key); if (v) return v; }
+      return optional ? api(path).catch(() => null) : api(path);
+    };
+    const [journey, rhythm, recap, awards] = await Promise.all([
+      get('journey', '/api/journey?team=' + encodeURIComponent(state.teamId), false),
+      get('rhythm', '/api/rhythm', true),
+      get('recap', '/api/recap?team=' + encodeURIComponent(state.teamId), true),
+      get('awards', '/api/awards?team=' + encodeURIComponent(state.teamId), true),
+    ]);
+    if (window.__early) window.__early.teamId = null;
+    state.journey = journey;
+    state.rhythm = rhythm;
+    state.recap = recap;
+    state.awards = awards; // loaded with the journey: postcards and the Awards tab share it
+    state.history = null;
+    if (before !== state.journey.team.id) state.feedOpen = false;
+  }
+
+  async function loadHistory(month) {
+    const data = await api('/api/history' + (month ? '?month=' + encodeURIComponent(month) : ''));
+    state.history = data;
+    state.historyMonth = `${data.year}-${String(data.month).padStart(2, '0')}`;
+    if (state.tab === 'you') renderScreen();
   }
 
   async function loadAwards() {
@@ -188,6 +405,33 @@
     }, 100);
   }
 
+  // Sign in with Apple (web): Apple's script is loaded only when the flag is on.
+  let appleReady = null;
+  function loadApple() {
+    if (appleReady) return appleReady;
+    appleReady = new Promise((resolve, reject) => {
+      if (window.AppleID) return resolve();
+      const sc = document.createElement('script');
+      sc.src = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+      sc.onload = () => resolve(); sc.onerror = () => reject(new Error('Apple sign-in could not load. Check your connection and try again.'));
+      document.head.appendChild(sc);
+    }).then(() => {
+      window.AppleID.auth.init({ clientId: state.config.appleClientId, scope: 'name email', redirectURI: WEB_ORIGIN + '/', usePopup: true });
+    });
+    return appleReady;
+  }
+  async function appleSignIn() {
+    await loadApple();
+    let res;
+    try { res = await window.AppleID.auth.signIn(); } catch (e) { if (e && e.error === 'popup_closed_by_user') return; throw new Error('Apple sign-in was cancelled or failed. Try again.'); }
+    const idToken = res && res.authorization && res.authorization.id_token;
+    if (!idToken) throw new Error('Apple did not return a sign-in token.');
+    await api('/api/auth/apple', { method: 'POST', body: JSON.stringify({ id_token: idToken, name: res.user && res.user.name ? res.user.name : undefined }) });
+    const me = await api('/api/me');
+    state.user = me.user; state.teams = me.teams;
+    await afterSignIn();
+  }
+
   async function onGoogleCredential(response) {
     try {
       await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ credential: response.credential }) });
@@ -202,14 +446,86 @@
 
   /* ---------- Screens ---------- */
 
-  function poleSvg(size) {
-    return `<svg class="cover-pole" width="${size}" height="${size * 1.3}" viewBox="0 0 60 78" aria-hidden="true">
-      <ellipse cx="30" cy="70" rx="26" ry="6" fill="#fbfbf7" opacity="0.9"/>
-      <rect x="25" y="14" width="10" height="56" rx="3" fill="#fbfbf7"/>
-      <path d="M25 20 l10 6 M25 30 l10 6 M25 40 l10 6 M25 50 l10 6 M25 60 l10 6" stroke="#c9553d" stroke-width="4"/>
-      <circle cx="30" cy="12" r="7" fill="#e2b04c"/>
-      <circle cx="30" cy="12" r="7" fill="none" stroke="#b98624" stroke-width="1.5"/>
+
+  // The Stroll mark: a wooden signpost with two arrows and a path running off into the distance.
+  // The Stroll mark: the Journey tab's winding trail, with the sun as the end point.
+  function markSvg() {
+    return `<svg class="cover-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="18.5" cy="6.5" r="4" fill="#FF8A33" opacity="0.35" style="filter:blur(2px)"/>
+      <path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="#E85D04" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="18.5" cy="6.5" r="2.3" fill="#FF8A33"/>
     </svg>`;
+  }
+
+  // A different destination's dusk each time the cover opens.
+  function coverArt() {
+    const ids = JOURNEY_ORDER.filter((id) => id !== 'north-pole');
+    const J = JOURNEYS[ids[Math.floor(Date.now() / 60000) % ids.length]];
+    return destinationArt(J);
+  }
+
+  // The invite behind a /join link, looked up for the cover so a friend knows why they're here.
+  let coverInvite = null;
+  async function loadCoverInvite() {
+    let code = null;
+    try { code = localStorage.getItem('pendingJoin'); } catch (e) { /* no storage */ }
+    if (!code || coverInvite) return;
+    try {
+      const res = await api('/api/join?code=' + encodeURIComponent(code));
+      coverInvite = res.invite;
+      const el = document.getElementById('cover-invite');
+      if (el && coverInvite) el.outerHTML = coverInviteHtml();
+    } catch (e) { /* the code may be wrong; the join step after sign-in says so */ }
+  }
+  function coverInviteHtml() {
+    const inv = coverInvite;
+    if (!inv) return '<div id="cover-invite"></div>';
+    const J = journeyDefFor({ journey_id: inv.journey_id, custom: inv.custom });
+    const who = inv.kind === 'solo' ? `${esc(inv.name)} is walking there` : `${esc(inv.name)} · ${inv.walkers} ${inv.walkers === 1 ? 'walker' : 'walkers'}`;
+    return `<div id="cover-invite" class="cover-invite"><span class="kicker">You're invited</span><strong>Walk to ${esc(inSentence(J.end))}</strong><span class="small muted">${who}. Sign in and your miles count too.</span></div>`;
+  }
+
+  // The signed-out landing: what Stroll is, how it works, what it looks like, where you can go.
+  function landingHtml() {
+    const pub = JOURNEY_ORDER.filter((id) => id !== 'north-pole');
+    const oz = JOURNEYS.oz, camino = JOURNEYS.camino;
+    const th = (J, mile, opts) => (window.JourneyScene ? JourneyScene.thumbnail(J, mile, opts) : '');
+    const pcStops = oz.waypoints.filter((w) => w.mile > 0 && w.badge).slice(0, 3);
+    return `
+      <div class="landing">
+        <section class="landing-how">
+          <h2>How it works</h2>
+          <ol class="benefits">
+            <li><span class="benefit-n">1</span><strong>Pick a destination.</strong><span>Oz, the Camino, the Great Wall, Camelot, the center of the Earth, or any two real places on the map.</span></li>
+            <li><span class="benefit-n">2</span><strong>Log your miles, any way you move.</strong><span>Walks, steps, a workout. One tap from the home screen. Friends can pool miles with you.</span></li>
+            <li><span class="benefit-n">3</span><strong>Watch yourself get there.</strong><span>A scene that moves with you, a postcard at every stop, awards along the way, and a finale when you arrive.</span></li>
+          </ol>
+        </section>
+        <section class="landing-phones" aria-label="What Stroll looks like">
+          <div class="phone"><div class="phone-screen">
+            <div class="mock-scene">${th(oz, 28)}</div>
+            <div class="mock-card hero"><div class="kicker">6% of the way</div><div class="mock-number"><b>28.4</b><small>of 450 mi</small></div><div class="progress-bar"><div style="width:6.3%"></div></div><p>Next: The Scarecrow's cornfield · 1.6 mi</p></div>
+          </div><p class="phone-caption">Your journey, every day</p></div>
+          <div class="phone"><div class="phone-screen">
+            <div class="mock-card"><div class="cal-head"><h3>Postcards</h3><span>3 of 9</span></div>
+              <ul class="mock-postcards">${pcStops.map((w, i) => `<li><span class="mock-pc-art">${postcardArt(oz, w, i)}</span><strong>${esc(capitalize(w.name))}</strong></li>`).join('')}</ul>
+            </div>
+          </div><p class="phone-caption">A postcard at every stop</p></div>
+          <div class="phone"><div class="phone-screen">
+            <div class="mock-finale">${th(camino, camino.totalMiles, { hour: 19, walker: false })}<div class="mock-finale-copy"><span class="kicker">Journey complete</span><strong>I walked to Santiago de Compostela</strong><span>485 mi · Stroll</span></div></div>
+          </div><p class="phone-caption">A card to share when you arrive</p></div>
+        </section>
+        <section class="landing-dest">
+          <h2>Where will you walk?</h2>
+          <p class="small muted">Nine trails to choose from, or any two real places. Each takes about a year at a gentle pace.</p>
+          <ul class="destinations">${pub.map((id) => destinationCard(JOURNEYS[id], true).replace('data-action="pick-destination"', 'data-action="landing-pick"')).join('')}</ul>
+        </section>
+        <section class="landing-cta">
+          <button class="button" type="button" data-action="landing-start">Start walking free</button>
+          <p class="small muted">Sign in with Google and you're on the trail in a minute. No card, no catch.</p>
+          <p class="small muted"><a class="tap-link" href="/privacy.html">Privacy</a></p>
+        </section>
+      </div>`;
   }
 
   function renderCover() {
@@ -219,10 +535,17 @@
 
     $app.innerHTML = `
       <section class="cover">
-        ${poleSvg(64)}
-        <h1 class="cover-title">The Walk to the North Pole</h1>
-        <p class="cover-sub">A team journey, one mile at a time.<br>3,381 miles due north of Layton.</p>
-        <div class="signin"><div id="google-button"></div></div>
+        <div class="cover-art" aria-hidden="true">${coverArt()}</div>
+        <div class="cover-body">
+          ${markSvg()}
+          <h1 class="cover-title">Stroll</h1>
+          <p class="cover-sub">Walk somewhere amazing this year.<br>Pick a destination, log your miles, watch yourself get there.</p>
+          ${coverInviteHtml()}
+          <div class="signin"><div id="google-button"></div></div>
+          ${state.config.appleClientId ? `<div class="signin"><button type="button" class="apple-button" data-action="apple-signin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.2 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.9-4zM14.3 5.2c.7-.8 1.2-2 1-3.2-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.5 2.9-1.3z"/></svg>Continue with Apple</button></div>` : ''}
+          <p class="small muted cover-free">Free. Nothing to install. Works on any phone.</p>
+        </div>
+        ${landingHtml()}
         ${setupItems.length ? `
           <div class="page setup-note">
             <h2>Almost ready</h2>
@@ -231,60 +554,281 @@
           </div>` : ''}
       </section>`;
     mountGoogleButton();
+    loadCoverInvite();
+    countLanding();
+    watchLazyDest();
   }
 
-  function renderBegin() {
+  // Landing-page destination cards draw their scene as they scroll into view.
+  function watchLazyDest() {
+    const lazy = document.querySelectorAll('.destination-art[data-lazy-journey]');
+    if (!lazy.length) return;
+    const draw = (el) => { const J = JOURNEYS[el.dataset.lazyJourney]; delete el.dataset.lazyJourney; if (J) el.innerHTML = destinationArt(J); };
+    if (!('IntersectionObserver' in window)) { lazy.forEach(draw); return; }
+    const io = new IntersectionObserver((entries) => { entries.forEach((en) => { if (en.isIntersecting) { draw(en.target); io.unobserve(en.target); } }); }, { rootMargin: '300px' });
+    lazy.forEach((el) => io.observe(el));
+  }
+
+  /* ---------- Choose a destination ---------- */
+
+  // The picker opens for a brand-new walker (no walks yet) and from "Start another journey".
+  function renderPick() {
     const first = (state.user.name || '').split(' ')[0];
+    const hasWalks = state.teams.length > 0;
+    state.picking = { journeyId: null };
     $app.innerHTML = `
       <section>
-        <div class="header"><h1>Hello, ${esc(first)}</h1></div>
-        <div class="page">
-          <h2>Start a team</h2>
-          <p class="muted small">You will get an invite link to share with everyone who is walking with you.</p>
-          <form data-form="create-team">
-            <label class="field"><span>Team name</span><input name="name" maxlength="60" placeholder="Hill Field Walkers" required></label>
-            <button class="button wide" type="submit">Begin the journey</button>
-          </form>
+        <div class="header">
+          <div>
+            ${brandHtml()}
+            <h1>${hasWalks ? 'Another journey' : `Where to, ${esc(first)}?`}</h1>
+            <div class="team-name">${hasWalks ? 'Pick a new destination.' : 'Pick a destination. Swipe to see them all.'}</div>
+          </div>
+          ${hasWalks ? `<button class="button quiet on-night" type="button" data-action="pick-back" style="min-height:40px;padding:6px 14px">Back</button>` : ''}
         </div>
+        <ul class="destinations">
+          ${JOURNEY_ORDER.map((id) => destinationCard(JOURNEYS[id])).join('')}
+          <li class="destination theme-road" style="--dest:#F59E0B">
+            <button type="button" data-action="pick-custom" aria-label="Somewhere real: any place on the map">
+              <span class="destination-art" aria-hidden="true">${destinationArt(customJourney(CUSTOM_SAMPLE))}</span>
+              <span class="destination-overlay">
+                <span class="dest-chip">Your own route</span>
+                <strong>Somewhere real</strong>
+                <span class="destination-miles">Any two places on the map</span>
+              </span>
+            </button>
+          </li>
+        </ul>
         <div class="page">
-          <h2>Have an invite?</h2>
-          <p class="muted small">Enter the code from your invite link.</p>
+          <h2>Walking with a group?</h2>
+          <p class="muted small">Pick a destination above and choose <strong>Start a group walk</strong>. Or, if someone sent you an invite, enter the code here.</p>
           <form data-form="join-team">
             <div class="row">
-              <label class="field" style="margin:0"><span class="visually-hidden"></span><input name="code" maxlength="8" placeholder="ABC123" autocapitalize="characters" required></label>
+              <label class="field" style="margin:0"><span class="visually-hidden"></span><input name="code" maxlength="8" placeholder="Invite code" autocapitalize="characters" required aria-label="Invite code"></label>
               <button class="button" type="submit" style="flex:0 0 auto">Join</button>
             </div>
           </form>
         </div>
-        <button class="button quiet on-night wide" data-action="sign-out">Sign out</button>
+        ${hasWalks ? '' : `<button class="button quiet on-night wide" data-action="sign-out">Sign out</button>`}
       </section>`;
+    window.scrollTo({ top: 0 });
   }
+
+  // "Gentle · about 1.2 mi a day" — how a trail feels over a year of walking.
+  function feelOf(J) {
+    const perDay = J.totalMiles / 365;
+    const word = J.totalMiles < 600 ? 'Gentle' : J.totalMiles < 1300 ? 'Steady' : 'Epic';
+    return `${word} · about ${fmtDist(perDay, 1)} a day`;
+  }
+
+  // lazy: leave the art out and draw it when the card scrolls near (the landing page has many).
+  function destinationCard(J, lazy) {
+    return `<li class="destination theme-${esc(J.theme)}" style="--dest:${esc(J.accent || '#E85D04')}">
+      <button type="button" data-action="pick-destination" data-journey="${esc(J.id)}" aria-label="${esc(J.title)}, ${fmtDist(J.totalMiles)}">
+        <span class="destination-art" aria-hidden="true" ${lazy ? `data-lazy-journey="${esc(J.id)}"` : ''}>${lazy ? '' : destinationArt(J)}</span>
+        <span class="destination-overlay">
+          <span class="dest-chip">${esc(feelOf(J))}</span>
+          <strong>${esc(J.title)}</strong>
+          <span class="destination-miles">${fmtDist(J.totalMiles)} · ${esc(J.start)} to ${esc(J.end)}</span>
+        </span>
+      </button>
+    </li>`;
+  }
+
+  // A small storybook scene for the destination card: the finish of each trail.
+  function destinationArt(J) {
+    if (!window.JourneyScene || !JourneyScene.thumbnail) return '';
+    return JourneyScene.thumbnail(J);
+  }
+
+  function renderDestination(J) {
+    state.picking = { journeyId: J.id };
+    const stops = J.waypoints.filter((w) => w.mile > 0);
+    $app.innerHTML = `
+      <section>
+        <div class="header">
+          <div>
+            ${brandHtml()}
+            <h1>${esc(J.title)}</h1>
+            <div class="team-name">${fmtDist(J.totalMiles)} · ${esc(J.start)} to ${esc(J.end)}</div>
+          </div>
+          <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
+        </div>
+        <div class="page scene-page destination-preview theme-${esc(J.theme)}" style="--dest:${esc(J.accent || '#E85D04')}">
+          <span aria-hidden="true">${destinationArt(J)}</span>
+          <span class="dest-chip preview-chip">${esc(feelOf(J))}</span>
+        </div>
+        <div class="page">
+          <p>${esc(J.blurb)}</p>
+          <p class="small muted">Keep that pace and you arrive in a year. Faster is fine too.</p>
+          <div class="start-buttons">
+            <button class="button wide" type="button" data-action="start-solo" data-journey="${esc(J.id)}">Walk it on my own</button>
+            <button class="button quiet wide" type="button" data-action="show-group-form">Start a group walk</button>
+          </div>
+          <form data-form="create-team" data-journey="${esc(J.id)}" hidden>
+            <label class="field"><span>Group name</span><input name="name" maxlength="60" placeholder="The Lunch Walkers" required></label>
+            <button class="button wide" type="submit">Start the group walk</button>
+            <p class="small muted" style="margin-top:8px">You'll get an invite link to share. Everyone's miles pool together.</p>
+          </form>
+        </div>
+        <div class="page">
+          <h2>Along the way</h2>
+          <p class="small muted">${stops.length} stops. Each one unlocks a postcard.</p>
+          <ol class="stops">
+            ${stops.map((w) => `<li><span class="stop-mile">${fmt(dnum(w.mile))}</span><span>${esc(capitalize(w.name))}</span></li>`).join('')}
+          </ol>
+        </div>
+      </section>`;
+    window.scrollTo({ top: 0 });
+  }
+
+  /* ---------- A real-world destination ---------- */
+
+  // The form remembers what was looked up so the chosen places survive re-renders.
+  const customForm = { startQ: '', endQ: '', starts: null, ends: null, start: null, end: null, busy: false, error: '' };
+
+  function renderCustom() {
+    state.picking = { journeyId: 'custom' };
+    const f = customForm;
+    const miles = f.start && f.end ? previewMiles(f.start, f.end) : null;
+    const chooser = (field, list, chosen) => list && list.length > 1 ? `
+        <select data-action="custom-choose" data-field="${field}" aria-label="Which one?">
+          ${list.map((p, i) => `<option value="${i}" ${chosen === p ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>` : list && list.length === 1 ? `<p class="small found">${esc(list[0].name)}</p>` : list ? `<p class="small error-note">Nothing found. Try adding the state or country.</p>` : '';
+    $app.innerHTML = `
+      <section>
+        <div class="header">
+          <div>
+            ${brandHtml()}
+            <h1>Somewhere real</h1>
+            <div class="team-name">Any two places on the map</div>
+          </div>
+          <button class="button quiet on-night" type="button" data-action="pick-destination-back" style="min-height:40px;padding:6px 14px">Back</button>
+        </div>
+        <div class="page scene-page destination-preview theme-road" style="--dest:#F59E0B">
+          <span aria-hidden="true">${destinationArt(customJourney(f.start && f.end ? { start: f.start, end: f.end, miles } : CUSTOM_SAMPLE))}</span>
+          ${miles ? `<span class="dest-chip preview-chip">${esc(feelOf({ totalMiles: miles }))}</span>` : ''}
+        </div>
+        <div class="page">
+          <form data-form="custom-lookup">
+            <label class="field"><span>Starting from</span><input name="start" maxlength="120" placeholder="Layton, Utah" value="${esc(f.startQ)}" required></label>
+            ${chooser('start', f.starts, f.start)}
+            <label class="field"><span>Walking to</span><input name="end" maxlength="120" placeholder="Grand Canyon" value="${esc(f.endQ)}" required></label>
+            ${chooser('end', f.ends, f.end)}
+            ${f.error ? `<p class="small error-note">${esc(f.error)}</p>` : ''}
+            <button class="button ${miles ? 'quiet ' : ''}wide" type="submit" ${f.busy ? 'disabled' : ''}>${f.busy ? 'Looking up…' : (f.starts ? 'Look up again' : 'Find the route')}</button>
+          </form>
+          <p class="small muted" style="margin-top:14px">Place names come from OpenStreetMap, © OpenStreetMap contributors.</p>
+        </div>
+          ${miles ? `
+        <div class="page hero">
+          <div class="kicker">Your route</div>
+          <div class="hero-number"><b>${fmt(dnum(miles), 0)}</b><small>${unitWord()}</small></div>
+          <p class="small muted">${esc(f.start.name)} to ${esc(f.end.name)}, as the roads run (straight-line distance plus a fifth). ${esc(dailyHint({ totalMiles: miles }))}</p>
+          <div class="start-buttons">
+            <button class="button wide" type="button" data-action="start-custom-solo">Walk it on my own</button>
+            <button class="button quiet wide" type="button" data-action="show-group-form">Start a group walk</button>
+          </div>
+          <form data-form="create-team" data-journey="custom" hidden>
+            <label class="field"><span>Group name</span><input name="name" maxlength="60" placeholder="The Lunch Walkers" required></label>
+            <button class="button wide" type="submit">Start the group walk</button>
+          </form>
+        </div>` : ''}
+      </section>`;
+    window.scrollTo({ top: 0 });
+  }
+
+  // Same sum the server uses, so the number shown is the number saved.
+  function previewMiles(a, b) {
+    const R = 3958.8, toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+    return Math.max(1, Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))) * 1.2));
+  }
+
+  async function lookupPlaces(q) {
+    const res = await api('/api/places?q=' + encodeURIComponent(q));
+    return res.places || [];
+  }
+
+  function customPayload() {
+    const f = customForm;
+    return { start: f.start, end: f.end };
+  }
+
+  async function startWalk(journeyId, kind, name, custom) {
+    const made = await api('/api/teams', { method: 'POST', body: JSON.stringify({ journey_id: journeyId, kind, name, custom }) });
+    const me = await api('/api/me');
+    state.teams = me.teams;
+    state.teamId = made.team.id;
+    localStorage.setItem('teamId', state.teamId);
+    state.lastShownMile = null;
+    state.picking = null;
+    state.tab = kind === 'team' ? 'team' : 'journey';
+    await loadJourney();
+    // First-run step 3: offer a starter goal before landing on the Journey.
+    const needsGoal = state.rhythm && state.rhythm.features && state.rhythm.features.goal && !state.rhythm.goal && !flag('goalOfferDismissed');
+    if (needsGoal) return renderGoalStep(made.team, kind);
+    renderMain();
+    toast(kind === 'team' ? `${made.team.name} is ready. Share the invite link.` : `Your journey begins. Add your first miles!`);
+  }
+
+  function renderGoalStep(team, kind) {
+    const J = currentJourneyDef();
+    const choices = isKm() ? [[2, '2 km'], [3, '3 km'], [5, '5 km']] : [[1, '1 mi'], [2, '2 mi'], [3, '3 mi']];
+    $app.innerHTML = `
+      <section class="goal-step">
+        <div class="header"><div>${brandHtml()}<h1>One more thing</h1><div class="team-name">${esc(J.title)} is set up.</div></div></div>
+        <div class="page hero">
+          <div class="kicker">Daily goal</div>
+          <h2>How far on a normal day?</h2>
+          <p class="small muted">A small goal you can keep beats a big one you can't. You can change it any time from the ring on your Journey.</p>
+          <div class="quick-row goal-choices">
+            ${choices.map(([n, label]) => `<button type="button" class="quick ${n === 2 ? 'suggested' : ''}" data-action="goal-step-pick" data-amount="${n}">${label.split(' ')[0]}<small>${label.split(' ')[1]} a day</small></button>`).join('')}
+          </div>
+          <button class="button link" type="button" data-action="goal-step-skip" style="margin-top:12px">Skip for now</button>
+        </div>
+      </section>`;
+    window.scrollTo({ top: 0 });
+  }
+
+  function brandHtml() { return `<div class="brand" aria-label="Stroll"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="#E85D04" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="6.5" r="2.3" fill="#FF8A33"/></svg><span>Stroll</span></div>`; }
 
   function renderMain() {
     const team = state.journey.team;
     const J = currentJourneyDef();
+    const solo = isSolo();
     const switcher = state.teams.length > 1
-      ? `<select data-action="switch-team" aria-label="Choose a team">
-          ${state.teams.map((t) => `<option value="${esc(t.id)}" ${t.id === state.teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+      ? `<select data-action="switch-team" aria-label="Choose a walk">
+          ${state.teams.map((t) => `<option value="${esc(t.id)}" ${t.id === state.teamId ? 'selected' : ''}>${esc(teamLabel(t))}</option>`).join('')}
          </select>`
       : '';
 
     $app.innerHTML = `
       <div class="header">
         <div>
+          ${brandHtml()}
           <h1>${esc(J.title)}</h1>
-          <div class="team-name">${esc(team.name)}</div>
+          <div class="team-name">${solo ? `Your own journey · ${esc(team.name)}` : esc(team.name)}</div>
         </div>
-        ${switcher}
+        <div class="header-tools">
+          ${switcher}
+          <button type="button" class="gear" data-action="open-settings" aria-label="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
       </div>
+      <div class="page scene-page shared" id="scene-shell" data-action="scene-home"><div id="scene" class="scene"></div></div>
       <div id="screen"></div>
       <nav class="nav" aria-label="Sections"><div class="nav-inner">
         ${navButton('journey', 'Journey', '<path d="M4 18c4-6 6-6 8 0s4 6 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="6" r="2.5" fill="currentColor"/>')}
-        ${navButton('log', 'Add miles', '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
-        ${navButton('team', 'Team', '<circle cx="9" cy="9" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 5 1.5 5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
+        ${navButton('log', isKm() ? 'Add km' : 'Add miles', '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
+        ${navButton('team', solo ? 'Friends' : 'Team', '<circle cx="9" cy="9" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 5 1.5 5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')}
         ${navButton('awards', 'Awards', '<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1.1 5.8L12 16.3 6.7 19.1l1.1-5.8L3.5 9.2l5.9-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>')}
+        ${navButton('you', 'You', '<rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M9 3v4M15 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/>')}
       </div></nav>`;
     renderScreen();
+    animateRing();
   }
 
   function navButton(tab, label, iconPaths) {
@@ -292,31 +836,53 @@
       <svg viewBox="0 0 24 24" aria-hidden="true">${iconPaths}</svg>${label}</button>`;
   }
 
-  function renderScreen() {
+  // Postcards far down the strip draw their art only when they scroll near (big journeys have 20 stops).
+  function watchLazyArt() {
+    const lazy = document.querySelectorAll('.postcard-art[data-lazy-mile]');
+    if (!lazy.length || !window.JourneyScene) return;
+    const J = currentJourneyDef();
+    const draw = (el) => { const m = Number(el.dataset.lazyMile), i = Number(el.dataset.lazyI || 0); delete el.dataset.lazyMile; const w = J.waypoints.find((x) => x.mile === m) || { mile: m, name: '' }; el.innerHTML = postcardArt(J, w, i); };
+    if (!('IntersectionObserver' in window)) { lazy.forEach(draw); return; }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { draw(en.target); io.unobserve(en.target); } });
+    }, { root: null, rootMargin: '240px' });
+    lazy.forEach((el) => io.observe(el));
+  }
+
+  function renderScreen(transition) {
     const $screen = document.getElementById('screen');
     if (!$screen) return;
+    if (transition) { $screen.classList.remove('enter'); void $screen.offsetWidth; $screen.classList.add('enter'); }
     if (state.tab === 'journey') $screen.innerHTML = journeyScreen();
     if (state.tab === 'log') $screen.innerHTML = logScreen();
     if (state.tab === 'team') $screen.innerHTML = teamScreen();
     if (state.tab === 'awards') $screen.innerHTML = awardsScreen();
+    if (state.tab === 'you') $screen.innerHTML = youScreen();
+    if (state.tab === 'settings') $screen.innerHTML = settingsScreen();
     document.querySelectorAll('.nav button').forEach((b) => {
       const active = b.dataset.tab === state.tab;
       b.classList.toggle('active', active);
       b.setAttribute('aria-current', active ? 'page' : 'false');
     });
+    const shell = document.getElementById('scene-shell');
+    if (shell) shell.classList.toggle('compact', state.tab !== 'journey');
     if (state.tab === 'journey') {
       positionScene();
       maybeCelebrate();
+      watchLazyArt();
     }
     if (state.tab === 'awards' && !state.awards) loadAwards().catch((e) => toast(e.message));
+    if (state.tab === 'you' && !state.history) loadHistory(state.historyMonth).catch((e) => toast(e.message));
     window.scrollTo({ top: 0 });
   }
 
   /* ---------- Journey screen ---------- */
 
+  function queuedMiles() { return queuedFor(state.teamId).reduce((n, q) => n + Number(q.miles || 0), 0); }
+
   function progress() {
     const J = currentJourneyDef();
-    const total = state.journey.teamTotal;
+    const total = state.journey.teamTotal + queuedMiles();
     const goal = J.totalMiles;
     const mile = Math.min(total, goal);
     const passed = J.waypoints.filter((w) => w.mile <= mile);
@@ -327,68 +893,390 @@
 
   function journeyScreen() {
     const p = progress();
-    const recent = state.journey.recent.slice(0, 6);
+    const all = state.journey.recent;
+    const recent = state.feedOpen ? all : all.slice(0, 6);
 
+    const who = soloVoice() ? 'You are' : 'Your team is';
     const where = p.arrived
-      ? `Your team is standing at the top of the world.`
-      : `Your team is ${esc(p.here.region)}.${p.next ? ` Next up: ${esc(p.next.name)}, ${fmt(p.next.mile - p.mile, 0)} miles ahead.` : ''}`;
+      ? `${who} ${esc(p.J.waypoints[p.J.waypoints.length - 1].region)}.`
+      : `${who} ${esc(p.here.region)}.`;
+    const nextHead = !p.arrived && p.next ? `<strong class="hero-next">Next: ${esc(capitalize(p.next.name))} · ${fmtDist(p.next.mile - p.mile)}</strong>` : '';
+    const card = stopCard(p.here);
+    const inviteLink = `${WEB_ORIGIN}/join/${state.journey.team.invite_code}`;
 
     return `
       ${routeNotice()}
-      <div class="page scene-page">
-        <div id="scene" class="scene"></div>
+      ${offlineNotice()}
+      ${nudgeBanner()}
+
+      ${momentBanner(p)}
+      ${installHint()}
+
+      <div class="page hero progress-hero">
+        <div class="kicker">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% of the way`}</div>
+        <div class="hero-number" id="hero-number"><b>${fmt(dnum(p.total))}</b><small>of ${fmtDist(p.goal)}</small></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
+        <p class="small hero-copy">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `${nextHead}<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : `${nextHead}${where}`}</p>
+        ${p.arrived ? `<div class="arrived-actions"><button class="button" data-action="share-arrival">Share my arrival</button><button class="button quiet" data-action="replay-celebration">Replay the celebration</button></div>` : ''}
+        ${soloVoice() ? '' : `<div class="hero-foot"><span class="kicker">Your share</span><b>${fmtDist(state.journey.myTotal)}</b><span class="small muted">Every ${isKm() ? 'kilometer' : 'mile'} you add moves the whole team.</span></div>`}
       </div>
 
-      <div class="page milepost-page">
-        <div class="milepost" aria-hidden="true">
-          <div class="board"><div class="label">MILE</div><div class="number">${fmt(Math.floor(p.mile), 0)}</div></div>
-          <div class="post"></div>
-          <div class="ground"></div>
-        </div>
-        <div class="progress-copy">
-          <h2>${fmt(p.total, 0)} of ${fmt(p.goal, 0)} miles</h2>
-          <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
-          <p class="small">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% there, ${fmt(p.goal - p.total, 0)} miles to go`}</p>
-          <p class="small muted">${where}</p>
-          ${p.arrived ? `<button class="button quiet" data-action="replay-celebration" style="margin-top:6px">Replay the celebration</button>` : ''}
-        </div>
-      </div>
+      ${rhythmCard(p)}
+      ${weekCard()}
+      ${recapCard(p)}
+      <div class="pair">
+      ${routeMapCard(p)}
 
       <div class="page fact remember">
-        <h2>Remember</h2>
-        <p>${esc(p.here.remember)}</p>
-        <p class="remember-from">${esc(capitalize(p.here.name))} · mile ${fmt(p.here.mile, 0)}</p>
+        <div class="fact-body">
+          <h2>${esc(card.heading)}</h2>
+          <p>${esc(card.text)}</p>
+          <p class="remember-from">${esc(capitalize(p.here.name))} · ${isKm() ? 'km' : 'mile'} ${fmt(dnum(p.here.mile))}${p.next && !p.arrived ? ` · next story in ${fmtDist(p.next.mile - p.mile)}` : ''}</p>
+        </div>
+      </div>
       </div>
 
-      <div class="page">
-        <h2>Your miles</h2>
-        <div class="big-number">${fmt(state.journey.myTotal)}<small>miles so far</small></div>
-        <p class="small muted" style="margin-top:8px">Every mile you add moves the whole team along the trail.</p>
-        <button class="button" data-action="tab" data-tab="log" style="margin-top:8px">Add miles</button>
-      </div>
+      ${postcardsCard(p)}
 
-      <div class="page">
+      ${isSolo() ? `
+      <div class="page friend-page">
+        <div><h2>Walk with a friend</h2>
+        <p class="small muted">Their miles join yours on this trail, and it becomes a group walk the moment they sign in.</p></div>
+        <button class="button quiet" data-action="copy-link" data-link="${esc(inviteLink)}">Copy invite link</button>
+      </div>` : ''}
+
+      <div class="page feed-page">
         <h2>Latest on the trail</h2>
+        ${!isSolo() && state.journey.features && state.journey.features.cheers ? `<p class="small muted">Tap the heart to cheer someone on.</p>` : ''}
         ${recent.length ? `<ul class="list">${recent.map(entryRow).join('')}</ul>`
-          : `<p class="muted">No miles yet. Be the first to take a step.</p>`}
+          : `<div class="first-step"><p class="muted">${isSolo() ? 'No miles yet. Even a walk around the block counts.' : 'No miles yet. Be the first to take a step.'}</p><button class="button" data-action="tab" data-tab="log">Log your first walk</button></div>`}
+        ${all.length > 6 && !state.feedOpen ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show more</button>` : ''}
       </div>`;
+  }
+
+  /* ---------- The weekly mini-goal: walk on 3 different days, Monday to Sunday ---------- */
+  function weekCard() {
+    const R = state.rhythm;
+    if (!R || !R.weekFlags) return '';
+    const goal = R.weekDaysGoal || 3, done = R.weekDays || 0, today = R.todayIndexInWeek;
+    const met = done >= goal;
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const left = goal - done;
+    const daysLeft = 7 - today; // today included
+    const copy = met ? 'Steady week, done. Anything more is a bonus.'
+      : left > daysLeft ? `${done} of ${goal} this week. A fresh week starts Monday.`
+      : `${left === 1 ? 'One more day' : `${left} more days`} this week for a steady week${R.walkedToday ? '' : ', starting today'}.`;
+    return `<div class="page week ${met ? 'met' : ''}">
+      <div class="week-head"><div><div class="kicker">This week</div><strong>${done} of ${goal} days</strong></div>${met ? '<span class="week-badge">Steady week</span>' : ''}</div>
+      <ol class="week-dots" aria-label="Days walked this week">
+        ${labels.map((l, i) => `<li class="${R.weekFlags[i] ? 'on' : ''} ${i === today ? 'today' : ''} ${i > today ? 'future' : ''}"><i></i><span>${l}</span></li>`).join('')}
+      </ol>
+      <p class="small muted">${esc(copy)}</p>
+    </div>`;
+  }
+
+  /* ---------- Monday recap: last week on this walk ---------- */
+
+  function recapCard(p) {
+    const R = state.recap;
+    if (!R) return '';
+    let dismissed = '';
+    try { dismissed = localStorage.getItem('recapDismissed') || ''; } catch (e) { /* ok */ }
+    const forced = location.search.includes('recap=1');
+    if ((!R.isMonday && !forced) || dismissed === R.weekStart) return '';
+    if (R.teamMiles <= 0) return '';
+    const solo = soloVoice();
+    const moved = R.endMile > R.startMile
+      ? `The marker moved from ${isKm() ? 'km' : 'mile'} ${fmt(dnum(R.startMile))} to ${fmt(dnum(R.endMile))}${R.stopsPassed.length ? `, passing ${esc(listNames(R.stopsPassed.map(capitalize)))}` : ''}.`
+      : 'The marker stayed put.';
+    const heroMiles = solo ? R.myMiles : R.teamMiles;
+    const you = solo
+      ? `On ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.`
+      : `You added ${fmtDist(R.myMiles)} on ${R.myDays} ${R.myDays === 1 ? 'day' : 'days'}.${R.topName ? ` Top walker: ${esc(R.topName)}.` : ''}`;
+    const best = R.bestDay ? ` Your best day was ${R.bestDay.weekday}, ${fmtDist(R.bestDay.miles)}.` : '';
+    return `<div class="page recap">
+      <div class="cal-head"><div class="kicker">Last week</div><button type="button" class="button quiet small-btn" data-action="dismiss-recap" aria-label="Dismiss">✕</button></div>
+      <div class="hero-number"><b>${fmt(dnum(heroMiles))}</b><small>${unitWord()}${solo ? '' : ', the whole team'}</small></div>
+      <p class="small">${you}${best}</p>
+      <p class="small ${R.myDays >= 3 ? 'week-met' : 'muted'}">${R.myDays >= 3 ? 'Steady week: three or more days walked. ✓' : `Steady week: ${R.myDays} of 3 days. This week is a fresh start.`}</p>
+      <p class="small muted">${moved}${R.arrived ? ' Journey complete!' : ''}</p>
+    </div>`;
+  }
+
+  /* ---------- "You are here": the moment right after an entry ---------- */
+
+  function momentBanner(p) {
+    const m = state.moment;
+    if (!m) return '';
+    state.moment = null; // shows once
+    const next = p.arrived ? `You have arrived at ${esc(p.J.end)}.`
+      : p.next ? `${fmtDist(p.next.mile - p.mile, 1)} to ${esc(p.next.name)}.` : '';
+    setTimeout(() => { const el = document.getElementById('moment'); if (el) el.classList.add('gone'); }, m.first ? 7000 : 4200);
+    if (m.first) {
+      return `<div id="moment" class="moment first" role="status">
+        <strong>+${fmtDist(m.miles)}</strong><span><b>Your first step!</b> The journey to ${esc(p.J.end)} has begun. ${next}</span>
+      </div>`;
+    }
+    return `<div id="moment" class="moment" role="status">
+      <strong>+${fmtDist(m.miles)}</strong><span>You are here. ${next}</span>
+    </div>`;
+  }
+
+  /* ---------- Postcards: one unlocked at every stop you pass ---------- */
+
+  function stopEarnedAt(wp) {
+    const A = state.awards;
+    if (!A || !wp.badge) return null;
+    const a = A.team.find((x) => x.id === wp.badge.id);
+    return a && a.earned ? a.earnedAt : null;
+  }
+
+  // Each stop's postcard: the scene just short of the stop, at its own hour of the day
+  // (dawn, day, dusk, night in turn), with the stop's landmark silhouette on the right.
+  const POSTCARD_HOURS = [7, 13, 18, 21, 9, 16, 20, 23];
+  // Each postcard gets its own sky tint as well as its own hour, so a row reads as different places.
+  const POSTCARD_TINTS = ['#FB7185', '#FBBF24', '#2DD4BF', '#A78BFA', '#60A5FA', '#4ADE80', '#F97316', '#F472B6'];
+  function postcardArt(J, w, i) {
+    return JourneyScene.thumbnail(J, Math.max(0, w.mile - 2), { hour: POSTCARD_HOURS[i % POSTCARD_HOURS.length], accent: POSTCARD_TINTS[i % POSTCARD_TINTS.length], mark: w, markScale: 1.7, walker: false });
+  }
+
+  function postcardsCard(p) {
+    const J = p.J;
+    const stops = J.waypoints.filter((w) => w.mile > 0 && w.badge);
+    if (!stops.length || !window.JourneyScene || !JourneyScene.thumbnail) return '';
+    const unlocked = stops.filter((w) => w.mile <= p.mile).length;
+    const nextIdx = stops.findIndex((w) => w.mile > p.mile);
+    const cards = stops.map((w, i) => {
+      const open = w.mile <= p.mile;
+      const now = i <= Math.max(3, nextIdx + 1); // the first few draw now; the rest as they scroll near
+      const art = now ? postcardArt(J, w, i) : '';
+      const when = open ? stopEarnedAt(w) : null;
+      return `<li class="postcard ${open ? 'open' : 'locked'}">
+        <button type="button" ${open ? `data-action="open-postcard" data-mile="${w.mile}"` : 'disabled'} aria-label="${esc(capitalize(w.name))}${open ? '' : ', locked'}">
+          <span class="postcard-art" aria-hidden="true" ${now ? '' : `data-lazy-mile="${w.mile}" data-lazy-i="${i}"`}>${art || '<span class="postcard-blank"></span>'}</span>
+          <span class="postcard-copy">
+            <strong>${esc(capitalize(w.name))}</strong>
+            <span>${open ? (when ? esc(earnedText(when).replace('Earned', 'Reached')) : 'Reached') : `${fmtDist(w.mile - p.mile)} to go`}</span>
+          </span>
+        </button>
+      </li>`;
+    }).join('');
+    return `
+      <div class="page postcards-page">
+        <div class="cal-head"><h2>Postcards</h2><span class="small muted">${unlocked} of ${stops.length}</span></div>
+        <ul class="postcards">${cards}</ul>
+      </div>`;
+  }
+
+  function openPostcard(mile) {
+    const p = progress();
+    const wp = p.J.waypoints.find((w) => w.mile === mile);
+    if (!wp) return;
+    const card = stopCard(wp);
+    const when = stopEarnedAt(wp);
+    const $pop = document.getElementById('postcard-pop');
+    $pop.innerHTML = `
+      <div class="postcard-full page" role="dialog" aria-label="Postcard from ${esc(capitalize(wp.name))}">
+        <div class="postcard-full-art" aria-hidden="true">${postcardArt(p.J, wp, p.J.waypoints.filter((w) => w.mile > 0 && w.badge).findIndex((w) => w.mile === wp.mile))}</div>
+        <div class="postcard-full-copy">
+          <div class="kicker">${esc(p.J.title)} · ${fmtDist(wp.mile)}</div>
+          <h2>${esc(capitalize(wp.name))}</h2>
+          <p>${esc(card.text)}</p>
+          <p class="small muted">${when ? esc(earnedText(when).replace('Earned', 'Reached')) : 'Reached'} · tap to close</p>
+        </div>
+      </div>`;
+    $pop.hidden = false;
+  }
+
+  /* ---------- Route map: a stylized path with the stops and a you-are-here marker ---------- */
+
+  function routePoint(f) {
+    // A gentle S-curve across the card; f runs 0..1 from start to finish.
+    const x = 24 + f * 352;
+    const y = 82 + 38 * Math.sin(f * Math.PI * 2.2 + 0.4);
+    return [x, y];
+  }
+  function routePath(f0, f1) {
+    const n = 48;
+    let d = '';
+    for (let i = 0; i <= n; i++) {
+      const f = f0 + (f1 - f0) * (i / n);
+      const [x, y] = routePoint(f);
+      d += (i ? ' L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }
+    return d;
+  }
+
+  function routeMapCard(p) {
+    const J = p.J;
+    const total = J.totalMiles;
+    const cur = clampNum(p.mile / total, 0, 1);
+    const stops = J.waypoints.filter((w) => w.mile > 0);
+    const [mx, my] = routePoint(cur);
+    const nextIdx = stops.findIndex((w) => w.mile > p.mile);
+    // Labels, by priority: the next stop, the finish, the last stop passed, the start.
+    // A label sits on the open side of the curve (above a dot on the lower bend, below one on
+    // the upper bend); any label that would collide with a higher-priority one is dropped.
+    const placed = [];
+    const labelFor = (x, y, name, priority) => {
+      // Put the label on the side the path is moving away from: look a little ahead and
+      // behind along the curve and go opposite to where the line is heading.
+      const f0 = (x - 24) / 352;
+      const yAhead = routePoint(Math.min(1, f0 + 0.08))[1], yBehind = routePoint(Math.max(0, f0 - 0.08))[1];
+      const above = (yAhead + yBehind) / 2 >= y;
+      // The you-are-here marker sits on the trail too: push a label clear of it when they're close.
+      const nearHere = Math.hypot(x - mx, y - my) < 34;
+      const text = name.length > 26 ? name.slice(0, 25) + '…' : name;
+      const anchor = x > 300 ? 'end' : x < 100 ? 'start' : 'middle';
+      const w = text.length * 6.4;
+      const left = anchor === 'end' ? x - w : anchor === 'start' ? x : x - w / 2;
+      const hit = placed.some((l) => l.above === above && left < l.left + l.w + 10 && l.left < left + w + 10);
+      if (hit) return '';
+      placed.push({ left, w, above, priority });
+      return `<text x="${x.toFixed(1)}" y="${(above ? y - (nearHere ? 30 : 18) : y + (nearHere ? 38 : 26)).toFixed(1)}" text-anchor="${anchor}">${esc(text)}</text>`;
+    };
+    const order = [nextIdx, stops.length - 1, nextIdx - 1].filter((i) => i >= 0 && i < stops.length);
+    const labels = {};
+    for (const i of order) if (labels[i] == null) { const w = stops[i]; const [x, y] = routePoint(w.mile / total); labels[i] = labelFor(x, y, capitalize(w.name).replace(/^The /, ''), order.indexOf(i)); }
+    const [sx, sy] = routePoint(0);
+    const startLabel = cur > 0.06 ? labelFor(sx, sy, capitalize(J.start), 9) : '';
+    const dots = stops.map((w, i) => {
+      const [x, y] = routePoint(w.mile / total);
+      const passed = w.mile <= p.mile;
+      const isNext = i === nextIdx;
+      return `<g class="stop ${passed ? 'passed' : ''} ${isNext ? 'next' : ''}" data-action="route-stop" data-name="${esc(capitalize(w.name))}" data-mile="${w.mile}">
+          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="22" fill="transparent"/>
+          <circle class="dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${isNext ? 5.5 : 4}"/>
+          ${labels[i] || ''}
+        </g>`;
+    }).join('');
+    return `
+      <div class="page route">
+        <div class="kicker">Route · ${fmtDist(total)}</div>
+        <svg class="route-map" viewBox="0 0 400 164" role="img" aria-label="Route map: ${esc(p.here.name)} to ${esc(J.end)}">
+          <path class="trail" d="${routePath(0, 1)}"/>
+          <path class="trail done" d="${routePath(0, cur)}"/>
+          <g class="endpoints">
+            ${Math.hypot(mx - 24, my - routePoint(0)[1]) > 60 ? `<circle cx="24" cy="${routePoint(0)[1].toFixed(1)}" r="4"/>` : ''}
+            ${Math.hypot(mx - 24, my - routePoint(0)[1]) > 30 ? startLabel : ''}
+          </g>
+          ${dots}
+          <g class="here" transform="translate(${mx.toFixed(1)} ${my.toFixed(1)})">
+            <circle class="halo" r="12"/>
+            <circle r="6"/>
+          </g>
+        </svg>
+      </div>`;
+  }
+  function clampNum(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+  /* ---------- Daily rhythm: today's ring, streak, next stop ---------- */
+
+  function rhythmCard(p) {
+    const R = state.rhythm;
+    if (!R) return '';
+    const goal = R.goal;
+    const period = goal ? goal.period : 'day';
+    const done = period === 'week' ? R.weekMiles : R.todayMiles;
+    const target = goal ? goal.miles : null;
+    const pct = target ? Math.min(100, (done / target) * 100) : 0;
+    const nextStop = !p.arrived && p.next ? `${fmtDist(p.next.mile - p.mile, 1)} to ${esc(p.next.name)}` : p.arrived ? 'Journey complete' : '';
+    const streakText = R.streak >= 2 ? `${R.streak}-day streak${R.walkedToday ? '' : (R.graceUsed ? ' · grace day used, walk today' : ' · walk today to keep it')}${R.walkedToday && R.graceUsed ? ' · one grace day used' : ''}`
+      : R.streak === 1 ? (R.walkedToday ? 'Day 1 of a streak' : 'Walked yesterday · walk today to start a streak')
+      : 'Walk today to start a streak';
+    const ringLabel = target
+      ? `${fmt(dnum(done), 1)} of ${fmtDist(target, 1)} ${period === 'week' ? 'this week' : 'today'}`
+      : `${fmtDist(done, 1)} ${period === 'week' ? 'this week' : 'today'}`;
+    let starter = '';
+    if (!goal && !state.goalOpen && R.features && R.features.goal && !flag('goalOfferDismissed')) {
+      starter = `<div class="starter-goal">
+          <p class="small">Most walkers start with <strong>${isKm() ? '3 km' : '2 mi'} a day</strong>. Set that as your goal?</p>
+          <div class="row"><button class="button" type="button" data-action="accept-starter-goal">Yes, ${isKm() ? '3 km' : '2 mi'} a day</button><button class="button quiet" type="button" data-action="dismiss-starter-goal">Not now</button></div>
+        </div>`;
+    }
+    const goalForm = state.goalOpen ? `
+        <form data-form="set-goal" class="goal-form">
+          <div class="row">
+            <label class="field" style="margin:0"><span class="visually-hidden">Distance</span><input name="miles" type="number" inputmode="decimal" step="0.1" min="0" max="800" value="${goal ? fmt(dnum(goal.miles), 1).replace(/,/g, '') : isKm() ? '3' : '2'}" required aria-label="Goal distance"></label>
+            <select name="period" aria-label="Per day or per week">
+              <option value="day" ${period === 'day' ? 'selected' : ''}>${unitWord()} a day</option>
+              <option value="week" ${period === 'week' ? 'selected' : ''}>${unitWord()} a week</option>
+            </select>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="button" type="submit">Save goal</button>
+            ${goal ? `<button class="button quiet" type="button" data-action="clear-goal">No goal</button>` : `<button class="button quiet" type="button" data-action="toggle-goal">Cancel</button>`}
+          </div>
+        </form>` : '';
+    return `
+      <div class="page rhythm">
+        <button type="button" class="ring-button" data-action="toggle-goal" aria-label="${target ? 'Change your goal' : 'Set a goal'}">
+          <svg class="ring" viewBox="0 0 80 80" aria-hidden="true">
+            <circle class="ring-track" cx="40" cy="40" r="34"/>
+            <line class="ring-tick" x1="71" y1="40" x2="77" y2="40"/>
+            <circle class="ring-fill ${pct >= 100 ? 'done' : ''}" cx="40" cy="40" r="34" style="stroke-dashoffset:${(213.6 * (1 - pct / 100)).toFixed(1)}"/>
+          </svg>
+          <span class="ring-number">${target ? Math.round(pct) + '%' : fmt(dnum(done), 1)}</span>
+        </button>
+        <div class="rhythm-copy">
+          <strong>${ringLabel}</strong>
+          <span class="streak ${R.walkedToday && R.streak >= 2 ? 'hot' : ''}">${flameSvg()} ${esc(streakText)}</span>
+          ${nextStop ? `<span class="next-stop">${nextStop}</span>` : ''}
+          ${!state.goalOpen && (target || flag('goalOfferDismissed')) ? `<button type="button" class="button link" data-action="toggle-goal">${target ? 'Change goal' : (R.features && R.features.goal ? 'Set a daily goal' : '')}</button>` : ''}
+        </div>
+        ${goalForm}
+        ${starter}
+        ${!p.arrived ? `<div class="quick-row in-rhythm" aria-label="Quick add">${QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-amount="${m}">+${m}<small>${units()}</small></button>`).join('')}</div>` : ''}
+      </div>`;
+  }
+
+  function flameSvg() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-3 1.5-4 2-6 1 1.5 1.5 2 2 3 .5-2.5-.5-5 1-8z"/></svg>';
   }
 
   function entryRow(e) {
     const mine = e.user_id === state.user.id;
-    return `<li>
-      <span class="avatar">${esc((e.name || '?')[0].toUpperCase())}</span>
-      <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span></div>
-      <span class="miles">${fmt(e.miles)} mi</span>
-      ${mine ? `<button type="button" class="undo" data-action="delete-entry" data-id="${e.id}" aria-label="Remove this entry">remove</button>` : ''}
+    const cheersOn = !isSolo() && state.journey.features && state.journey.features.cheers;
+    return `<li data-entry="${e.id}">
+      ${avatar(e)}
+      <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span>${cheersOn ? cheerLine(e) : ''}</div>
+      <span class="miles">${fmtDist(e.miles)}</span>
+      ${mine ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}" aria-label="Edit this entry">edit</button>`
+        : cheersOn ? `<button type="button" class="cheer ${e.cheered ? 'on' : ''}" data-action="cheer" data-id="${e.id}" aria-pressed="${e.cheered ? 'true' : 'false'}" aria-label="${e.cheered ? 'Take back your cheer' : 'Cheer'}">${heartSvg()}<b>${e.cheers || ''}</b></button>` : ''}
     </li>`;
   }
 
+  // A Google profile photo when we have one, otherwise the person's initial.
+  function avatar(person) {
+    const initial = esc(((person && person.name) || '?')[0].toUpperCase());
+    if (person && person.picture) {
+      return `<span class="avatar has-photo"><img src="${esc(person.picture)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()"><b>${initial}</b></span>`;
+    }
+    return `<span class="avatar">${initial}</span>`;
+  }
+
+  function heartSvg() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5l-1.3-1.2C5.4 14.5 2 11.4 2 7.6 2 4.6 4.4 2.5 7.2 2.5c1.7 0 3.3.8 4.3 2.1 1-1.3 2.6-2.1 4.3-2.1 2.8 0 5.2 2.1 5.2 5.1 0 3.8-3.4 6.9-8.7 11.7L12 20.5z"/></svg>';
+  }
+
+  // "You and Sam cheered", "Sam, Jo and 2 others cheered"
+  function cheerLine(e) {
+    const n = e.cheers || 0;
+    if (!n) return '';
+    const names = (e.cheer_names || []).slice();
+    if (e.cheered) names.unshift('You');
+    const others = n - names.length;
+    let text = listNames(names);
+    if (others > 0) text += `${names.length ? ' and ' : ''}${others} ${others === 1 ? 'other' : 'others'}`;
+    return `<em class="cheer-line">${esc(text)} cheered</em>`;
+  }
+
   function sceneLabel(p) {
+    const hero = capitalize(`the ${heroWord(p.J)}`);
     const walked = `${fmt(p.mile, 0)} of ${fmt(p.goal, 0)} miles`;
-    if (p.arrived) return `The elf has reached the North Pole after walking ${fmt(p.goal, 0)} miles.`;
-    if (p.here.mile === 0) return `The elf is at the start in ${p.here.name} and has walked ${walked}. Next stop: ${p.next.name}.`;
-    return `The elf has walked ${walked} and just passed ${p.here.name}.${p.next ? ` Next stop: ${p.next.name}.` : ''}`;
+    if (p.arrived) return `${hero} has reached ${p.J.end} after walking ${fmt(p.goal, 0)} miles.`;
+    if (p.here.mile === 0) return `${hero} is at the start in ${p.here.name} and has walked ${walked}. Next stop: ${p.next.name}.`;
+    return `${hero} has walked ${walked} and just passed ${p.here.name}.${p.next ? ` Next stop: ${p.next.name}.` : ''}`;
   }
 
   function positionScene() {
@@ -398,6 +1286,10 @@
 
     const p = progress();
     const from = state.lastShownMile;
+    // Already showing this walk at this mile (say, coming back from another tab): leave it be.
+    const key = `${state.teamId}:${p.mile.toFixed(2)}:${isKm() ? 'km' : 'mi'}`;
+    if (host.firstChild && host.dataset.shown === key) return;
+    host.dataset.shown = key;
     JourneyScene.mount(host, {
       journey: p.J,
       mile: p.mile,
@@ -406,6 +1298,8 @@
       label: sceneLabel(p),
     });
 
+    const post = document.getElementById('hero-number');
+    if (post && from != null && Math.abs(from - p.mile) >= 0.05) { post.classList.remove('pulse'); void post.offsetWidth; post.classList.add('pulse'); }
     if (fill) {
       const was = from == null ? p.mile : from;
       fill.style.width = `${(Math.min(100, (was / p.goal) * 100)).toFixed(1)}%`;
@@ -438,54 +1332,108 @@
     { name: 'Active play with kids', cal: 140 },
   ];
   const UNITS = {
-    miles: { label: 'Miles', step: '0.1', min: '0.1', max: '100', placeholder: '2.5', inputmode: 'decimal' },
+    miles: { label: 'Miles', step: '0.01', min: '0.01', max: '100', placeholder: '2.5', inputmode: 'decimal' },
+    km: { label: 'Kilometers', step: '0.01', min: '0.01', max: '160', placeholder: '4', inputmode: 'decimal' },
+    steps: { label: 'Steps', step: '1', min: '100', max: String(100 * STEPS_PER_MILE), placeholder: '4000', inputmode: 'numeric' },
     calories: { label: 'Calories burned', step: '1', min: '10', max: String(100 * CALORIES_PER_MILE), placeholder: '250', inputmode: 'numeric' },
   };
+  const QUICK_ADD = [0.5, 1, 2, 3]; // in the walker's unit
 
   function savedUnit() {
-    try { return localStorage.getItem('logUnit') === 'calories' ? 'calories' : 'miles'; } catch (e) { return 'miles'; }
+    try { const u = localStorage.getItem('logUnit'); return UNITS[u] ? u : 'miles'; } catch (e) { return 'miles'; }
+  }
+
+  // The entry being edited on the Add miles screen, or null when adding.
+  let editing = null;
+
+  function todayIso() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function isoOf(sqlDate) {
+    const d = new Date(sqlDate.replace(' ', 'T') + 'Z');
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function myLastEntry() {
+    return (state.journey && state.journey.recent.find((e) => e.user_id === state.user.id)) || null;
   }
   function saveUnit(unit) {
     try { localStorage.setItem('logUnit', unit); } catch (e) { /* storage unavailable; the choice lasts for this screen */ }
   }
 
   function logScreen() {
-    const unit = savedUnit();
+    const distUnit = isKm() ? 'km' : 'miles';
+    const saved = savedUnit();
+    const unit = editing ? distUnit : ((saved === 'miles' || saved === 'km') ? distUnit : saved);
     const u = UNITS[unit];
+    const last = myLastEntry();
+    const today = todayIso();
+    const editDate = editing ? isoOf(editing.logged_at) : today;
+    const quick = QUICK_ADD.map((m) => `<button type="button" class="quick" data-action="quick-add" data-amount="${m}">+${m}<small>${units()}</small></button>`).join('');
     return `
-      <div class="page">
-        <h2>Add your miles</h2>
-        <p class="muted small">Walked or ran? Log miles. Did yoga, swam, biked or lifted? Log the calories you burned: every 100 calories counts as 1 mile.</p>
-        <form data-form="add-miles">
-          <div class="unit-toggle" role="radiogroup" aria-label="What are you logging?">
-            <label><input type="radio" name="unit" value="miles" ${unit === 'miles' ? 'checked' : ''}><span>Miles</span></label>
-            <label><input type="radio" name="unit" value="calories" ${unit === 'calories' ? 'checked' : ''}><span>Calories</span></label>
-          </div>
-          <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" required aria-describedby="conversion"></label>
-          <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, '')}</p>
-          <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building"></label>
-          <button class="button wide" type="submit">Add to the team</button>
-        </form>
-        <p class="small muted" style="margin-top:14px">Counting steps instead? About 2,000 steps is one mile.</p>
-      </div>
+      ${editing ? '' : `
+      <div class="page hero">
+        <div class="kicker">Quick add · today</div>
+        <div class="quick-row">${quick}</div>
+      </div>`}
 
       <div class="page">
-        <h2>How other movement counts</h2>
-        <p class="small muted">Every 100 calories you burn counts as 1 mile, which is about 2,000 steps. If your watch or fitness app shows calories for a workout, use that number. If not, here is about what 30 minutes burns. Tap one to fill it in.</p>
+        <h2>${editing ? 'Edit entry' : 'Log a walk'}</h2>
+        ${editing ? `<p class="muted small">Logged ${esc(whenText(editing.logged_at))}.</p>`
+          : `<p class="muted small">Miles, steps, or calories from any workout.</p>`}
+        <form data-form="add-miles" ${editing ? `data-edit="${editing.id}"` : ''}>
+          ${editing ? '' : `
+          <div class="unit-toggle" role="radiogroup" aria-label="What are you logging?">
+            <label><input type="radio" name="unit" value="${distUnit}" ${unit === distUnit ? 'checked' : ''}><span>${isKm() ? 'Km' : 'Miles'}</span></label>
+            <label><input type="radio" name="unit" value="steps" ${unit === 'steps' ? 'checked' : ''}><span>Steps</span></label>
+            <label><input type="radio" name="unit" value="calories" ${unit === 'calories' ? 'checked' : ''}><span>Calories</span></label>
+          </div>`}
+          <label class="field"><span id="amount-label">${u.label}</span><input class="big" name="amount" type="number" inputmode="${u.inputmode}" step="${u.step}" min="${u.min}" max="${u.max}" placeholder="${u.placeholder}" value="${editing ? fmt(dnum(editing.miles), 2).replace(/,/g, '') : ''}" required aria-describedby="conversion"></label>
+          <p class="conversion" id="conversion" aria-live="polite">${conversionText(unit, editing ? fmt(dnum(editing.miles), 2).replace(/,/g, '') : '')}</p>
+          <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building" value="${editing ? esc(editing.note || '') : ''}"></label>
+          <details class="when" ${editing && editDate !== today ? 'open' : ''}>
+            <summary>${editing ? 'Change the day' : 'Missed a day? Log it for another date'}</summary>
+            <label class="field"><span>Day</span><input name="date" type="date" value="${editDate}" max="${today}"></label>
+          </details>
+          <button class="button wide" type="submit">${editing ? 'Save changes' : soloVoice() ? 'Add to my walk' : 'Add to the team'}</button>
+          ${editing ? `<div class="row" style="margin-top:8px"><button class="button quiet" type="button" data-action="cancel-edit">Cancel</button><button class="button quiet" type="button" data-action="delete-entry" data-id="${editing.id}">Remove entry</button></div>` : ''}
+        </form>
+      </div>
+
+      ${!editing && last ? `
+      <div class="page last-entry">
+        <h2>Your last entry</h2>
+        <ul class="list"><li>
+          <div class="who"><strong>${fmtDist(last.miles)}</strong><span>${esc(whenText(last.logged_at))}${last.note ? ' · ' + esc(last.note) : ''}</span></div>
+          <button type="button" class="button quiet small-btn" data-action="edit-entry" data-id="${last.id}">Edit</button>
+          <button type="button" class="button quiet small-btn" data-action="delete-entry" data-id="${last.id}">Remove</button>
+        </li></ul>
+      </div>` : ''}
+
+      ${editing ? '' : `
+      <div class="page">
+        <details class="fold">
+          <summary><h2>Other movement counts too</h2><span class="small muted">100 calories = ${isKm() ? '1.6 km' : '1 mile'} · tap one to fill it in</span></summary>
         <ul class="activity-list">
           ${ACTIVITIES.map((a) => `<li><button type="button" data-action="use-calories" data-cal="${a.cal}">
             <span class="activity-name">${esc(a.name)}</span>
             <span class="activity-numbers"><strong>${a.cal} cal</strong> = ${fmt(a.cal / CALORIES_PER_MILE, 2)} mi<small>about ${fmt(a.cal / CALORIES_PER_MILE * STEPS_PER_MILE, 0)} steps</small></span>
           </button></li>`).join('')}
         </ul>
-        <p class="small muted" style="margin-top:12px">Numbers are for 30 minutes for a 155-pound adult. Did an hour? Double it. Lighter people burn a little less, heavier people a little more.</p>
-      </div>`;
+        <p class="small muted" style="margin-top:12px">For 30 minutes, 155-pound adult. Did an hour? Double it.</p>
+        </details>
+      </div>`}`;
   }
 
   function conversionText(unit, raw) {
     const n = Number(raw);
     if (raw === '' || !Number.isFinite(n) || n <= 0) {
-      return unit === 'calories' ? 'Every 100 calories counts as 1 mile.' : 'About 2,000 steps is one mile.';
+      return unit === 'calories' ? 'Every 100 calories counts as 1 mile.' : unit === 'km' ? 'About 1,250 steps is one kilometer.' : 'About 2,000 steps is one mile.';
+    }
+    if (unit === 'km') return `${fmt(n, 2)} km is about ${fmt(n / KM_PER_MILE * STEPS_PER_MILE, 0)} steps`;
+    if (unit === 'steps') {
+      const miles = Math.round(n) / STEPS_PER_MILE;
+      return `${fmt(Math.round(n), 0)} steps = <strong>${fmt(miles, 2)} miles</strong>`;
     }
     if (unit === 'calories') {
       const miles = Math.round(n) / CALORIES_PER_MILE;
@@ -510,46 +1458,90 @@
 
   function teamScreen() {
     const team = state.journey.team;
-    const link = `${location.origin}/join/${team.invite_code}`;
+    const J = currentJourneyDef();
+    const link = `${WEB_ORIGIN}/join/${team.invite_code}`;
     const members = state.journey.members;
+    const solo = isSolo();
+    const invite = `
+        <div class="invite-card">
+          <div><p class="small muted" style="margin-bottom:2px">Invite code</p><p class="invite-code">${esc(team.invite_code)}</p></div>
+          <div class="invite-actions">
+            <button class="button" type="button" data-action="copy-link" data-link="${esc(link)}">Copy link</button>
+            ${navigator.share ? `<button class="button quiet" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(solo ? J.title : team.name)}" data-solo="${solo ? 1 : 0}" data-end="${esc(J.end)}">Share</button>` : ''}
+          </div>
+        </div>
+`;
     return `
+      ${solo ? `
+      <div class="page">
+        <h2>Walk with friends</h2>
+        <p class="muted small">This is your own journey to ${esc(J.end)}. Invite a friend and their miles join yours; it becomes a group walk the moment they sign in.</p>
+        ${invite}
+      </div>` : `
       <div class="page">
         <h2>${esc(team.name)}</h2>
-        <p class="muted small">Send this link to anyone who wants to walk with you. They sign in with Google and they're on the team.</p>
-        <div class="invite-box"><code>${esc(link)}</code><button class="button" type="button" data-action="copy-link" data-link="${esc(link)}" style="flex:0 0 auto;min-height:40px;padding:6px 14px">Copy</button></div>
-        <p class="small muted" style="margin-bottom:2px">Or share the code</p>
-        <p class="invite-code">${esc(team.invite_code)}</p>
-        ${navigator.share ? `<button class="button quiet wide" type="button" data-action="share-link" data-link="${esc(link)}" data-team="${esc(team.name)}">Share invite</button>` : ''}
+        <p class="muted small">Share the link or the code. Friends sign in with Google and they're on the team.</p>
+        ${invite}
       </div>
 
       <div class="page">
         <h2>Walking together (${members.length})</h2>
         <ul class="list">
           ${members.map((m) => `<li>
-            ${m.picture ? `<img class="avatar" src="${esc(m.picture)}" alt="" referrerpolicy="no-referrer">` : `<span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>`}
+            ${avatar(m)}
             <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>joined ${esc(whenText(m.joined_at))}</span></div>
           </li>`).join('')}
         </ul>
-      </div>
+      </div>`}
 
+      ${standingsCard()}
+
+      ${team.created_by === state.user.id ? `
       <div class="page">
-        <h2>Walk another trail</h2>
-        <p class="muted small">You can be on more than one team — one for work, one for family.</p>
-        <form data-form="create-team">
+        <h2>${solo ? 'Name this walk' : 'Rename the group'}</h2>
+        <form data-form="rename-team">
           <div class="row">
-            <label class="field" style="margin:0"><input name="name" maxlength="60" placeholder="New team name" required></label>
-            <button class="button quiet" type="submit" style="flex:0 0 auto">Start</button>
+            <label class="field" style="margin:0"><input name="name" maxlength="60" value="${esc(team.name)}" required aria-label="Walk name"></label>
+            <button class="button quiet" type="submit" style="flex:0 0 auto">Save</button>
           </div>
         </form>
+      </div>` : ''}
+
+      <div class="page">
+        <h2>Another trail</h2>
+        <p class="muted small">Be on more than one walk at a time.</p>
+        <button class="button quiet wide" type="button" data-action="pick-open">Start another journey</button>
         <form data-form="join-team" style="margin-top:10px">
           <div class="row">
-            <label class="field" style="margin:0"><input name="code" maxlength="8" placeholder="Invite code" autocapitalize="characters" required></label>
+            <label class="field" style="margin:0"><input name="code" maxlength="8" placeholder="Invite code" autocapitalize="characters" required aria-label="Invite code"></label>
             <button class="button quiet" type="submit" style="flex:0 0 auto">Join</button>
           </div>
         </form>
-      </div>
+      </div>`;
+  }
 
-      <button class="button quiet on-night wide" data-action="sign-out">Sign out</button>`;
+  function standingsCard() {
+    const J = state.journey;
+    if (isSolo() || !J.features || !J.features.leaderboard) return '';
+    const owner = J.team.created_by === state.user.id;
+    const on = Boolean(J.team.leaderboard);
+    const toggle = owner ? `
+        <label class="switch"><input type="checkbox" data-action="toggle-leaderboard" ${on ? 'checked' : ''}><span>Show the leaderboard to everyone</span></label>` : '';
+    if (!on) {
+      return owner ? `<div class="page"><h2>Leaderboard</h2><p class="muted small">Off. Only you can see this switch.</p>${toggle}</div>` : '';
+    }
+    const rows = (J.standings || []).map((m, i) => `<li class="${m.id === state.user.id ? 'me' : ''}">
+        <span class="rank ${i === 0 && m.total > 0 ? 'first' : ''}">${i + 1}</span>
+        ${avatar(m)}
+        <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>${fmtDist(m.week)} this week</span></div>
+        <span class="miles">${fmtDist(m.total)}</span>
+      </li>`).join('');
+    return `<div class="page">
+        <h2>Leaderboard</h2>
+        <p class="muted small">All time, with this week underneath.</p>
+        <ol class="list standings">${rows}</ol>
+        ${toggle}
+      </div>`;
   }
 
   /* ---------- Awards screen ---------- */
@@ -576,32 +1568,199 @@
         ? `<p class="badge-status">${esc(earnedText(a.earnedAt))}</p>`
         : `<p class="badge-status">${esc(a.how)}</p>
            ${a.progress ? `<div class="badge-progress" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct.toFixed(0)}%"></div></div>
-           <p class="badge-progress-text">${esc(a.progress.text)}</p>` : ''}`}
+           <p class="badge-progress-text">${esc(progressText(a))}</p>` : ''}`}
     </li>`;
   }
 
   function awardsScreen() {
     const A = state.awards;
     if (!A) {
-      return `<div class="page"><h2>Awards</h2><p class="muted small">Opening the trophy case…</p></div>`;
+      return `<div class="page hero" aria-busy="true"><div class="kicker">Earned</div><div class="skeleton" style="height:44px;width:40%;margin:6px 0 14px"></div><div class="skeleton" style="height:120px"></div></div><div class="page"><div class="skeleton" style="height:28px;width:35%;margin-bottom:12px"></div><div class="skeleton" style="height:120px"></div></div>`;
     }
-    const teamEarned = A.team.filter((a) => a.earned).length;
-    const mineEarned = A.personal.filter((a) => a.earned).length;
+    const hero = A.hero || 'Elf';
+    const solo = soloVoice();
+    const all = [...A.team.map((a) => ({ ...a, section: 'team' })), ...A.personal.map((a) => ({ ...a, section: 'personal' }))];
+    const earned = all.filter((a) => a.earned).sort((a, b) => String(b.earnedAt).localeCompare(String(a.earnedAt)));
+    const ratio = (a) => (a.progress && a.progress.goal ? a.progress.value / a.progress.goal : -1);
+    const nextUp = all.filter((a) => !a.earned).sort((a, b) => ratio(b) - ratio(a)).slice(0, 3);
     const lastWeek = A.elfOfLastWeek && A.elfOfLastWeek.names.length
-      ? `Last week's Elf of the Week: <strong>${esc(listNames(A.elfOfLastWeek.names))}</strong>`
-      : `Last week's Elf of the Week: <strong>nobody logged last week</strong>`;
+      ? `Last week's ${esc(hero)} of the Week: <strong>${esc(listNames(A.elfOfLastWeek.names))}</strong>`
+      : `Last week's ${esc(hero)} of the Week: <strong>nobody logged last week</strong>`;
+    if (state.awardsAll) {
+      return `
+        ${routeNotice()}
+        <div class="page">
+          <div class="cal-head"><h2>${solo ? 'Journey Awards' : 'Team Awards'}</h2><button type="button" class="button quiet small-btn" data-action="awards-less">Back</button></div>
+          <p class="muted small">${solo ? 'Earned by reaching each stop on the trail.' : 'Everyone on the team sees these the same way.'} ${A.team.filter((a) => a.earned).length} of ${A.team.length} earned.</p>
+          ${solo ? '' : `<p class="small elf-week">${lastWeek}</p>`}
+          <ul class="badges">${A.team.map(badgeCard).join('')}</ul>
+        </div>
+        <div class="page">
+          <h2>Your Awards</h2>
+          <p class="muted small">Earned by your own miles. ${A.personal.filter((a) => a.earned).length} of ${A.personal.length} earned.</p>
+          <ul class="badges">${A.personal.map(badgeCard).join('')}</ul>
+        </div>`;
+    }
     return `
       ${routeNotice()}
+      <div class="page hero">
+        <div class="kicker">Earned</div>
+        <div class="hero-number"><b>${earned.length}</b><small>of ${all.length} awards</small></div>
+        ${!solo ? `<p class="small muted" style="margin-top:-6px">${lastWeek}</p>` : ''}
+        ${earned.length ? `<ul class="badges">${earned.map(badgeCard).join('')}</ul>` : `<p class="muted">Nothing yet. Your first walk earns the first one.</p>`}
+      </div>
+      ${nextUp.length ? `
       <div class="page">
-        <h2>Team Awards</h2>
-        <p class="muted small">Everyone on the team sees these the same way. ${teamEarned} of ${A.team.length} earned.</p>
-        <p class="small elf-week">${lastWeek}</p>
-        <ul class="badges">${A.team.map(badgeCard).join('')}</ul>
+        <h2>Next up</h2>
+        <p class="muted small">The three closest.</p>
+        <ul class="badges">${nextUp.map(badgeCard).join('')}</ul>
+      </div>` : ''}
+      <button class="button quiet on-night wide" type="button" data-action="awards-all">See all ${all.length} awards</button>`;
+  }
+
+  /* ---------- Settings ---------- */
+
+  let deferredInstall = null; // Chrome's install prompt, if the browser offers one
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
+  const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  function installHelp() {
+    if (isStandalone()) return `<p class="small muted">Stroll is on your home screen already.</p>`;
+    if (deferredInstall) return `<button class="button" type="button" data-action="install">Add Stroll to your home screen</button>`;
+    if (isIOS()) return `<p class="small">In Safari, tap <strong>Share</strong> (the square with the arrow), then <strong>Add to Home Screen</strong>.</p>`;
+    return `<p class="small">In your browser's menu, choose <strong>Add to Home screen</strong> or <strong>Install app</strong>.</p>`;
+  }
+
+  function settingsScreen() {
+    return `
+      <div class="page">
+        <div class="cal-head"><h2>Settings</h2><button type="button" class="button quiet small-btn" data-action="close-settings">Done</button></div>
+        <p class="small muted">${esc(state.user.name)} · ${esc(state.user.email)}</p>
       </div>
       <div class="page">
-        <h2>Your Awards</h2>
-        <p class="muted small">Earned by your own miles. ${mineEarned} of ${A.personal.length} earned.</p>
-        <ul class="badges">${A.personal.map(badgeCard).join('')}</ul>
+        <h2>Distances</h2>
+        <div class="unit-toggle" role="radiogroup" aria-label="Distance units">
+          <label><input type="radio" name="units" value="mi" data-action="set-units" ${!isKm() ? 'checked' : ''}><span>Miles</span></label>
+          <label><input type="radio" name="units" value="km" data-action="set-units" ${isKm() ? 'checked' : ''}><span>Kilometers</span></label>
+        </div>
+        <p class="small muted">Used everywhere, including what you type. Friends can use either.</p>
+      </div>
+      <div class="page">
+        <h2>Daily reminder</h2>
+        <div class="unit-toggle" role="radiogroup" aria-label="Daily reminder">
+          <label><input type="radio" name="nudge" value="off" data-action="set-nudge" ${nudgePref().on ? '' : 'checked'}><span>Off</span></label>
+          <label><input type="radio" name="nudge" value="on" data-action="set-nudge" ${nudgePref().on ? 'checked' : ''}><span>On</span></label>
+        </div>
+        <label class="field nudge-time ${nudgePref().on ? '' : 'is-off'}"><span>Remind me at</span><input type="time" name="nudge-time" value="${esc(nudgePref().time)}" data-action="set-nudge-time" ${nudgePref().on ? '' : 'disabled'}></label>
+        <p class="small muted">On days you haven't walked yet, a nudge at this time: "Walk today to keep your streak." On the web it shows while Stroll is open${('Notification' in window) ? ', and as a notification if you allow them' : ''}. The iPhone app will send it even when closed.</p>
+      </div>
+      <div class="page">
+        <h2>Sounds</h2>
+        <div class="unit-toggle" role="radiogroup" aria-label="Sounds">
+          <label><input type="radio" name="sound" value="off" data-action="set-sound" ${soundOn() ? '' : 'checked'}><span>Off</span></label>
+          <label><input type="radio" name="sound" value="on" data-action="set-sound" ${soundOn() ? 'checked' : ''}><span>On</span></label>
+        </div>
+        <p class="small muted">A soft chime when you log miles, and a flourish when you reach a stop. Off unless you turn it on.</p>
+      </div>
+      <div class="page">
+        <h2>On your phone</h2>
+        <p class="small muted">Full screen, one tap away.</p>
+        ${installHelp()}
+      </div>
+      <div class="page">
+        <h2>Account</h2>
+        <button class="button quiet wide" data-action="sign-out">Sign out</button>
+        <p class="small" style="text-align:center;margin-top:12px"><button class="button link danger" type="button" data-action="delete-account">Delete my account</button></p>
+        <p class="small muted" style="text-align:center;margin-top:8px"><a class="tap-link" href="/privacy.html">Privacy</a></p>
+        <p class="small muted build-line">Stroll · build ${esc(state.config.build || 'dev')}${state.config.branch && state.config.branch !== 'main' ? ` · ${esc(state.config.branch)}` : ''}</p>
+      </div>`;
+  }
+
+  // After the first entry, offer the home screen once (never inside the installed app).
+  function installHint() {
+    if (isStandalone()) return '';
+    let due = false, dismissed = false;
+    try { due = localStorage.getItem('installHintDue') === '1'; dismissed = localStorage.getItem('installHintDismissed') === '1'; } catch (e) { /* no storage */ }
+    if (!due || dismissed) return '';
+    return `<div class="page notice" role="status">
+      <p><strong>Keep Stroll one tap away.</strong> ${deferredInstall ? 'Add it to your home screen and it opens like an app.' : isIOS() ? 'In Safari, tap Share, then Add to Home Screen.' : 'In your browser menu, choose Add to Home screen.'}</p>
+      ${deferredInstall ? `<button class="button" type="button" data-action="install" style="min-height:40px;padding:6px 16px">Add</button>` : ''}
+      <button class="button quiet" type="button" data-action="dismiss-install" style="min-height:40px;padding:6px 16px">Not now</button>
+    </div>`;
+  }
+
+  /* ---------- You: calendar and history ---------- */
+
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  function shiftMonth(ym, delta) {
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function youScreen() {
+    const Hs = state.history;
+    const R = state.rhythm;
+    const first = (state.user.name || '').split(' ')[0];
+    if (!Hs) return `<div class="page" aria-busy="true"><h2>${esc(first)}'s walking diary</h2><div class="skeleton" style="height:96px;margin-top:12px"></div></div><div class="page"><div class="skeleton" style="height:28px;width:50%;margin:0 auto 14px"></div><div class="skeleton" style="height:240px"></div></div>`;
+    const ym = `${Hs.year}-${String(Hs.month).padStart(2, '0')}`;
+    const isThisMonth = Hs.today.year === Hs.year && Hs.today.month === Hs.month;
+    const maxDay = Math.max(0.1, ...Object.values(Hs.days));
+    let cells = '';
+    for (let i = 0; i < Hs.firstWeekday; i++) cells += '<span class="cal-cell empty"></span>';
+    for (let d = 1; d <= Hs.daysInMonth; d++) {
+      const mi = Hs.days[d] || 0;
+      const future = isThisMonth && d > Hs.today.day;
+      const today = isThisMonth && d === Hs.today.day;
+      const size = mi ? (0.45 + 0.55 * Math.min(1, mi / maxDay)).toFixed(2) : 0;
+      cells += `<span class="cal-cell ${mi ? 'walked' : ''} ${today ? 'today' : ''} ${future ? 'future' : ''}" title="${mi ? fmt(mi, 1) + ' mi' : ''}">
+        <i></i><b>${d}</b>${mi ? `<small>${fmt(dnum(mi), dnum(mi) >= 10 ? 0 : 1)}</small>` : ''}</span>`;
+    }
+    const grouped = [];
+    const shown = state.feedOpen ? Hs.entries : Hs.entries.slice(0, 30);
+    for (const e of shown) {
+      const last = grouped[grouped.length - 1];
+      if (last && last.day === e.day) last.items.push(e); else grouped.push({ day: e.day, items: [e] });
+    }
+    // A lifetime total like 10,199 is wider than a phone tile at the display size, so long numbers step down a size.
+    const statCell = (v, label) => { const t = String(v); return `<li><strong class="${t.length >= 5 ? 'long' : ''}">${t}</strong><span>${label}</span></li>`; };
+    const stats = R ? `
+        <ul class="stat-row">
+          ${statCell(R.streak, 'streak')}
+          ${statCell(R.bestStreak, 'best run')}
+          ${statCell(fmt(dnum(Hs.allTimeMiles), Hs.allTimeMiles >= 1000 ? 0 : 1), unitWord())}
+          ${statCell(R.daysWalked, 'days')}
+        </ul>
+        <p class="small muted" style="margin:10px 0 0">${R.graceUsed ? 'This streak has used its grace day: one missed day is forgiven per streak, and that was it.' : 'One missed day per streak is forgiven, so a day off never erases weeks of walking.'}</p>` : '';
+    return `
+      <div class="page">
+        <h2>${esc(first)}'s walking diary</h2>
+        ${stats}
+      </div>
+      <div class="page">
+        <div class="cal-head">
+          <button type="button" class="button quiet small-btn arrow" data-action="history-month" data-month="${shiftMonth(ym, -1)}" aria-label="Previous month">‹</button>
+          <h2>${MONTHS[Hs.month - 1]} ${Hs.year}</h2>
+          <button type="button" class="button quiet small-btn arrow" data-action="history-month" data-month="${shiftMonth(ym, 1)}" aria-label="Next month" ${isThisMonth ? 'disabled' : ''}>›</button>
+        </div>
+        <p class="small muted">${fmtDist(Hs.total, 1)} this month · ${Object.keys(Hs.days).length} ${Object.keys(Hs.days).length === 1 ? 'day' : 'days'} walked</p>
+        <div class="cal-grid" role="grid" aria-label="Days walked this month">
+          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span class="cal-dow">${d}</span>`).join('')}
+          ${cells}
+        </div>
+      </div>
+      <div class="page">
+        <h2>Walks this month</h2>
+        ${grouped.length ? grouped.map((g) => `
+          <h3 class="day-head">${MONTHS[Hs.month - 1].slice(0, 3)} ${g.day}<span>${fmtDist(Hs.days[g.day] || 0, 1)}</span></h3>
+          <ul class="list">${g.items.map((e) => `<li>
+            <div class="who"><strong>${fmtDist(e.miles)}${e.note ? ` · ${esc(e.note)}` : ''}</strong><span>${esc(e.team_id === state.teamId ? 'this walk' : e.team_name)}</span></div>
+            ${e.team_id === state.teamId ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}">edit</button>` : ''}
+          </li>`).join('')}</ul>`).join('')
+          : `<p class="muted">No walks logged this month${isThisMonth ? ' yet. Today is a good day for one.' : '.'}</p>`}
+        ${Hs.entries.length > shown.length ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show all ${Hs.entries.length}</button>` : ''}
       </div>`;
   }
 
@@ -623,15 +1782,53 @@
 
   function nextAwardPop() {
     const a = popQueue.shift();
-    if (!a) { $awardPop.hidden = true; return; }
+    if (!a) { $awardPop.hidden = true; stopBurst(); return; }
+    if (a.section === 'team' && (a.kind === 'stop' || a.kind === 'milestone' || a.kind === 'border')) burst();
     $awardPop.innerHTML = `
       <div class="award-pop-card page" role="dialog" aria-live="assertive" aria-label="New award: ${esc(a.title)}">
         <div class="badge-frame earned">${badgeIcon(a.icon)}</div>
-        <p class="award-pop-kicker">New ${a.section === 'team' ? 'team ' : ''}award!</p>
+        <p class="award-pop-kicker">New ${a.section === 'team' ? (isSolo() ? 'journey ' : 'team ') : ''}award!</p>
         <h2>${esc(a.title)}</h2>
+        ${a.how ? `<p class="award-pop-how">${esc(a.how)}</p>` : ''}
         <p class="small muted">${popQueue.length ? 'Tap for the next one' : 'Tap to continue'}</p>
       </div>`;
     $awardPop.hidden = false;
+  }
+
+  /* ---------- A short confetti burst (for reaching a stop) ---------- */
+
+  let burstFrame = null, burstCanvas = null;
+  function burst() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    stopBurst();
+    burstCanvas = document.createElement('canvas');
+    burstCanvas.className = 'burst';
+    document.body.appendChild(burstCanvas);
+    const dpr = window.devicePixelRatio || 1;
+    const W = window.innerWidth, H = window.innerHeight;
+    burstCanvas.width = W * dpr; burstCanvas.height = H * dpr;
+    const ctx = burstCanvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const colors = ['#E85D04', '#FF8A33', '#FBBF24', '#F5F1EA', '#C2410C'];
+    const bits = Array.from({ length: 90 }, () => {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = 6 + Math.random() * 9;
+      return { x: W / 2, y: H * 0.42, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, w: 5 + Math.random() * 5, h: 7 + Math.random() * 7, rot: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: colors[Math.floor(Math.random() * colors.length)] };
+    });
+    const t0 = performance.now();
+    const tick = (now) => {
+      const k = (now - t0) / 1800;
+      ctx.clearRect(0, 0, W, H);
+      for (const b of bits) {
+        b.vy += 0.25; b.x += b.vx; b.y += b.vy; b.rot += b.vr;
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot); ctx.globalAlpha = Math.max(0, 1 - k); ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore();
+      }
+      if (k < 1) burstFrame = requestAnimationFrame(tick); else stopBurst();
+    };
+    burstFrame = requestAnimationFrame(tick);
+  }
+  function stopBurst() {
+    cancelAnimationFrame(burstFrame); burstFrame = null;
+    if (burstCanvas) { burstCanvas.remove(); burstCanvas = null; }
   }
 
   /* ---------- Celebration ---------- */
@@ -645,11 +1842,94 @@
     showCelebration();
   }
 
+  /* ---------- The arrival card: a picture to share ("I walked to Camelot") ---------- */
+
+  const SCENE_CSS = '.layer.mid,.layer.near{filter:saturate(.72) brightness(.86)}.layer.far{filter:saturate(.5) brightness(.7)}.clouds{filter:brightness(.55)}.fw{opacity:.9}';
+
+  async function arrivalCard() {
+    const p = progress();
+    const J = p.J;
+    const W = 1080, Hc = 1350, sceneH = 760;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = Hc;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0B0B0C'; ctx.fillRect(0, 0, W, Hc);
+    // The finale scene, drawn through an <img> so the canvas can hold it.
+    let svg = JourneyScene.thumbnail(J, J.totalMiles, { hour: 19 });
+    svg = svg.replace(/<g class="sign"[\s\S]*?<\/g>\s*<\/g>/g, '');
+    svg = svg.replace(/^<svg /, `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${sceneH}" `).replace('preserveAspectRatio="xMidYMax slice"', 'preserveAspectRatio="xMidYMid slice"').replace(/<defs>/, `<style>${SCENE_CSS}</style><defs>`);
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+    try {
+      await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('The picture could not be drawn.')); img.src = url; });
+      ctx.drawImage(img, 0, 0, W, sceneH);
+    } finally { URL.revokeObjectURL(url); }
+    const fade = ctx.createLinearGradient(0, sceneH * 0.45, 0, sceneH);
+    fade.addColorStop(0, 'rgba(11,11,12,0)'); fade.addColorStop(1, 'rgba(11,11,12,1)');
+    ctx.fillStyle = fade; ctx.fillRect(0, 0, W, sceneH);
+    try { await document.fonts.ready; } catch (e) { /* system fonts then */ }
+    // Words
+    const solo = isSolo() || state.journey.members.length < 2;
+    const first = (state.user.name || '').split(' ')[0];
+    const pad = 80;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#FF8A33'; ctx.font = '700 26px Inter, sans-serif';
+    try { ctx.letterSpacing = '4px'; } catch (e) { /* older browsers */ }
+    ctx.fillText('JOURNEY COMPLETE', pad, sceneH - 10);
+    try { ctx.letterSpacing = '0px'; } catch (e) { /* ok */ }
+    ctx.fillStyle = '#F5F1EA'; ctx.font = '600 86px Fraunces, Georgia, serif';
+    const title = `${solo ? 'I' : 'We'} walked to ${inSentence(J.end)}`;
+    const lines = wrapText(ctx, title, W - pad * 2);
+    let y = sceneH + 90;
+    lines.forEach((ln) => { ctx.fillText(ln, pad, y); y += 96; });
+    ctx.fillStyle = '#A8A29E'; ctx.font = '400 36px Inter, sans-serif';
+    const when = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    ctx.fillText(`${fmtDist(J.totalMiles)} · ${solo ? first : state.journey.team.name} · ${when}`, pad, y + 10);
+    // Wordmark
+    const by = Hc - 90;
+    ctx.strokeStyle = '#E85D04'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(pad, by + 16); ctx.bezierCurveTo(pad + 12, by - 4, pad + 18, by - 4, pad + 26, by + 16); ctx.bezierCurveTo(pad + 34, by + 36, pad + 40, by + 36, pad + 52, by + 16); ctx.stroke();
+    ctx.fillStyle = '#FF8A33'; ctx.beginPath(); ctx.arc(pad + 46, by - 12, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#F5F1EA'; ctx.font = '500 40px Fraunces, Georgia, serif'; ctx.fillText('Stroll', pad + 70, by + 28);
+    return canvas;
+  }
+
+  function wrapText(ctx, text, maxW) {
+    const words = text.split(' '); const lines = []; let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  async function shareArrival() {
+    const p = progress();
+    const canvas = await arrivalCard();
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+    const file = new File([blob], `stroll-${String(p.J.id).replace(/[^a-z0-9]/gi, '')}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: `I walked to ${inSentence(p.J.end)}`, text: `${fmtDist(p.J.totalMiles)}, every one of them mine. Walked with Stroll.` }); } catch (e) { /* closed the sheet */ }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('Your arrival card is saved. Share it anywhere.');
+  }
+  window.Stroll = Object.assign(window.Stroll || {}, { arrivalCard, chime, nudgeCheck });
+
   let celebrationFrame = null;
   function showCelebration() {
     const p = progress();
-    document.getElementById('celebration-text').textContent =
-      `${fmt(p.total, 0)} miles, walked together by ${state.journey.members.length} ${state.journey.members.length === 1 ? 'person' : 'people'}.`;
+    const arrival = p.J.arrival || { title: `You made it to ${p.J.end}!`, text: '' };
+    const n = state.journey.members.length;
+    document.getElementById('celebration-title').textContent = arrival.title;
+    document.getElementById('celebration-text').textContent = isSolo()
+      ? `${fmt(p.total, 0)} miles, every one of them yours. ${arrival.text}`.trim()
+      : `${fmt(p.total, 0)} miles, walked together by ${n} ${n === 1 ? 'person' : 'people'}. ${arrival.text}`.trim();
     $celebration.hidden = false;
 
     const canvas = document.getElementById('celebration-canvas');
@@ -662,7 +1942,7 @@
     canvas.height = window.innerHeight * dpr;
     ctx.scale(dpr, dpr);
     const W = window.innerWidth, H = window.innerHeight;
-    const colors = ['#e2b04c', '#6fe3b4', '#fbfbf7', '#c9553d', '#f5ecd8'];
+    const colors = ['#E85D04', '#FF8A33', '#FBBF24', '#F5F1EA', '#C2410C'];
     const bits = Array.from({ length: 140 }, () => ({
       x: Math.random() * W, y: -20 - Math.random() * H,
       w: 4 + Math.random() * 6, h: 6 + Math.random() * 8,
@@ -695,27 +1975,322 @@
     cancelAnimationFrame(celebrationFrame);
   }
 
+  /* ---------- Daily reminder: opt-in, local to this device for now ---------- */
+  // Stored as { on, time: 'HH:MM' }. The iPhone wrapper reads the same preference and
+  // schedules a local notification; the web shows it while Stroll is open.
+  function nudgePref() {
+    try { const v = JSON.parse(localStorage.getItem('nudge') || 'null'); if (v && typeof v === 'object') return { on: Boolean(v.on), time: /^\d\d:\d\d$/.test(v.time || '') ? v.time : '18:00' }; } catch (e) { /* fall through */ }
+    return { on: false, time: '18:00' };
+  }
+  function setNudge(patch) { try { localStorage.setItem('nudge', JSON.stringify(Object.assign(nudgePref(), patch))); } catch (e) { /* this visit only */ } }
+  function nudgeTimeText() {
+    const [h, m] = nudgePref().time.split(':').map(Number);
+    const d = new Date(); d.setHours(h, m, 0, 0);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  function nudgeMessage() {
+    const R = state.rhythm;
+    if (R && R.streak >= 2) return `Walk today to keep your ${R.streak}-day streak.`;
+    if (R && R.streak === 1) return 'Walk today and you have a 2-day streak.';
+    return 'A short walk today moves you along the trail.';
+  }
+  // Runs every minute while the app is open. Fires once per day, after the chosen time, if nothing was logged today.
+  function nudgeCheck(now, opts) {
+    const pref = nudgePref();
+    const walked = state.rhythm && state.rhythm.walkedToday && !(opts && opts.ignoreWalked);
+    if (!pref.on || !state.user || !state.rhythm || walked) return false;
+    now = now || new Date();
+    const [h, m] = pref.time.split(':').map(Number);
+    if (now.getHours() * 60 + now.getMinutes() < h * 60 + m) return false;
+    const dayKey = now.toDateString();
+    let shown = null;
+    try { shown = localStorage.getItem('nudgeShown'); } catch (e) { /* ok */ }
+    if (shown === dayKey) return false;
+    try { localStorage.setItem('nudgeShown', dayKey); } catch (e) { /* ok */ }
+    const text = nudgeMessage();
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try { new Notification('Stroll', { body: text, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', tag: 'stroll-nudge' }); } catch (e) { /* some browsers only allow this from a service worker */ }
+    }
+    state.nudge = text;
+    if (state.tab === 'journey' && document.getElementById('screen')) renderScreen();
+    return true;
+  }
+  setInterval(() => { try { nudgeCheck(); } catch (e) { /* never break the app for a reminder */ } }, 60000);
+  function nudgeBanner() {
+    if (!state.nudge) return '';
+    const text = state.nudge; state.nudge = null; // shows once
+    return `<div class="page notice nudge" role="status"><p><strong>${esc(text)}</strong> Tap a quick-add button and you're done.</p><button class="button quiet" type="button" data-action="dismiss-nudge">Later</button></div>`;
+  }
+
+  /* ---------- Sounds: a soft chime, off by default ---------- */
+  function soundOn() { try { return localStorage.getItem('sound') === 'on'; } catch (e) { return false; } }
+  function setSound(on) { try { localStorage.setItem('sound', on ? 'on' : 'off'); } catch (e) { /* this visit only */ } }
+  let audioCtx = null;
+  // kind: 'log' (two soft notes) or 'stop' (a short rising flourish). Synthesized, so no files to load.
+  function chime(kind) {
+    if (!soundOn()) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audioCtx = audioCtx || new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const notes = kind === 'stop' ? [[523, 0], [659, 0.12], [784, 0.24], [1047, 0.38]] : [[660, 0], [880, 0.14]];
+      const t0 = audioCtx.currentTime + 0.01;
+      notes.forEach(([freq, at]) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t0 + at);
+        g.gain.exponentialRampToValueAtTime(0.09, t0 + at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + (kind === 'stop' ? 0.5 : 0.35));
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(t0 + at); o.stop(t0 + at + 0.6);
+      });
+    } catch (e) { /* no audio here */ }
+  }
+
+  // A tiny tap of haptic feedback where the platform offers it (Android browsers today;
+  // the iPhone wrapper can route this to its Haptics plugin). Silent elsewhere.
+  function buzz(pattern) {
+    try { if (navigator.vibrate) navigator.vibrate(pattern || 12); } catch (e) { /* not available */ }
+  }
+
+  // Let the goal ring sweep from empty to its value (on opening the Journey, and after a goal is set).
+  function animateRing() {
+    const f = document.querySelector('.ring-fill');
+    if (!f) return;
+    const target = f.style.strokeDashoffset;
+    f.style.transition = 'none';
+    f.style.strokeDashoffset = '213.6';
+    void f.getBoundingClientRect();
+    f.style.transition = '';
+    requestAnimationFrame(() => { f.style.strokeDashoffset = target; });
+  }
+
+  // Update the visible numbers in place (no full re-render) so a tap feels instant.
+  function bumpNumbers() {
+    const p = progress();
+    const hero = document.querySelector('#hero-number b');
+    if (hero) { hero.textContent = fmt(dnum(p.total)); hero.parentElement.classList.remove('pulse'); void hero.offsetWidth; hero.parentElement.classList.add('pulse'); }
+    const fill = document.getElementById('progress-fill');
+    if (fill) fill.style.width = `${p.pct.toFixed(1)}%`;
+    const R = state.rhythm;
+    const ringNum = document.querySelector('.ring-number');
+    const ringLabel = document.querySelector('.rhythm-copy strong');
+    if (R && ringNum) {
+      const goal = R.goal, period = goal ? goal.period : 'day';
+      const done = period === 'week' ? R.weekMiles : R.todayMiles;
+      const target = goal ? goal.miles : null;
+      const pct = target ? Math.min(100, (done / target) * 100) : 0;
+      ringNum.textContent = target ? Math.round(pct) + '%' : fmt(dnum(done), 1);
+      const fillRing = document.querySelector('.ring-fill');
+      if (fillRing) { fillRing.style.strokeDashoffset = (213.6 * (1 - pct / 100)).toFixed(1); fillRing.classList.toggle('done', pct >= 100); }
+      if (ringLabel) ringLabel.textContent = target ? `${fmt(dnum(done), 1)} of ${fmtDist(target, 1)} ${period === 'week' ? 'this week' : 'today'}` : `${fmtDist(done, 1)} ${period === 'week' ? 'this week' : 'today'}`;
+      const ring = document.querySelector('.ring-button');
+      if (ring) { ring.classList.remove('bump'); void ring.offsetWidth; ring.classList.add('bump'); }
+    }
+  }
+
+  /* ---------- Adding miles (form and quick-add share this) ---------- */
+
+  async function addMiles(miles, note, date, label) {
+    const firstEver = state.journey && state.journey.teamTotal <= 0;
+    let added;
+    try {
+      added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note, date }) });
+    } catch (e) {
+      if (!e.offline) throw e;
+      writeQueue(readQueue().concat([{ team_id: state.teamId, miles, note: note || '', date: date || null, at: Date.now() }]));
+      state.tab = 'journey';
+      renderScreen();
+      toast(`No signal. ${fmtDist(miles)} is saved on your phone and will send when you're back online.`);
+      return 'queued';
+    }
+    const before = state.journey ? state.journey.teamTotal : 0;
+    await loadJourney();
+    state.tab = 'journey';
+    state.moment = { miles: added.miles, first: firstEver };
+    const J0 = currentJourneyDef();
+    const passedStop = J0.waypoints.some((w) => w.mile > 0 && w.mile > before && w.mile <= state.journey.teamTotal);
+    chime(passedStop ? 'stop' : 'log');
+    if (passedStop) buzz([18, 60, 18, 60, 36]); // a little flourish for reaching a stop
+    try { if (!localStorage.getItem('installHintDue')) localStorage.setItem('installHintDue', '1'); } catch (e) { /* no storage */ }
+    renderScreen();
+    if (firstEver) burst();
+    showAwardPops(added.newAwards);
+    toast(label || (date ? `Added ${fmtDist(added.miles)} for ${esc(whenText(added.entry.logged_at))}` : `Added ${fmtDist(added.miles)}`), {
+      label: 'Undo',
+      run: () => withBusy(async () => {
+        await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: added.id }) });
+        await loadJourney();
+        renderScreen();
+      }),
+    });
+  }
+
+  /* ---------- Pull to refresh (touch screens) ---------- */
+  (function pullToRefresh() {
+    let startY = null, pulling = false, armed = false;
+    const THRESHOLD = 72;
+    let $ptr = null;
+    const indicator = () => {
+      if (!$ptr) { $ptr = document.createElement('div'); $ptr.className = 'ptr'; $ptr.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5c4-6.5 6-6.5 8.5 0s4.5 6.5 8.5 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="6.5" r="2.3" fill="currentColor"/></svg>'; document.body.appendChild($ptr); }
+      return $ptr;
+    };
+    document.addEventListener('touchstart', (e) => {
+      if (!state.user || !state.journey || state.busy || window.scrollY > 0 || !document.getElementById('screen')) { startY = null; return; }
+      startY = e.touches[0].clientY; pulling = false; armed = false;
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (startY == null) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy < 8 || window.scrollY > 0) return;
+      pulling = true;
+      const el = indicator();
+      const k = Math.min(1, dy / THRESHOLD);
+      el.style.opacity = String(k);
+      el.style.transform = `translate(-50%, ${Math.round(k * 56)}px) rotate(${Math.round(k * 180)}deg)`;
+      armed = dy >= THRESHOLD;
+      el.classList.toggle('armed', armed);
+    }, { passive: true });
+    const end = async () => {
+      if (startY == null) return;
+      startY = null;
+      const el = indicator();
+      if (!pulling) return;
+      if (!armed) { el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; return; }
+      el.classList.add('spin');
+      try { await loadJourney(); if (state.tab === 'awards') state.awards = null; if (state.tab === 'you') state.history = null; renderScreen(); }
+      catch (err) { toast(err.message, null, 'error'); }
+      finally { el.classList.remove('spin', 'armed'); el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; pulling = false; armed = false; }
+    };
+    document.addEventListener('touchend', end, { passive: true });
+    document.addEventListener('touchcancel', end, { passive: true });
+  })();
+
   /* ---------- Actions ---------- */
 
   async function withBusy(fn) {
     if (state.busy) return;
     state.busy = true;
-    try { await fn(); } catch (e) { toast(e.message); } finally { state.busy = false; }
+    try { await fn(); }
+    catch (e) {
+      // No signal: offer to try the same thing again. Anything else: say what went wrong.
+      toast(e.message, e.offline ? { label: 'Try again', run: () => withBusy(fn) } : null, 'error');
+    }
+    finally { state.busy = false; }
   }
 
   document.addEventListener('click', (ev) => {
     if (!$awardPop.hidden && $awardPop.contains(ev.target)) { nextAwardPop(); return; }
+    const $pc = document.getElementById('postcard-pop');
+    if ($pc && !$pc.hidden && $pc.contains(ev.target)) { $pc.hidden = true; $pc.innerHTML = ''; return; }
     const el = ev.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
 
-    if (action === 'tab') { state.tab = el.dataset.tab; renderScreen(); }
+    if (action === 'tab') { state.tab = el.dataset.tab; if (state.tab !== 'log') editing = null; renderScreen(true); }
+    if (action === 'scene-home' && state.tab !== 'journey') { state.tab = 'journey'; editing = null; renderScreen(true); }
+
+    if (action === 'pick-open') renderPick();
+    if (action === 'landing-pick') {
+      try { localStorage.setItem('preferredJourney', el.dataset.journey); } catch (e) { /* this visit only */ }
+      const J = JOURNEYS[el.dataset.journey];
+      toast(J ? `Sign in and ${J.title} is yours to start.` : 'Sign in to start.');
+      const btn = document.getElementById('google-button');
+      if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.classList.remove('flash'); void btn.offsetWidth; btn.classList.add('flash'); }
+    }
+    if (action === 'apple-signin') withBusy(appleSignIn);
+    if (action === 'landing-start') {
+      const btn = document.getElementById('google-button');
+      if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.classList.remove('flash'); void btn.offsetWidth; btn.classList.add('flash'); }
+    }
+    if (action === 'goal-step-pick') withBusy(async () => {
+      await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: toMiles(el.dataset.amount), period: 'day' }) });
+      await loadJourney();
+      renderMain();
+      animateRing();
+      toast(`Goal set: ${el.dataset.amount} ${units()} a day. Now take the first step.`);
+    });
+    if (action === 'goal-step-skip') { setFlag('goalOfferDismissed', true); renderMain(); toast('Your journey begins. Add your first miles!'); }
+    if (action === 'pick-back') { state.picking = null; renderMain(); }
+    if (action === 'pick-destination') renderDestination(JOURNEYS[el.dataset.journey]);
+    if (action === 'pick-custom') renderCustom();
+    if (action === 'start-custom-solo') withBusy(async () => {
+      el.disabled = true;
+      try { await startWalk('custom', 'solo', null, customPayload()); } finally { el.disabled = false; }
+    });
+    if (action === 'pick-destination-back') renderPick();
+    if (action === 'show-group-form') {
+      const form = document.querySelector('form[data-form="create-team"]');
+      if (form) { form.hidden = false; el.hidden = true; form.querySelector('input[name="name"]').focus(); }
+    }
+    if (action === 'start-solo') withBusy(async () => {
+      el.disabled = true;
+      try { await startWalk(el.dataset.journey, 'solo'); } finally { el.disabled = false; }
+    });
 
     if (action === 'sign-out') withBusy(async () => {
       await api('/api/auth/logout', { method: 'POST' });
       localStorage.removeItem('teamId');
+      localStorage.removeItem(QUEUE_KEY);
       location.reload();
     });
+
+    if (action === 'dismiss-nudge') { const el = document.querySelector('.notice.nudge'); if (el) el.remove(); }
+    if (action === 'sync-now') withBusy(async () => {
+      const before = readQueue().length;
+      await syncQueued(true);
+      const left = readQueue().length;
+      toast(left ? 'Still no signal. It will send on its own when you are back online.' : (before === 1 ? 'Sent. Your walk is saved.' : `Sent. ${before} walks saved.`));
+    });
+    if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
+    if (action === 'route-stop') toast(`${el.dataset.name} · ${fmtDist(Number(el.dataset.mile))}`);
+    if (action === 'open-postcard') openPostcard(Number(el.dataset.mile));
+    if (action === 'awards-all') { state.awardsAll = true; renderScreen(); }
+    if (action === 'awards-less') { state.awardsAll = false; renderScreen(); }
+    if (action === 'dismiss-recap') { try { localStorage.setItem('recapDismissed', state.recap ? state.recap.weekStart : '1'); } catch (e) { /* ok */ } renderScreen(); }
+    if (action === 'open-settings') { state.tab = 'settings'; renderScreen(); }
+    if (action === 'close-settings') { state.tab = 'journey'; renderScreen(); }
+    if (action === 'dismiss-install') { try { localStorage.setItem('installHintDismissed', '1'); } catch (e) { /* ok */ } document.querySelectorAll('.notice').forEach((n) => n.remove()); }
+    if (action === 'install' && deferredInstall) {
+      const p = deferredInstall; deferredInstall = null;
+      p.prompt();
+      p.userChoice.then(() => { try { localStorage.setItem('installHintDismissed', '1'); } catch (e) { /* ok */ } renderScreen(); }).catch(() => {});
+    }
+    if (action === 'toggle-goal') { state.goalOpen = !state.goalOpen; renderScreen(); }
+    if (action === 'dismiss-starter-goal') { setFlag('goalOfferDismissed', true); renderScreen(); }
+    if (action === 'accept-starter-goal') withBusy(async () => {
+      await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: isKm() ? 3 / KM_PER_MILE : 2, period: 'day' }) });
+      await loadJourney();
+      renderScreen();
+      toast(`Goal set: ${isKm() ? '3 km' : '2 mi'} a day`);
+    });
+    if (action === 'history-month') { state.history = null; state.historyMonth = el.dataset.month; renderScreen(); }
+    if (action === 'clear-goal') withBusy(async () => {
+      await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: 0 }) });
+      state.goalOpen = false;
+      await loadJourney();
+      renderScreen();
+      toast('Goal cleared');
+    });
+
+    if (action === 'cheer') withBusy(async () => {
+      const id = Number(el.dataset.id);
+      const entry = state.journey.recent.find((e) => e.id === id);
+      const on = !(entry && entry.cheered);
+      const res = await api('/api/cheer', { method: on ? 'POST' : 'DELETE', body: JSON.stringify({ entry_id: id }) });
+      if (entry) { entry.cheered = res.cheered; entry.cheers = res.cheers; }
+      renderScreen();
+    });
+
+    if (action === 'delete-account') {
+      const sure = window.confirm('Delete your account? Your miles and sign-in are removed. Walks you share with others keep going without you. This cannot be undone.');
+      if (sure) withBusy(async () => {
+        await api('/api/me', { method: 'DELETE' });
+        localStorage.removeItem('teamId');
+        location.reload();
+      });
+    }
 
     if (action === 'copy-link') {
       const link = el.dataset.link;
@@ -725,15 +2300,46 @@
     }
 
     if (action === 'share-link') {
-      navigator.share({ title: 'Walk with us to the North Pole', text: `Join ${el.dataset.team} on the walk to the North Pole`, url: el.dataset.link }).catch(() => {});
+      navigator.share({ title: `Walk with me to ${el.dataset.end}`, text: el.dataset.solo === '1' ? `I'm walking to ${el.dataset.end} on Stroll. Come with me: your miles count with mine.` : `Join ${el.dataset.team} on the walk to ${el.dataset.end}. Every mile you log moves the whole team.`, url: el.dataset.link }).catch(() => {});
     }
 
     if (action === 'delete-entry') withBusy(async () => {
       await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: Number(el.dataset.id) }) });
+      editing = null;
       await loadJourney();
       renderScreen();
       toast('Entry removed');
     });
+
+    if (action === 'quick-add') withBusy(async () => {
+      el.disabled = true;
+      el.classList.add('tapped');
+      buzz();
+      const miles = toMiles(el.dataset.amount);
+      // Optimistic: move the numbers now, reconcile with the server after.
+      const snap = { teamTotal: state.journey.teamTotal, myTotal: state.journey.myTotal, today: state.rhythm ? state.rhythm.todayMiles : null, week: state.rhythm ? state.rhythm.weekMiles : null, walked: state.rhythm ? state.rhythm.walkedToday : null, streak: state.rhythm ? state.rhythm.streak : null };
+      state.journey.teamTotal += miles; state.journey.myTotal += miles;
+      if (state.rhythm) { state.rhythm.todayMiles += miles; state.rhythm.weekMiles += miles; if (!state.rhythm.walkedToday) { state.rhythm.walkedToday = true; state.rhythm.streak += 1; } }
+      bumpNumbers();
+      try {
+        const r = await addMiles(miles, '', undefined);
+        // Queued offline: the queue now carries these miles, so drop the optimistic copy.
+        if (r === 'queued') { state.journey.teamTotal = snap.teamTotal; state.journey.myTotal = snap.myTotal; renderScreen(); }
+      }
+      catch (e) {
+        state.journey.teamTotal = snap.teamTotal; state.journey.myTotal = snap.myTotal;
+        if (state.rhythm) { state.rhythm.todayMiles = snap.today; state.rhythm.weekMiles = snap.week; state.rhythm.walkedToday = snap.walked; state.rhythm.streak = snap.streak; }
+        renderScreen();
+        throw e;
+      } finally { el.disabled = false; }
+    });
+
+    if (action === 'edit-entry') {
+      editing = state.journey.recent.find((e) => e.id === Number(el.dataset.id)) || null;
+      state.tab = 'log';
+      renderScreen();
+    }
+    if (action === 'cancel-edit') { editing = null; renderScreen(); }
 
     if (action === 'use-calories') {
       const form = document.querySelector('form[data-form="add-miles"]');
@@ -749,17 +2355,51 @@
       document.querySelectorAll('.notice').forEach((n) => n.remove());
     }
     if (action === 'replay-celebration') showCelebration();
+    if (action === 'share-arrival') withBusy(shareArrival);
     if (action === 'close-celebration') hideCelebration();
   });
 
   document.addEventListener('change', (ev) => {
     if (ev.target.name === 'unit' && ev.target.form) { applyUnit(ev.target.form, ev.target.value); return; }
+    if (ev.target.dataset.action === 'set-nudge') {
+      const on = ev.target.value === 'on';
+      setNudge({ on });
+      if (on && 'Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission().then(() => renderScreen()); } catch (e) { /* older browsers */ } }
+      toast(on ? `Reminder on, ${nudgeTimeText()} on days you haven't walked.` : 'Reminder off');
+      renderScreen();
+      return;
+    }
+    if (ev.target.dataset.action === 'set-nudge-time') { setNudge({ time: ev.target.value || '18:00' }); toast(`Reminder at ${nudgeTimeText()}`); return; }
+    if (ev.target.dataset.action === 'set-sound') { setSound(ev.target.value === 'on'); if (ev.target.value === 'on') chime('log'); toast(ev.target.value === 'on' ? 'Sounds on' : 'Sounds off'); return; }
+    if (ev.target.dataset.action === 'set-units') { setUnits(ev.target.value); state.lastShownMile = null; toast(ev.target.value === 'km' ? 'Showing kilometers' : 'Showing miles'); renderScreen(); return; }
+    if (ev.target.dataset.action === 'custom-choose') {
+      const f = customForm;
+      const list = ev.target.dataset.field === 'start' ? f.starts : f.ends;
+      const chosen = list[Number(ev.target.value)] || null;
+      if (ev.target.dataset.field === 'start') f.start = chosen; else f.end = chosen;
+      renderCustom();
+      return;
+    }
+    if (ev.target.dataset.action === 'toggle-leaderboard') {
+      const on = ev.target.checked;
+      withBusy(async () => {
+        try {
+          await api('/api/team', { method: 'PATCH', body: JSON.stringify({ team_id: state.teamId, leaderboard: on }) });
+          await loadJourney();
+          renderScreen();
+          toast(on ? 'Leaderboard is on' : 'Leaderboard is off');
+        } catch (e) { ev.target.checked = !on; throw e; }
+      });
+      return;
+    }
     const el = ev.target.closest('[data-action="switch-team"]');
     if (!el) return;
     withBusy(async () => {
       state.teamId = el.value;
       localStorage.setItem('teamId', state.teamId);
       state.lastShownMile = null;
+      const $screen = document.getElementById('screen');
+      if ($screen) $screen.innerHTML = skeleton();
       await loadJourney();
       renderMain();
     });
@@ -767,7 +2407,8 @@
 
   document.addEventListener('input', (ev) => {
     if (ev.target.name !== 'amount' || !ev.target.form) return;
-    const unit = ev.target.form.querySelector('input[name="unit"]:checked').value;
+    const checked = ev.target.form.querySelector('input[name="unit"]:checked');
+    const unit = checked ? checked.value : 'miles';
     document.getElementById('conversion').innerHTML = conversionText(unit, ev.target.value);
   });
 
@@ -783,16 +2424,44 @@
       button.disabled = true;
       try {
         if (kind === 'create-team') {
-          const made = await api('/api/teams', { method: 'POST', body: JSON.stringify({ name: fields.name }) });
+          const jid = form.dataset.journey || 'north-pole';
+          await startWalk(jid, 'team', fields.name, jid === 'custom' ? customPayload() : undefined);
+        }
+
+        if (kind === 'custom-lookup') {
+          const f = customForm;
+          f.startQ = String(fields.start || '').trim(); f.endQ = String(fields.end || '').trim();
+          f.busy = true; f.error = ''; f.starts = null; f.ends = null; f.start = null; f.end = null;
+          renderCustom();
+          try {
+            f.starts = await lookupPlaces(f.startQ);
+            await new Promise((r) => setTimeout(r, 1100)); // the lookup service asks for a second between requests
+            f.ends = await lookupPlaces(f.endQ);
+            f.start = f.starts[0] || null; f.end = f.ends[0] || null;
+            if (!f.start || !f.end) f.error = 'One of those places was not found. Try adding the state or country.';
+          } catch (e) {
+            f.error = e.message;
+          } finally {
+            f.busy = false;
+            renderCustom();
+          }
+        }
+
+        if (kind === 'set-goal') {
+          await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: toMiles(fields.miles), period: fields.period }) });
+          state.goalOpen = false;
+          await loadJourney();
+          renderScreen();
+          toast('Goal saved');
+        }
+
+        if (kind === 'rename-team') {
+          const saved = await api('/api/team', { method: 'PATCH', body: JSON.stringify({ team_id: state.teamId, name: fields.name }) });
           const me = await api('/api/me');
           state.teams = me.teams;
-          state.teamId = made.team.id;
-          localStorage.setItem('teamId', state.teamId);
-          state.lastShownMile = null;
-          state.tab = 'team';
-          await loadJourney();
+          state.journey.team.name = saved.name;
           renderMain();
-          toast(`${made.team.name} is ready. Share the invite link.`);
+          toast('Saved');
         }
 
         if (kind === 'join-team') {
@@ -802,6 +2471,7 @@
           state.teamId = joined.team.id;
           localStorage.setItem('teamId', state.teamId);
           state.lastShownMile = null;
+          state.picking = null;
           state.tab = 'journey';
           await loadJourney();
           renderMain();
@@ -809,25 +2479,25 @@
         }
 
         if (kind === 'add-miles') {
-          // Calories are logged as miles: every 100 calories is 1 mile.
-          const byCalories = fields.unit === 'calories';
-          const calories = Math.round(Number(fields.amount));
-          const miles = byCalories ? calories / CALORIES_PER_MILE : fields.amount;
+          // Steps and calories are logged as miles: 2,000 steps or 100 calories is 1 mile.
+          const unit = form.dataset.edit ? (isKm() ? 'km' : 'miles') : (fields.unit || 'miles');
+          const raw = Math.round(Number(fields.amount));
+          const miles = unit === 'calories' ? raw / CALORIES_PER_MILE : unit === 'steps' ? raw / STEPS_PER_MILE : unit === 'km' ? Number(fields.amount) / KM_PER_MILE : fields.amount;
           let note = String(fields.note || '').trim();
-          if (byCalories) note = `${fmt(calories, 0)} calories${note ? ' · ' + note : ''}`;
-          const added = await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: state.teamId, miles, note }) });
-          await loadJourney();
-          state.tab = 'journey';
-          renderScreen();
-          showAwardPops(added.newAwards);
-          toast(byCalories ? `Added ${fmt(calories, 0)} calories (${fmt(added.miles, 2)} miles)` : `Added ${fmt(added.miles)} miles`, {
-            label: 'Undo',
-            run: () => withBusy(async () => {
-              await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: added.id }) });
-              await loadJourney();
-              renderScreen();
-            }),
-          });
+          if (unit === 'calories') note = `${fmt(raw, 0)} calories${note ? ' · ' + note : ''}`;
+          if (unit === 'steps') note = `${fmt(raw, 0)} steps${note ? ' · ' + note : ''}`;
+          const date = fields.date && fields.date !== todayIso() ? fields.date : undefined;
+          if (form.dataset.edit) {
+            const saved = await api('/api/miles', { method: 'PATCH', body: JSON.stringify({ id: Number(form.dataset.edit), miles, note, date: fields.date || undefined }) });
+            editing = null;
+            await loadJourney();
+            state.tab = 'journey';
+            renderScreen();
+            showAwardPops(saved.newAwards);
+            toast(`Saved: ${fmtDist(saved.miles)}`);
+          } else {
+            await addMiles(miles, note, date, unit === 'calories' ? `Added ${fmt(raw, 0)} calories (${fmtDist(miles, 2)})` : unit === 'steps' ? `Added ${fmt(raw, 0)} steps (${fmtDist(miles, 2)})` : null);
+          }
         }
       } finally {
         button.disabled = false;
