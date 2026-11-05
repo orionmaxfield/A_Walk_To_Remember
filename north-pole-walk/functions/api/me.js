@@ -1,7 +1,10 @@
 // GET /api/me — who is signed in, and which walks (solo journeys and teams) they belong to.
 
+import { noteReturn } from '../lib/funnel.js';
+
 export async function onRequestGet({ env, data }) {
   if (!data.user) return json({ error: 'Not signed in.' }, 401);
+  await noteReturn(env, data.user.id);
 
   const teams = await env.DB.prepare(
     `SELECT t.id, t.name, t.invite_code, t.journey_id, t.kind

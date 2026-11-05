@@ -5,6 +5,8 @@
 // Google sign-in uses. Off until APPLE_CLIENT_ID is set (a comma-separated list is fine:
 // the web Services ID and the iOS bundle id).
 
+import { bump } from '../../lib/funnel.js';
+
 const SESSION_DAYS = 90;
 const APPLE_KEYS = 'https://appleid.apple.com/auth/keys';
 const APPLE_ISS = 'https://appleid.apple.com';
@@ -61,6 +63,7 @@ export async function onRequestPost({ request, env }) {
     `INSERT INTO users (id, email, name, picture) VALUES (?, ?, ?, NULL)
      ON CONFLICT(id) DO UPDATE SET email = excluded.email, name = excluded.name`
   ).bind(id, email, name).run();
+  if (!existing) await bump(env, 'signin');
 
   const session = randomHex(32);
   const expires = sqlDate(Date.now() + SESSION_DAYS * 86400 * 1000);

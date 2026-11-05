@@ -10,6 +10,7 @@ import { attachCustom } from './me.js';
 
 const MAX_MILES_PER_ENTRY = 100;
 const MAX_BACKLOG_DAYS = 400;
+import { bump } from '../lib/funnel.js';
 
 export async function onRequestPost({ request, env, data }) {
   if (!data.user) return json({ error: 'Not signed in.' }, 401);
@@ -27,11 +28,13 @@ export async function onRequestPost({ request, env, data }) {
 
   const { base, entries } = await snapshot(env, teamId, data.user.id);
   const before = computeAwards({ ...base, entries });
+  const walkedBefore = await env.DB.prepare(`SELECT 1 AS ok FROM mile_entries WHERE user_id = ? LIMIT 1`).bind(data.user.id).first();
 
   const result = loggedAt
     ? await env.DB.prepare(`INSERT INTO mile_entries (team_id, user_id, miles, note, logged_at) VALUES (?, ?, ?, ?, ?)`).bind(teamId, data.user.id, miles, note, loggedAt).run()
     : await env.DB.prepare(`INSERT INTO mile_entries (team_id, user_id, miles, note) VALUES (?, ?, ?, ?)`).bind(teamId, data.user.id, miles, note).run();
   const id = result.meta.last_row_id;
+  if (!walkedBefore) await bump(env, 'first_entry');
   const saved = await env.DB.prepare(`SELECT id, user_id, miles, note, logged_at FROM mile_entries WHERE id = ?`).bind(id).first();
 
   const after = computeAwards({ ...base, entries: entries.concat(saved ? [saved] : []) });

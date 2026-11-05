@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   picture TEXT,
   goal_miles REAL,                        -- personal goal; NULL = not set
   goal_period TEXT NOT NULL DEFAULT 'day', -- 'day' or 'week'
+  returned_on TEXT,                       -- the date of the walker's first visit on a later day (launch counts)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -50,6 +51,14 @@ CREATE TABLE IF NOT EXISTS cheers (
   user_id TEXT NOT NULL,            -- who cheered
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (entry_id, user_id)
+);
+
+-- Launch counts: one row per day and step, totals only (see functions/lib/funnel.js)
+CREATE TABLE IF NOT EXISTS funnel_days (
+  day TEXT NOT NULL,
+  step TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, step)
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_team ON mile_entries (team_id, id);

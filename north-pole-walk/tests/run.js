@@ -40,7 +40,7 @@ async function waitFor(url, ms) {
   console.log('done');
 
   const geo = spawn(process.execPath, [path.join(__dirname, 'geostub.js'), String(GEO_PORT)], { stdio: 'ignore' });
-  const dev = spawn(wrangler, ['pages', 'dev', 'public', '--port', String(PORT), '--persist-to', STATE, '--binding', `GEOCODER_URL=http://localhost:${GEO_PORT}`, '--log-level', 'error'], { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'], env: { ...process.env, CI: '1' } });
+  const dev = spawn(wrangler, ['pages', 'dev', 'public', '--port', String(PORT), '--persist-to', STATE, '--binding', `GEOCODER_URL=http://localhost:${GEO_PORT}`, '--binding', 'ADMIN_EMAILS=a@example.test', '--log-level', 'error'], { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'], env: { ...process.env, CI: '1' } });
   let code = 1;
   try {
     await waitFor(`http://localhost:${PORT}/api/config`, 60000);

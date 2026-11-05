@@ -279,11 +279,28 @@
       earlyOr('me', '/api/me').catch(() => null),
     ]);
     if (config) state.config = config;
+    loadAnalytics();
     if (me) { state.user = me.user; state.teams = me.teams; } else { state.user = null; }
 
     if (!state.user) return renderCover();
     if (readQueue().length) { try { await flushQueue(); } catch (e) { /* later */ } }
     await afterSignIn();
+  }
+
+  // Cloudflare Web Analytics: page counts with no cookies, loaded only when Orion has set the token.
+  function loadAnalytics() {
+    const token = state.config && state.config.analyticsToken;
+    if (!token || document.querySelector('script[data-cf-beacon]')) return;
+    const s = document.createElement('script');
+    s.defer = true; s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+    s.setAttribute('data-cf-beacon', JSON.stringify({ token }));
+    document.head.appendChild(s);
+  }
+  // The launch funnel's first step: one count per browser per day when the signed-out page shows.
+  function countLanding() {
+    const day = new Date().toISOString().slice(0, 10);
+    try { if (localStorage.getItem('funnel:landing') === day) return; localStorage.setItem('funnel:landing', day); } catch (e) { /* count anyway */ }
+    api('/api/funnel', { method: 'POST', body: JSON.stringify({ step: 'landing' }) }).catch(() => {});
   }
 
   async function afterSignIn() {
@@ -538,6 +555,7 @@
       </section>`;
     mountGoogleButton();
     loadCoverInvite();
+    countLanding();
     watchLazyDest();
   }
 

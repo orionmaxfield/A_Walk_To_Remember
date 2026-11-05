@@ -11,6 +11,8 @@ export function onRequestGet({ env }) {
     // Which build this is (Cloudflare Pages sets the commit on every deploy); 'dev' locally.
     build: env.CF_PAGES_COMMIT_SHA ? String(env.CF_PAGES_COMMIT_SHA).slice(0, 7) : 'dev',
     branch: env.CF_PAGES_BRANCH || '',
+    // Cloudflare Web Analytics (cookie-free page counts) loads when its site token is set.
+    analyticsToken: String(env.CF_ANALYTICS_TOKEN || '').trim(),
   };
   return new Response(JSON.stringify(body), {
     headers: { 'Content-Type': 'application/json' },
