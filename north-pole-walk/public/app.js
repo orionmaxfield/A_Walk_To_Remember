@@ -805,7 +805,7 @@
       : '';
 
     $app.innerHTML = `
-      <div class="header">
+      <div class="header main-header">
         <div>
           ${brandHtml()}
           <h1>${esc(J.title)}</h1>
@@ -913,7 +913,7 @@
       ${installHint()}
 
       <div class="page hero progress-hero">
-        <div class="kicker">${p.arrived ? 'Journey complete' : `${Math.floor(p.pct)}% of the way`}</div>
+        <div class="kicker">${p.arrived ? 'Journey complete' : `${pctLabel(p.pct)} of the way`}</div>
         <div class="hero-number" id="hero-number"><b>${fmt(dnum(p.total))}</b><small>of ${fmtDist(p.goal)}</small></div>
         <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(p.pct)}" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill" style="width:0%"></div></div>
         <p class="small hero-copy">${p.arrived ? `You have arrived at ${esc(p.J.end)}.` : p.total <= 0 ? `${nextHead}<strong>Take your first step.</strong> The marker is waiting at ${esc(p.J.start)}.` : `${nextHead}${where}`}</p>
@@ -1168,6 +1168,12 @@
         </svg>
       </div>`;
   }
+  // Early on a long trail the whole percent reads "0%" for weeks; show one decimal until 10%.
+  function pctLabel(pct) {
+    if (pct <= 0) return '0%';
+    if (pct < 0.1) return 'Under 0.1%';
+    return pct < 10 ? `${(Math.floor(pct * 10) / 10).toFixed(1).replace(/\.0$/, '')}%` : `${Math.floor(pct)}%`;
+  }
   function clampNum(x, a, b) { return Math.max(a, Math.min(b, x)); }
 
   /* ---------- Daily rhythm: today's ring, streak, next stop ---------- */
@@ -1241,7 +1247,7 @@
       ${avatar(e)}
       <div class="who"><strong>${esc(mine ? 'You' : e.name)}</strong><span>${esc(whenText(e.logged_at))}${e.note ? ' · ' + esc(e.note) : ''}</span>${cheersOn ? cheerLine(e) : ''}</div>
       <span class="miles">${fmtDist(e.miles)}</span>
-      ${mine ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}" aria-label="Edit this entry">edit</button>`
+      ${mine ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}" aria-label="Edit this entry"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`
         : cheersOn ? `<button type="button" class="cheer ${e.cheered ? 'on' : ''}" data-action="cheer" data-id="${e.id}" aria-pressed="${e.cheered ? 'true' : 'false'}" aria-label="${e.cheered ? 'Take back your cheer' : 'Cheer'}">${heartSvg()}<b>${e.cheers || ''}</b></button>` : ''}
     </li>`;
   }
@@ -1757,7 +1763,7 @@
           <h3 class="day-head">${MONTHS[Hs.month - 1].slice(0, 3)} ${g.day}<span>${fmtDist(Hs.days[g.day] || 0, 1)}</span></h3>
           <ul class="list">${g.items.map((e) => `<li>
             <div class="who"><strong>${fmtDist(e.miles)}${e.note ? ` · ${esc(e.note)}` : ''}</strong><span>${esc(e.team_id === state.teamId ? 'this walk' : e.team_name)}</span></div>
-            ${e.team_id === state.teamId ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}">edit</button>` : ''}
+            ${e.team_id === state.teamId ? `<button type="button" class="undo" data-action="edit-entry" data-id="${e.id}" aria-label="Edit this entry"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></button>` : ''}
           </li>`).join('')}</ul>`).join('')
           : `<p class="muted">No walks logged this month${isThisMonth ? ' yet. Today is a good day for one.' : '.'}</p>`}
         ${Hs.entries.length > shown.length ? `<button class="button quiet wide" type="button" data-action="feed-more" style="margin-top:10px">Show all ${Hs.entries.length}</button>` : ''}

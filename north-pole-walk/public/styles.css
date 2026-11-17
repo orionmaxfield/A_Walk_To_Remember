@@ -667,7 +667,6 @@ form select[data-action="custom-choose"] { width: 100%; font: inherit; font-size
 @media (min-width: 900px) {
   .hero-foot .small { flex-basis: auto; margin-left: auto; }
   #screen > .feed-page { column-span: all; }
-  .feed-page .list { max-width: 720px; }
 }
 /* Desktop: the hero spans the page as one row (number and bar left, where-you-are right) */
 @media (min-width: 900px) {
@@ -828,3 +827,26 @@ body { overscroll-behavior-y: contain; }
 .apple-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; width: 280px; max-width: 100%; padding: 0 16px; border-radius: 999px; border: 1px solid #000; background: #FFFFFF; color: #000; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
 .apple-button svg { width: 18px; height: 18px; fill: currentColor; }
 .apple-button:active { transform: scale(0.98); }
+
+/* ---------- Nov 16 polish ---------- */
+/* Phone header: brand and tools share the top row, so the title gets the full width
+   on one line and the walk switcher shows its whole name. */
+@media (max-width: 899px) {
+  .main-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand tools" "title title" "team team"; align-items: center; column-gap: var(--s3); row-gap: 0; padding-bottom: var(--s3); }
+  .main-header > div:first-child { display: contents; }
+  .main-header .brand { grid-area: brand; margin: 0; }
+  .main-header h1 { grid-area: title; margin-top: var(--s3); font-size: 26px; line-height: 32px; letter-spacing: -0.01em; }
+  .main-header .team-name { grid-area: team; margin-top: 4px; }
+  .main-header .header-tools { grid-area: tools; max-width: none; justify-content: flex-end; }
+  .main-header .header-tools select { flex: 0 1 auto; max-width: 210px; min-height: 40px; font-size: 15px; padding-top: 0; padding-bottom: 0; background-color: transparent; }
+  .main-header .gear { background: transparent; position: relative; }
+  .main-header .gear::after { content: ''; position: absolute; inset: -4px; }
+}
+/* Hero progress: a finer track with an ember head at the leading edge. */
+.progress-hero .progress-bar { height: 6px; overflow: visible; background: linear-gradient(to right, var(--raised-2), rgba(255, 255, 255, 0.05)); }
+.progress-hero .progress-bar div { position: relative; min-width: 6px; background: linear-gradient(to right, var(--accent-press), var(--accent) 60%, #FF8A33); box-shadow: 0 0 10px rgba(255, 122, 26, 0.35); }
+.progress-hero .progress-bar div::after { content: ''; position: absolute; right: -5px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #FFB066; box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.22), 0 0 14px rgba(255, 138, 51, 0.8); }
+/* Feed rows: a quiet pencil instead of an orange text link; orange stays for progress and primary actions. */
+.list .undo { display: inline-flex; align-items: center; justify-content: center; color: var(--text-2); transition: color 150ms ease, background 150ms ease; }
+.list .undo svg { width: 18px; height: 18px; }
+.list .undo:hover, .list .undo:active { color: var(--text); background: var(--raised); }
