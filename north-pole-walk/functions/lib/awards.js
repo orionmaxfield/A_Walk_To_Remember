@@ -5,7 +5,9 @@
 // Used by GET /api/awards and by POST /api/miles (to spot freshly earned awards).
 
 import '../../public/journey.js';
+import '../../public/custom.js';
 const JOURNEYS = globalThis.JOURNEYS;
+const customJourney = globalThis.customJourney;
 
 /* ---------- America/Denver time ----------
    Mountain Standard Time is UTC-7. Daylight time (UTC-6) runs from the second
@@ -64,6 +66,7 @@ export function toSql(ms) {
 
 const PERSONAL = {
   laced: { id: 'laced-up', title: 'Laced Up', icon: 'boots', how: 'Log your first miles.' },
+  steadyWeek: { id: 'steady-week', title: 'Steady Week', icon: 'checks', how: 'Walk on 3 different days in one Monday-to-Sunday week.', goal: 3 },
   milestones: [
     { id: 'miles-25', title: 'Trail Ready', icon: 'footprints', goal: 25 },
     { id: 'miles-100', title: 'Century Elf', icon: 'medal', goal: 100 },
@@ -107,8 +110,11 @@ const fmtMiles = (n) => (Math.round(n * 10) / 10).toLocaleString('en-US');
 
 // entries: every mile entry for the team, oldest first ({ id, user_id, miles, logged_at }).
 // members: everyone on the team ({ id, name }). userId: the signed-in person.
-export function computeAwards({ journeyId, entries, members, userId, now = Date.now() }) {
-  const J = JOURNEYS[journeyId] || JOURNEYS['north-pole'];
+export function computeAwards({ journeyId, kind, custom, entries, members, userId, now = Date.now() }) {
+  const J = journeyId === 'custom' && custom ? customJourney(custom) : (JOURNEYS[journeyId] || JOURNEYS['north-pole']);
+  const hero = J.heroName || 'Elf'; // "Century Elf" on the office's walk, "Century Walker" elsewhere
+  const named = (def) => ({ ...def, title: def.title.replace(/\bElf\b/g, hero) });
+  const solo = kind === 'solo';
   const all = entries
     .map((e) => ({ ...e, miles: Number(e.miles), ms: parseSql(e.logged_at) }))
     .sort((a, b) => a.ms - b.ms || a.id - b.id)
@@ -131,9 +137,10 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
   }
   for (const wp of marks) {
     const at = wp.mile.toLocaleString('en-US');
-    const how = wp.kind === 'border' ? `Team crosses ${wp.name}, mile ${at}.`
-      : wp.kind === 'milestone' ? `Team reaches ${wp.name}, mile ${at}.`
-      : `Team reaches mile ${at}.`;
+    const who = solo ? 'Reach' : 'Team reaches';
+    const how = wp.kind === 'border' ? `${solo ? 'Cross' : 'Team crosses'} ${wp.name}, mile ${at}.`
+      : wp.kind === 'milestone' ? `${who} ${wp.name}, mile ${at}.`
+      : `${who} mile ${at}.`;
     team.push(make({ ...wp.badge, how }, crossed[wp.mile],
       { value: Math.min(running, wp.mile), goal: wp.mile, text: `${fmtMiles(Math.min(running, wp.mile))} / ${wp.mile.toLocaleString('en-US')} miles` },
       { mile: wp.mile, kind: wp.kind || 'stop' }));
@@ -145,7 +152,7 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
   const logged = members.filter((m) => firstEntryByUser[m.id] != null);
   const aboardEarned = members.length >= 2 && logged.length === members.length
     ? Math.max(...logged.map((m) => firstEntryByUser[m.id])) : null;
-  team.push(make(TEAM.aboard, aboardEarned, {
+  if (!solo) team.push(make(TEAM.aboard, aboardEarned, {
     value: logged.length, goal: members.length,
     text: members.length < 2 ? 'Needs a team of 2 or more' : `${logged.length} / ${members.length} walkers have logged`,
   }));
@@ -159,7 +166,7 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
     if (dayTotals[k] > bestDay) bestDay = dayTotals[k];
     if (bigDayEarned == null && dayTotals[k] >= TEAM.bigDay.goal) bigDayEarned = e.ms;
   }
-  team.push(make(TEAM.bigDay, bigDayEarned, { value: Math.min(bestDay, 100), goal: 100, text: `Best day so far: ${fmtMiles(bestDay)} / 100 miles` }));
+  team.push(make(solo ? { ...TEAM.bigDay, how: 'Log 100 or more miles in a single day.' } : TEAM.bigDay, bigDayEarned, { value: Math.min(bestDay, 100), goal: 100, text: `Best day so far: ${fmtMiles(bestDay)} / 100 miles` }));
 
   /* --- Elf of the Week (completed Monday-to-Sunday weeks) --- */
   const weekUser = {}; // weekIndex -> { userId -> miles }
@@ -198,7 +205,7 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
     if (nightMs == null && e.at.hour >= 21) nightMs = e.ms;
   }
   for (const m of PERSONAL.milestones) {
-    personal.push(make({ ...m, how: `Log ${m.goal.toLocaleString('en-US')} miles in total.` }, reached[m.id],
+    personal.push(make({ ...named(m), how: `Log ${m.goal.toLocaleString('en-US')} miles in total.` }, reached[m.id],
       { value: Math.min(myTotal, m.goal), goal: m.goal, text: `${fmtMiles(Math.min(myTotal, m.goal))} / ${m.goal.toLocaleString('en-US')} miles` }));
   }
 
@@ -208,7 +215,7 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
   const share = Math.ceil(J.totalMiles / walkers);
   let shareMs = null, soFar = 0;
   for (const e of mine) { soFar += e.miles; if (soFar >= share) { shareMs = e.ms; break; } }
-  personal.push(make({
+  if (!solo) personal.push(make({
     ...PERSONAL.fairShare,
     how: `Walk your share of the trail: ${J.totalMiles.toLocaleString('en-US')} miles ÷ ${walkers} ${walkers === 1 ? 'walker' : 'walkers'} ≈ ${share.toLocaleString('en-US')} miles.`,
   }, shareMs, { value: Math.min(myTotal, share), goal: share, text: `${fmtMiles(Math.min(myTotal, share))} / ${share.toLocaleString('en-US')} miles` }, { goal: share }));
@@ -227,7 +234,21 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
       { value: Math.min(bestStreak, s.goal), goal: s.goal, text: `Best streak: ${Math.min(bestStreak, s.goal)} / ${s.goal} days` }));
   }
 
-  personal.push(make(PERSONAL.elf, myWins.length ? weekEndUtc(myWins[0]) : null, null, { count: myWins.length }));
+  // Steady Week: three different days in one Monday-to-Sunday week (the weekly mini-goal)
+  const weekDaySets = {}; // weekIndex -> Set of dayIndex
+  let steadyMs = null;
+  for (const e of mine) {
+    const w = e.at.weekIndex;
+    weekDaySets[w] = weekDaySets[w] || new Set();
+    weekDaySets[w].add(e.at.dayIndex);
+    if (steadyMs == null && weekDaySets[w].size >= PERSONAL.steadyWeek.goal) steadyMs = e.ms;
+  }
+  const thisWeek = denver(now).weekIndex;
+  const daysThisWeek = weekDaySets[thisWeek] ? weekDaySets[thisWeek].size : 0;
+  personal.push(make(PERSONAL.steadyWeek, steadyMs,
+    { value: Math.min(daysThisWeek, PERSONAL.steadyWeek.goal), goal: PERSONAL.steadyWeek.goal, text: `This week: ${Math.min(daysThisWeek, PERSONAL.steadyWeek.goal)} / ${PERSONAL.steadyWeek.goal} days` }));
+
+  personal.push(make(named({ ...PERSONAL.elf, how: solo ? 'Log the most miles on your walk in a Monday-to-Sunday week.' : PERSONAL.elf.how }), myWins.length ? weekEndUtc(myWins[0]) : null, null, { count: myWins.length }));
   personal.push(make(PERSONAL.early, earlyMs, null));
   personal.push(make(PERSONAL.night, nightMs, null));
 
@@ -252,7 +273,7 @@ export function computeAwards({ journeyId, entries, members, userId, now = Date.
   personal.push(make(PERSONAL.consistency, consistencyMs,
     { value: Math.min(bestWeeks, 4), goal: 4, text: `Best run: ${Math.min(bestWeeks, 4)} / 4 weeks` }));
 
-  return { team, personal, elfOfLastWeek };
+  return { team, personal, elfOfLastWeek, hero };
 }
 
 // Awards that are earned in `after` but were not in `before`.
