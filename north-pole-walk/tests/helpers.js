@@ -9,7 +9,7 @@ const DESKTOP = { width: 1366, height: 900 };
 
 // Noise that is not ours: the Google sign-in script cannot load offline, favicons, and
 // the browser's own "failed to load" lines while a test is deliberately offline.
-const IGNORE = /gis|accounts\.google|favicon|google|ERR_INTERNET_DISCONNECTED|Failed to load resource/i;
+const IGNORE = /gis|GSI_LOGGER|accounts\.google|favicon|google|ERR_INTERNET_DISCONNECTED|Failed to load resource/i;
 
 async function launch() {
   return chromium.launch();
