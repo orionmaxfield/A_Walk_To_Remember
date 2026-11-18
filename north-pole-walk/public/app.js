@@ -1198,10 +1198,16 @@
           ${labels[i] || ''}
         </g>`;
     }).join('');
+    // One plain line under the map: how far along, how far to go.
+    const walked = clampNum(p.mile, 0, total);
+    const toGo = Math.max(0, total - walked);
+    const legend = toGo > 0
+      ? `<span class="walked"><i></i>${fmtDist(walked)} walked</span><span class="ahead"><i></i>${fmtDist(toGo)} to go</span>`
+      : `<span class="walked"><i></i>All ${fmtDist(total)} walked</span>`;
     return `
       <div class="page route">
         <div class="kicker">Route · ${fmtDist(total)}</div>
-        <svg class="route-map" viewBox="0 0 400 164" role="img" aria-label="Route map: ${esc(p.here.name)} to ${esc(J.end)}">
+        <svg class="route-map" viewBox="0 0 400 164" role="img" aria-label="Route map: ${esc(p.here.name)} to ${esc(J.end)}. ${fmtDist(walked)} walked, ${fmtDist(toGo)} to go.">
           <path class="trail" d="${routePath(0, 1)}"/>
           <path class="trail done" d="${routePath(0, cur)}"/>
           <g class="endpoints">
@@ -1214,6 +1220,7 @@
             <circle r="6"/>
           </g>
         </svg>
+        <p class="route-legend">${legend}</p>
       </div>`;
   }
   // Early on a long trail the whole percent reads "0%" for weeks; show one decimal until 10%.
@@ -1584,12 +1591,18 @@
     if (!on) {
       return owner ? `<div class="page"><h2>Leaderboard</h2><p class="muted small">Off. Only you can see this switch.</p>${toggle}</div>` : '';
     }
-    const rows = (J.standings || []).map((m, i) => `<li class="${m.id === state.user.id ? 'me' : ''}">
+    // A quiet bar under each name: that walker's miles as a share of the leader's.
+    const top = Math.max(0, ...(J.standings || []).map((m) => Number(m.total) || 0));
+    const rows = (J.standings || []).map((m, i) => {
+      const me = m.id === state.user.id;
+      const share = top > 0 ? clampNum((Number(m.total) || 0) / top, 0, 1) : 0;
+      return `<li class="${me ? 'me' : ''}">
         <span class="rank ${i === 0 && m.total > 0 ? 'first' : ''}">${i + 1}</span>
         ${avatar(m)}
-        <div class="who"><strong>${esc(m.id === state.user.id ? m.name + ' (you)' : m.name)}</strong><span>${fmtDist(m.week)} this week</span></div>
+        <div class="who"><strong title="${esc(m.name)}">${esc(m.name)}${me ? ' <em>(you)</em>' : ''}</strong><span>${fmtDist(m.week)} this week</span><span class="share" aria-hidden="true">${share > 0 ? `<i style="width:${(share * 100).toFixed(1)}%"></i>` : ''}</span></div>
         <span class="miles">${fmtDist(m.total)}</span>
-      </li>`).join('');
+      </li>`;
+    }).join('');
     return `<div class="page">
         <h2>Leaderboard</h2>
         <p class="muted small">All time, with this week underneath.</p>
