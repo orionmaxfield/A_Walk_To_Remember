@@ -18,6 +18,7 @@
     awards: null,       // response from /api/awards (fetched when the Awards tab opens)
     rhythm: null,       // response from /api/rhythm (streak, today, goal)
     history: null,      // response from /api/history (the You tab)
+    historyError: null, // set when that request failed, so the tab can say so and offer a retry
     historyMonth: null, // 'YYYY-MM' being shown on the You tab
     moment: null,       // { miles, next } shown over the scene right after an entry
     goalOpen: false,    // the goal form on the Journey tab
@@ -50,6 +51,7 @@
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
       const err = new Error(body.error || 'Something went wrong. Try again.');
+      err.status = res.status;
       if (body.offline || res.status === 503) err.offline = true;
       throw err;
     }
@@ -270,21 +272,38 @@
     const early = window.__early || {};
     const earlyOr = async (key, path) => {
       if (early[key]) {
-        try { const res = await early[key]; if (res && res.ok) return await res.json(); if (res && res.status === 401) throw new Error('Not signed in.'); } catch (e) { if (e.message === 'Not signed in.') throw e; }
+        try { const res = await early[key]; if (res && res.ok) return await res.json(); if (res && res.status === 401) { const out = new Error('Not signed in.'); out.status = 401; throw out; } } catch (e) { if (e.status === 401) throw e; }
       }
       return api(path);
     };
+    // Only a 401 means "signed out". A dropped connection or a server hiccup is a failed
+    // load: say so and offer another try, rather than showing a walker the sign-in page.
+    let loadError = null;
     const [config, me] = await Promise.all([
       earlyOr('config', '/api/config').catch(() => null),
-      earlyOr('me', '/api/me').catch(() => null),
+      earlyOr('me', '/api/me').catch((e) => { if (e.status !== 401) loadError = e; return null; }),
     ]);
     if (config) state.config = config;
     loadAnalytics();
+    if (loadError) return renderLoadError(loadError);
     if (me) { state.user = me.user; state.teams = me.teams; } else { state.user = null; }
 
     if (!state.user) return renderCover();
     if (readQueue().length) { try { await flushQueue(); } catch (e) { /* later */ } }
-    await afterSignIn();
+    try { await afterSignIn(); } catch (e) { renderLoadError(e); }
+  }
+
+  // The app could not load (no signal and nothing saved, or the server is having a moment).
+  // Replaces the loading skeleton, which would otherwise sit there for good.
+  function renderLoadError(e) {
+    const offline = Boolean(e && e.offline);
+    $app.innerHTML = `
+      <div class="load-error" role="alert">
+        ${markSvg()}
+        <h1>${offline ? 'No signal right now' : 'Stroll could not load'}</h1>
+        <p class="muted">${offline ? 'Your miles are safe. Check your connection and try again.' : 'Something went wrong on our side. Your miles are safe. Give it a moment and try again.'}</p>
+        <button class="button wide" type="button" data-action="retry-load">Try again</button>
+      </div>`;
   }
 
   // Cloudflare Web Analytics: page counts with no cookies, loaded only when Orion has set the token.
@@ -361,11 +380,15 @@
     state.recap = recap;
     state.awards = awards; // loaded with the journey: postcards and the Awards tab share it
     state.history = null;
+    state.historyError = null;
     if (before !== state.journey.team.id) state.feedOpen = false;
   }
 
   async function loadHistory(month) {
-    const data = await api('/api/history' + (month ? '?month=' + encodeURIComponent(month) : ''));
+    state.historyError = null;
+    let data;
+    try { data = await api('/api/history' + (month ? '?month=' + encodeURIComponent(month) : '')); }
+    catch (e) { state.historyError = e; if (state.tab === 'you') renderScreen(); throw e; }
     state.history = data;
     state.historyMonth = `${data.year}-${String(data.month).padStart(2, '0')}`;
     if (state.tab === 'you') renderScreen();
@@ -872,7 +895,7 @@
       watchLazyArt();
     }
     if (state.tab === 'awards' && !state.awards) loadAwards().catch((e) => toast(e.message));
-    if (state.tab === 'you' && !state.history) loadHistory(state.historyMonth).catch((e) => toast(e.message));
+    if (state.tab === 'you' && !state.history && !state.historyError) loadHistory(state.historyMonth).catch(() => { /* the You tab shows it */ });
     window.scrollTo({ top: 0 });
   }
 
@@ -1710,6 +1733,11 @@
     const Hs = state.history;
     const R = state.rhythm;
     const first = (state.user.name || '').split(' ')[0];
+    if (!Hs && state.historyError) {
+      return `<div class="page" role="alert"><h2>${esc(first)}'s walking diary</h2>
+        <p class="muted">${state.historyError.offline ? 'No signal right now, so your diary could not load.' : 'Your diary could not load.'} Your miles are safe.</p>
+        <button class="button quiet wide" type="button" data-action="history-retry">Try again</button></div>`;
+    }
     if (!Hs) return `<div class="page" aria-busy="true"><h2>${esc(first)}'s walking diary</h2><div class="skeleton" style="height:96px;margin-top:12px"></div></div><div class="page"><div class="skeleton" style="height:28px;width:50%;margin:0 auto 14px"></div><div class="skeleton" style="height:240px"></div></div>`;
     const ym = `${Hs.year}-${String(Hs.month).padStart(2, '0')}`;
     const isThisMonth = Hs.today.year === Hs.year && Hs.today.month === Hs.month;
@@ -2165,7 +2193,7 @@
       if (!pulling) return;
       if (!armed) { el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; return; }
       el.classList.add('spin');
-      try { await loadJourney(); if (state.tab === 'awards') state.awards = null; if (state.tab === 'you') state.history = null; renderScreen(); }
+      try { await loadJourney(); if (state.tab === 'awards') state.awards = null; if (state.tab === 'you') { state.history = null; state.historyError = null; } renderScreen(); }
       catch (err) { toast(err.message, null, 'error'); }
       finally { el.classList.remove('spin', 'armed'); el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; pulling = false; armed = false; }
     };
@@ -2271,7 +2299,9 @@
       renderScreen();
       toast(`Goal set: ${isKm() ? '3 km' : '2 mi'} a day`);
     });
-    if (action === 'history-month') { state.history = null; state.historyMonth = el.dataset.month; renderScreen(); }
+    if (action === 'history-month') { state.history = null; state.historyError = null; state.historyMonth = el.dataset.month; renderScreen(); }
+    if (action === 'history-retry') { state.historyError = null; renderScreen(); }
+    if (action === 'retry-load') { window.__early = null; boot().catch(renderLoadError); }
     if (action === 'clear-goal') withBusy(async () => {
       await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: 0 }) });
       state.goalOpen = false;
@@ -2511,5 +2541,5 @@
     });
   });
 
-  boot();
+  boot().catch(renderLoadError);
 })();
