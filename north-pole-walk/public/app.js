@@ -1447,7 +1447,7 @@
           <label class="field"><span>Note (optional)</span><input name="note" maxlength="100" placeholder="Lunch walk around the building" value="${editing ? esc(editing.note || '') : ''}"></label>
           <details class="when" ${editing && editDate !== today ? 'open' : ''}>
             <summary>${editing ? 'Change the day' : 'Missed a day? Log it for another date'}</summary>
-            <label class="field"><span>Day</span><input name="date" type="date" value="${editDate}" max="${today}"></label>
+            <label class="field"><span>Day</span><input name="date" type="date" value="${editDate}" max="${today}" data-initial="${editDate}"></label>
           </details>
           <button class="button wide" type="submit">${editing ? 'Save changes' : soloVoice() ? 'Add to my walk' : 'Add to the team'}</button>
           ${editing ? `<div class="row" style="margin-top:8px"><button class="button quiet" type="button" data-action="cancel-edit">Cancel</button><button class="button quiet" type="button" data-action="delete-entry" data-id="${editing.id}">Remove entry</button></div>` : ''}
@@ -2364,7 +2364,7 @@
       navigator.share({ title: `Walk with me to ${el.dataset.end}`, text: el.dataset.solo === '1' ? `I'm walking to ${el.dataset.end} on Stroll. Come with me: your miles count with mine.` : `Join ${el.dataset.team} on the walk to ${el.dataset.end}. Every mile you log moves the whole team.`, url: el.dataset.link }).catch(() => {});
     }
 
-    if (action === 'delete-entry') withBusy(async () => {
+    if (action === 'delete-entry' && window.confirm('Remove this entry? Its miles come off the walk.')) withBusy(async () => {
       await api('/api/miles', { method: 'DELETE', body: JSON.stringify({ id: Number(el.dataset.id) }) });
       editing = null;
       await loadJourney();
@@ -2396,7 +2396,14 @@
     });
 
     if (action === 'edit-entry') {
-      editing = state.journey.recent.find((e) => e.id === Number(el.dataset.id)) || null;
+      // The feed holds only the walk's latest entries; the You tab's diary reaches further
+      // back. Look in both, and never fall through to a blank "Log a walk" form: that is
+      // how an edit turns into a duplicate.
+      const id = Number(el.dataset.id);
+      const found = state.journey.recent.find((e) => e.id === id)
+        || ((state.history && state.history.entries) || []).find((e) => e.id === id && e.team_id === state.teamId);
+      if (!found) { toast('That entry could not be opened. Pull down to refresh and try again.', null, 'error'); return; }
+      editing = found;
       state.tab = 'log';
       renderScreen();
     }
@@ -2549,7 +2556,12 @@
           if (unit === 'steps') note = `${fmt(raw, 0)} steps${note ? ' · ' + note : ''}`;
           const date = fields.date && fields.date !== todayIso() ? fields.date : undefined;
           if (form.dataset.edit) {
-            const saved = await api('/api/miles', { method: 'PATCH', body: JSON.stringify({ id: Number(form.dataset.edit), miles, note, date: fields.date || undefined }) });
+            // Send the day only when the walker changed it. The form shows the day in the
+            // phone's time zone and the server keeps days in Denver time, so re-sending an
+            // untouched day could shift a late-evening entry (or be refused as "tomorrow").
+            const dateInput = form.querySelector('input[name="date"]');
+            const dayChanged = Boolean(fields.date && dateInput && fields.date !== dateInput.dataset.initial);
+            const saved = await api('/api/miles', { method: 'PATCH', body: JSON.stringify({ id: Number(form.dataset.edit), miles, note, date: dayChanged ? fields.date : undefined }) });
             editing = null;
             await loadJourney();
             state.tab = 'journey';
