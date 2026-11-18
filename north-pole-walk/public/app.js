@@ -64,36 +64,59 @@
   function writeQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) { /* no storage */ } }
   function queuedFor(teamId) { return readQueue().filter((q) => q.team_id === teamId); }
 
+  // Sends what is waiting, oldest first. An entry leaves the queue only when the server has
+  // saved it, or has looked at it and said no for good (400 bad entry, 403 not on that walk,
+  // 404 walk gone). No signal, an expired sign-in or a server error all keep it for later:
+  // miles a walker logged are never thrown away on a maybe.
+  // Returns { sent, refused, reason, stuck }: stuck is 'offline', 'signin', 'server' or null.
   let flushing = false;
   async function flushQueue() {
-    if (flushing) return 0;
+    const out = { sent: 0, refused: 0, reason: '', stuck: null };
+    if (flushing) return out;
     flushing = true;
-    let sent = 0;
     try {
       let q = readQueue();
       while (q.length) {
         const item = q[0];
         try {
           await api('/api/miles', { method: 'POST', body: JSON.stringify({ team_id: item.team_id, miles: item.miles, note: item.note, date: item.date }) });
+          out.sent++;
         } catch (e) {
-          if (e.offline) break;           // still no signal: try again later
-          // The server refused it (walk gone, bad date): drop it rather than retry forever.
+          const final = !e.offline && [400, 403, 404].includes(e.status);
+          if (!final) { out.stuck = e.offline ? 'offline' : e.status === 401 ? 'signin' : 'server'; break; }
+          out.refused++; out.reason = e.message;
         }
-        q = q.slice(1);
+        // Take this one entry out of whatever the queue holds now: another walk may have
+        // been queued while this one was on its way.
+        q = readQueue();
+        const i = q.findIndex((x) => x.at === item.at && x.team_id === item.team_id && x.miles === item.miles);
+        q.splice(i >= 0 ? i : 0, 1);
         writeQueue(q);
-        sent++;
       }
     } finally { flushing = false; }
-    return sent;
+    return out;
+  }
+
+  // What to tell the walker after a send. Never says "saved" for an entry the server refused.
+  function syncReport(r) {
+    const parts = [];
+    if (r.sent) parts.push(r.sent === 1 ? 'Your walk is saved.' : `${r.sent} walks saved.`);
+    if (r.refused) parts.push(`${r.refused === 1 ? 'One entry was' : `${r.refused} entries were`} not saved: ${r.reason}`);
+    const some = r.sent || r.refused;
+    if (r.stuck === 'signin') parts.push(`Sign in again to send ${some ? 'the rest' : 'your walk'}. It stays on your phone until then.`);
+    if (r.stuck === 'server') parts.push(`${some ? 'The rest' : 'Your walk'} could not be sent just now. It stays on your phone and will try again.`);
+    return parts.join(' ');
   }
 
   async function syncQueued(quiet) {
-    if (!readQueue().length || !state.user) return;
-    const sent = await flushQueue();
-    if (!sent) return;
+    const none = { sent: 0, refused: 0, reason: '', stuck: null };
+    if (!readQueue().length || !state.user) return none;
+    const r = await flushQueue();
+    if (!r.sent && !r.refused) return r;
     try { await loadJourney(); } catch (e) { /* offline again */ }
     if (document.getElementById('screen')) renderScreen();
-    if (!quiet) toast(sent === 1 ? 'Back online. Your walk is saved.' : `Back online. ${sent} walks saved.`);
+    if (!quiet) toast((r.sent ? 'Back online. ' : '') + syncReport(r), null, r.refused ? 'error' : undefined);
+    return r;
   }
   window.addEventListener('online', () => syncQueued(false));
 
@@ -210,7 +233,7 @@
     const q = queuedFor(state.teamId);
     if (!q.length) return '';
     const total = q.reduce((n, x) => n + Number(x.miles || 0), 0);
-    return `<div class="page notice offline-notice"><p><strong>${fmtDist(total)} waiting to send.</strong> ${q.length === 1 ? 'It was' : `${q.length} entries were`} saved on your phone with no signal${navigator.onLine ? '' : ', and you still look offline'}.</p><button class="button quiet" type="button" data-action="sync-now">Send now</button></div>`;
+    return `<div class="page notice offline-notice"><p><strong>${fmtDist(total)} waiting to send.</strong> ${q.length === 1 ? 'It is' : `${q.length} entries are`} saved on your phone${navigator.onLine ? ' and will send as soon as it can' : ' until you are back online'}.</p><button class="button quiet" type="button" data-action="sync-now">Send now</button></div>`;
   }
 
   function routeNotice() {
@@ -289,8 +312,10 @@
     if (me) { state.user = me.user; state.teams = me.teams; } else { state.user = null; }
 
     if (!state.user) return renderCover();
-    if (readQueue().length) { try { await flushQueue(); } catch (e) { /* later */ } }
-    try { await afterSignIn(); } catch (e) { renderLoadError(e); }
+    let flushed = null;
+    if (readQueue().length) { try { flushed = await flushQueue(); } catch (e) { /* later */ } }
+    try { await afterSignIn(); } catch (e) { return renderLoadError(e); }
+    if (flushed && flushed.refused) toast(syncReport(flushed), null, 'error');
   }
 
   // The app could not load (no signal and nothing saved, or the server is having a moment).
@@ -2272,10 +2297,10 @@
 
     if (action === 'dismiss-nudge') { const el = document.querySelector('.notice.nudge'); if (el) el.remove(); }
     if (action === 'sync-now') withBusy(async () => {
-      const before = readQueue().length;
-      await syncQueued(true);
-      const left = readQueue().length;
-      toast(left ? 'Still no signal. It will send on its own when you are back online.' : (before === 1 ? 'Sent. Your walk is saved.' : `Sent. ${before} walks saved.`));
+      const r = await syncQueued(true);
+      if (r.stuck === 'offline' && !r.sent && !r.refused) toast('Still no signal. It will send on its own when you are back online.');
+      else toast((r.sent ? 'Sent. ' : '') + syncReport(r) || 'Nothing was waiting to send.', null, r.refused || (r.stuck && r.stuck !== 'offline') ? 'error' : undefined);
+      if (document.getElementById('screen')) renderScreen();
     });
     if (action === 'feed-more') { state.feedOpen = true; renderScreen(); }
     if (action === 'route-stop') toast(`${el.dataset.name} · ${fmtDist(Number(el.dataset.mile))}`);
