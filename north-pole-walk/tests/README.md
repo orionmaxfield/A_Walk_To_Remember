@@ -18,5 +18,7 @@ Nothing touches a real database or the network. Run one file with `npm test -- s
 | `arrival` | a finished walk: celebration, finale layer and fireworks, the share card renders to a full-size PNG |
 | `km` | kilometre mode on every main tab, no stray " mi" |
 | `funnel` | launch counts: a front-page view and a first entry count as daily totals; only ADMIN_EMAILS can read them |
+| `resilience` | a failed first load offers Try again; a walk waiting on the phone survives a server error; an edit leaves the day alone |
+| `polish` | tied walkers share a rank; a failed Awards load offers Try again; Escape closes pop-ups and focus returns; the calendar speaks km; sign-out asks before dropping a waiting walk |
 
 First time: `npm install` (wrangler and Playwright), then `npx playwright install chromium` once.

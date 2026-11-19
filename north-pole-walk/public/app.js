@@ -18,6 +18,7 @@
     awards: null,       // response from /api/awards (fetched when the Awards tab opens)
     rhythm: null,       // response from /api/rhythm (streak, today, goal)
     history: null,      // response from /api/history (the You tab)
+    awardsError: null, // the same for the Awards tab
     historyError: null, // set when that request failed, so the tab can say so and offer a retry
     historyMonth: null, // 'YYYY-MM' being shown on the You tab
     moment: null,       // { miles, next } shown over the scene right after an entry
@@ -146,6 +147,10 @@
   }
   const isKm = () => units() === 'km';
   function flag(name) { try { return localStorage.getItem(name) === '1'; } catch (e) { return false; } }
+  // Storage that never throws: private mode on older Safari refuses every call.
+  function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* this visit only */ } }
+  function lsDel(key) { try { localStorage.removeItem(key); } catch (e) { /* nothing to remove */ } }
   function setFlag(name, on) { try { if (on) localStorage.setItem(name, '1'); else localStorage.removeItem(name); } catch (e) { /* no storage */ } }
   // A stored mile value as the number the walker sees.
   function dnum(miles) { return isKm() ? Number(miles) * KM_PER_MILE : Number(miles); }
@@ -267,7 +272,7 @@
     const fromQuery = new URLSearchParams(location.search).get('join');
     const code = (fromPath && fromPath[1]) || fromQuery;
     if (code) {
-      localStorage.setItem('pendingJoin', code.toUpperCase());
+      lsSet('pendingJoin', code.toUpperCase());
       history.replaceState(null, '', '/');
     }
   }
@@ -348,9 +353,9 @@
   }
 
   async function afterSignIn() {
-    const code = localStorage.getItem('pendingJoin');
+    const code = lsGet('pendingJoin');
     if (code) {
-      localStorage.removeItem('pendingJoin');
+      lsDel('pendingJoin');
       try {
         const joined = await api('/api/join', { method: 'POST', body: JSON.stringify({ code }) });
         const me = await api('/api/me');
@@ -369,9 +374,9 @@
       return renderPick();
     }
 
-    const saved = localStorage.getItem('teamId');
+    const saved = lsGet('teamId');
     if (!state.teamId) state.teamId = state.teams.some((t) => t.id === saved) ? saved : state.teams[0].id;
-    localStorage.setItem('teamId', state.teamId);
+    lsSet('teamId', state.teamId);
 
     await loadJourney();
     renderMain();
@@ -404,6 +409,7 @@
     state.rhythm = rhythm;
     state.recap = recap;
     state.awards = awards; // loaded with the journey: postcards and the Awards tab share it
+    state.awardsError = null;
     state.history = null;
     state.historyError = null;
     if (before !== state.journey.team.id) state.feedOpen = false;
@@ -421,7 +427,10 @@
 
   async function loadAwards() {
     const teamId = state.teamId;
-    const awards = await api('/api/awards?team=' + encodeURIComponent(teamId));
+    state.awardsError = null;
+    let awards;
+    try { awards = await api('/api/awards?team=' + encodeURIComponent(teamId)); }
+    catch (e) { if (teamId === state.teamId) { state.awardsError = e; if (state.tab === 'awards') renderScreen(); } throw e; }
     if (teamId !== state.teamId) return;
     state.awards = awards;
     if (state.tab === 'awards') renderScreen();
@@ -809,7 +818,7 @@
     const me = await api('/api/me');
     state.teams = me.teams;
     state.teamId = made.team.id;
-    localStorage.setItem('teamId', state.teamId);
+    lsSet('teamId', state.teamId);
     state.lastShownMile = null;
     state.picking = null;
     state.tab = kind === 'team' ? 'team' : 'journey';
@@ -919,7 +928,7 @@
       maybeCelebrate();
       watchLazyArt();
     }
-    if (state.tab === 'awards' && !state.awards) loadAwards().catch((e) => toast(e.message));
+    if (state.tab === 'awards' && !state.awards && !state.awardsError) loadAwards().catch(() => { /* the Awards tab shows it */ });
     if (state.tab === 'you' && !state.history && !state.historyError) loadHistory(state.historyMonth).catch(() => { /* the You tab shows it */ });
     window.scrollTo({ top: 0 });
   }
@@ -1116,6 +1125,26 @@
       </div>`;
   }
 
+  // Pop-ups (postcard, new award, arrival) take the keyboard focus while open and hand it
+  // back to whatever opened them, so Escape, Enter and a screen reader all land in the right place.
+  let popReturn = null;
+  function popFocus(el) {
+    if (!popReturn && document.activeElement && document.activeElement !== document.body) popReturn = document.activeElement;
+    if (el) { if (!el.hasAttribute('tabindex') && el.tagName !== 'BUTTON') el.setAttribute('tabindex', '-1'); try { el.focus({ preventScroll: true }); } catch (e) { /* older browsers */ } }
+  }
+  function popRestore() {
+    const el = popReturn; popReturn = null;
+    // Not back into a text field: on a phone that would pop the keyboard up again.
+    if (el && document.contains(el) && !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) { try { el.focus({ preventScroll: true }); } catch (e) { /* gone */ } }
+  }
+  function closePostcard() {
+    const $pc = document.getElementById('postcard-pop');
+    if (!$pc || $pc.hidden) return false;
+    $pc.hidden = true; $pc.innerHTML = '';
+    popRestore();
+    return true;
+  }
+
   function openPostcard(mile) {
     const p = progress();
     const wp = p.J.waypoints.find((w) => w.mile === mile);
@@ -1124,7 +1153,7 @@
     const when = stopEarnedAt(wp);
     const $pop = document.getElementById('postcard-pop');
     $pop.innerHTML = `
-      <div class="postcard-full page" role="dialog" aria-label="Postcard from ${esc(capitalize(wp.name))}">
+      <div class="postcard-full page" role="dialog" aria-modal="true" aria-label="Postcard from ${esc(capitalize(wp.name))}">
         <div class="postcard-full-art" aria-hidden="true">${postcardArt(p.J, wp, p.J.waypoints.filter((w) => w.mile > 0 && w.badge).findIndex((w) => w.mile === wp.mile))}</div>
         <div class="postcard-full-copy">
           <div class="kicker">${esc(p.J.title)} · ${fmtDist(wp.mile)}</div>
@@ -1134,6 +1163,7 @@
         </div>
       </div>`;
     $pop.hidden = false;
+    popFocus($pop.querySelector('.postcard-full'));
   }
 
   /* ---------- Route map: a stylized path with the stops and a you-are-here marker ---------- */
@@ -1593,11 +1623,13 @@
     }
     // A quiet bar under each name: that walker's miles as a share of the leader's.
     const top = Math.max(0, ...(J.standings || []).map((m) => Number(m.total) || 0));
+    const totals = (J.standings || []).map((m) => Math.round((Number(m.total) || 0) * 10));
     const rows = (J.standings || []).map((m, i) => {
       const me = m.id === state.user.id;
+      const rank = totals.indexOf(totals[i]) + 1; // the list comes sorted, so the first walker on this total sets the rank
       const share = top > 0 ? clampNum((Number(m.total) || 0) / top, 0, 1) : 0;
       return `<li class="${me ? 'me' : ''}">
-        <span class="rank ${i === 0 && m.total > 0 ? 'first' : ''}">${i + 1}</span>
+        <span class="rank ${rank === 1 && m.total > 0 ? 'first' : ''}">${rank}</span>
         ${avatar(m)}
         <div class="who"><strong title="${esc(m.name)}">${esc(m.name)}${me ? ' <em>(you)</em>' : ''}</strong><span>${fmtDist(m.week)} this week</span><span class="share" aria-hidden="true">${share > 0 ? `<i style="width:${(share * 100).toFixed(1)}%"></i>` : ''}</span></div>
         <span class="miles">${fmtDist(m.total)}</span>
@@ -1641,6 +1673,11 @@
 
   function awardsScreen() {
     const A = state.awards;
+    if (!A && state.awardsError) {
+      return `<div class="page" role="alert"><h2>Awards</h2>
+        <p class="muted">${state.awardsError.offline ? 'No signal right now, so your awards could not load.' : 'Your awards could not load.'} Everything you have earned is safe.</p>
+        <button class="button quiet wide" type="button" data-action="awards-retry">Try again</button></div>`;
+    }
     if (!A) {
       return `<div class="page hero" aria-busy="true"><div class="kicker">Earned</div><div class="skeleton" style="height:44px;width:40%;margin:6px 0 14px"></div><div class="skeleton" style="height:120px"></div></div><div class="page"><div class="skeleton" style="height:28px;width:35%;margin-bottom:12px"></div><div class="skeleton" style="height:120px"></div></div>`;
     }
@@ -1781,13 +1818,14 @@
     const isThisMonth = Hs.today.year === Hs.year && Hs.today.month === Hs.month;
     const maxDay = Math.max(0.1, ...Object.values(Hs.days));
     let cells = '';
-    for (let i = 0; i < Hs.firstWeekday; i++) cells += '<span class="cal-cell empty"></span>';
+    for (let i = 0; i < Hs.firstWeekday; i++) cells += '<span class="cal-cell empty" aria-hidden="true"></span>';
     for (let d = 1; d <= Hs.daysInMonth; d++) {
       const mi = Hs.days[d] || 0;
       const future = isThisMonth && d > Hs.today.day;
       const today = isThisMonth && d === Hs.today.day;
       const size = mi ? (0.45 + 0.55 * Math.min(1, mi / maxDay)).toFixed(2) : 0;
-      cells += `<span class="cal-cell ${mi ? 'walked' : ''} ${today ? 'today' : ''} ${future ? 'future' : ''}" title="${mi ? fmt(mi, 1) + ' mi' : ''}">
+      const dayName = `${MONTHS[Hs.month - 1]} ${d}`;
+      cells += `<span class="cal-cell ${mi ? 'walked' : ''} ${today ? 'today' : ''} ${future ? 'future' : ''}" role="listitem" ${mi ? `title="${fmtDist(mi)}"` : ''} aria-label="${dayName}${today ? ', today' : ''}: ${mi ? fmtDist(mi) : future ? 'not yet' : 'no walk'}">
         <i></i><b>${d}</b>${mi ? `<small>${fmt(dnum(mi), dnum(mi) >= 10 ? 0 : 1)}</small>` : ''}</span>`;
     }
     const grouped = [];
@@ -1818,8 +1856,8 @@
           <button type="button" class="button quiet small-btn arrow" data-action="history-month" data-month="${shiftMonth(ym, 1)}" aria-label="Next month" ${isThisMonth ? 'disabled' : ''}>›</button>
         </div>
         <p class="small muted">${fmtDist(Hs.total, 1)} this month · ${Object.keys(Hs.days).length} ${Object.keys(Hs.days).length === 1 ? 'day' : 'days'} walked</p>
-        <div class="cal-grid" role="grid" aria-label="Days walked this month">
-          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span class="cal-dow">${d}</span>`).join('')}
+        <div class="cal-grid" role="list" aria-label="Days walked in ${MONTHS[Hs.month - 1]}">
+          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span class="cal-dow" aria-hidden="true">${d}</span>`).join('')}
           ${cells}
         </div>
       </div>
@@ -1854,10 +1892,10 @@
 
   function nextAwardPop() {
     const a = popQueue.shift();
-    if (!a) { $awardPop.hidden = true; stopBurst(); return; }
+    if (!a) { $awardPop.hidden = true; $awardPop.innerHTML = ''; stopBurst(); popRestore(); return; }
     if (a.section === 'team' && (a.kind === 'stop' || a.kind === 'milestone' || a.kind === 'border')) burst();
     $awardPop.innerHTML = `
-      <div class="award-pop-card page" role="dialog" aria-live="assertive" aria-label="New award: ${esc(a.title)}">
+      <div class="award-pop-card page" role="dialog" aria-modal="true" aria-live="assertive" aria-label="New award: ${esc(a.title)}">
         <div class="badge-frame earned">${badgeIcon(a.icon)}</div>
         <p class="award-pop-kicker">New ${a.section === 'team' ? (isSolo() ? 'journey ' : 'team ') : ''}award!</p>
         <h2>${esc(a.title)}</h2>
@@ -1865,6 +1903,7 @@
         <p class="small muted">${popQueue.length ? 'Tap for the next one' : 'Tap to continue'}</p>
       </div>`;
     $awardPop.hidden = false;
+    popFocus($awardPop.querySelector('.award-pop-card'));
   }
 
   /* ---------- A short confetti burst (for reaching a stop) ---------- */
@@ -1905,12 +1944,14 @@
 
   /* ---------- Celebration ---------- */
 
+  const celebratedHere = {};
   function maybeCelebrate() {
     const p = progress();
     if (!p.arrived) return;
     const key = 'celebrated:' + state.teamId;
-    if (localStorage.getItem(key)) return;
-    localStorage.setItem(key, '1');
+    if (lsGet(key) || celebratedHere[key]) return;
+    celebratedHere[key] = true; // so it still plays only once when storage is unavailable
+    lsSet(key, '1');
     showCelebration();
   }
 
@@ -2003,6 +2044,7 @@
       ? `${fmt(p.total, 0)} miles, every one of them yours. ${arrival.text}`.trim()
       : `${fmt(p.total, 0)} miles, walked together by ${n} ${n === 1 ? 'person' : 'people'}. ${arrival.text}`.trim();
     $celebration.hidden = false;
+    popFocus($celebration.querySelector('.celebration-card')); // the card, not a button: no ring flashes up on a phone
 
     const canvas = document.getElementById('celebration-canvas');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2043,8 +2085,10 @@
   }
 
   function hideCelebration() {
+    if ($celebration.hidden) return;
     $celebration.hidden = true;
     cancelAnimationFrame(celebrationFrame);
+    popRestore();
   }
 
   /* ---------- Daily reminder: opt-in, local to this device for now ---------- */
@@ -2231,7 +2275,7 @@
       if (!pulling) return;
       if (!armed) { el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; return; }
       el.classList.add('spin');
-      try { await loadJourney(); if (state.tab === 'awards') state.awards = null; if (state.tab === 'you') { state.history = null; state.historyError = null; } renderScreen(); }
+      try { await loadJourney(); if (state.tab === 'awards') { state.awards = null; state.awardsError = null; } if (state.tab === 'you') { state.history = null; state.historyError = null; } renderScreen(); }
       catch (err) { toast(err.message, null, 'error'); }
       finally { el.classList.remove('spin', 'armed'); el.style.opacity = '0'; el.style.transform = 'translate(-50%, 0) rotate(0deg)'; pulling = false; armed = false; }
     };
@@ -2252,10 +2296,20 @@
     finally { state.busy = false; }
   }
 
+  // Escape closes whichever pop-up is on top; Enter or Space does what a tap on it does.
+  document.addEventListener('keydown', (ev) => {
+    const $pc = document.getElementById('postcard-pop');
+    const tapKey = (ev.key === 'Enter' || ev.key === ' ') && ev.target.tagName !== 'BUTTON';
+    if (ev.key !== 'Escape' && !tapKey) return;
+    if (!$awardPop.hidden) { ev.preventDefault(); nextAwardPop(); return; }
+    if ($pc && !$pc.hidden) { ev.preventDefault(); closePostcard(); return; }
+    if (ev.key === 'Escape' && !$celebration.hidden) { ev.preventDefault(); hideCelebration(); }
+  });
+
   document.addEventListener('click', (ev) => {
     if (!$awardPop.hidden && $awardPop.contains(ev.target)) { nextAwardPop(); return; }
     const $pc = document.getElementById('postcard-pop');
-    if ($pc && !$pc.hidden && $pc.contains(ev.target)) { $pc.hidden = true; $pc.innerHTML = ''; return; }
+    if ($pc && !$pc.hidden && $pc.contains(ev.target)) { closePostcard(); return; }
     const el = ev.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
@@ -2301,12 +2355,17 @@
       try { await startWalk(el.dataset.journey, 'solo'); } finally { el.disabled = false; }
     });
 
-    if (action === 'sign-out') withBusy(async () => {
-      await api('/api/auth/logout', { method: 'POST' });
-      localStorage.removeItem('teamId');
-      localStorage.removeItem(QUEUE_KEY);
-      location.reload();
-    });
+    if (action === 'sign-out') {
+      // Walks saved with no signal live only on this phone; signing out clears them.
+      const waiting = readQueue().length;
+      const sure = !waiting || window.confirm(`${waiting === 1 ? 'One walk is' : waiting + ' walks are'} still waiting to send. Signing out now will lose ${waiting === 1 ? 'it' : 'them'}. Sign out anyway?`);
+      if (sure) withBusy(async () => {
+        await api('/api/auth/logout', { method: 'POST' });
+        lsDel('teamId');
+        lsDel(QUEUE_KEY);
+        location.reload();
+      });
+    }
 
     if (action === 'dismiss-nudge') { const el = document.querySelector('.notice.nudge'); if (el) el.remove(); }
     if (action === 'sync-now') withBusy(async () => {
@@ -2339,6 +2398,7 @@
     });
     if (action === 'history-month') { state.history = null; state.historyError = null; state.historyMonth = el.dataset.month; renderScreen(); }
     if (action === 'history-retry') { state.historyError = null; renderScreen(); }
+    if (action === 'awards-retry') { state.awardsError = null; renderScreen(); }
     if (action === 'retry-load') { window.__early = null; boot().catch(renderLoadError); }
     if (action === 'clear-goal') withBusy(async () => {
       await api('/api/goal', { method: 'PATCH', body: JSON.stringify({ miles: 0 }) });
@@ -2361,7 +2421,7 @@
       const sure = window.confirm('Delete your account? Your miles and sign-in are removed. Walks you share with others keep going without you. This cannot be undone.');
       if (sure) withBusy(async () => {
         await api('/api/me', { method: 'DELETE' });
-        localStorage.removeItem('teamId');
+        lsDel('teamId');
         location.reload();
       });
     }
@@ -2477,7 +2537,7 @@
     if (!el) return;
     withBusy(async () => {
       state.teamId = el.value;
-      localStorage.setItem('teamId', state.teamId);
+      lsSet('teamId', state.teamId);
       state.lastShownMile = null;
       const $screen = document.getElementById('screen');
       if ($screen) $screen.innerHTML = skeleton();
@@ -2550,7 +2610,7 @@
           const me = await api('/api/me');
           state.teams = me.teams;
           state.teamId = joined.team.id;
-          localStorage.setItem('teamId', state.teamId);
+          lsSet('teamId', state.teamId);
           state.lastShownMile = null;
           state.picking = null;
           state.tab = 'journey';

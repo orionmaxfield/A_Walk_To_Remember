@@ -17,7 +17,8 @@ Deep orange on near-black. Orange is the accent, never the wallpaper: it marks t
 | `--accent-glow` | `rgba(255,122,26,0.18)` | soft glow behind hero cards, focus rings |
 | `--text` | `#F5F1EA` | body text |
 | `--text-2` | `#A8A29E` | secondary text, labels |
-| `--text-3` | `#78716C` | tertiary, placeholders |
+| `--text-3` | `#918A84` | tertiary, placeholders, tab-bar labels (5.4:1 on `--surface`; was `#78716C` at 3.8:1 until Nov 18) |
+| `--focus-ring` | `#FFB070` | keyboard focus outline: 2px solid, 2px off the control (inside it on the tab bar and the scrolling strips), 10:1 on `--surface` |
 | `--success` | `#4ADE80` | done states |
 | `--danger` | `#F87171` | destructive actions, errors |
 

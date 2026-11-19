@@ -24,7 +24,7 @@
   --on-accent: #0B0B0C;
   --text: #F5F1EA;
   --text-2: #A8A29E;
-  --text-3: #78716C;
+  --text-3: #918A84;                /* small labels and hints: 5.4:1 on --surface, 5.8:1 on --bg */
   --success: #4ADE80;
   --danger: #F87171;
 
@@ -48,7 +48,8 @@
   --r-pill: 999px;
   --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35);
   --glow: 0 0 0 1px rgba(255, 122, 26, 0.18), 0 12px 40px rgba(232, 93, 4, 0.14);
-  --focus: 0 0 0 3px rgba(255, 122, 26, 0.45);
+  --focus: 0 0 0 3px rgba(255, 122, 26, 0.45);   /* the glow on a text field being typed in */
+  --focus-ring: #FFB070;             /* keyboard focus outline: 10:1 on --surface, sits 2px off the control */
 
   /* Motion */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -117,7 +118,14 @@ input, textarea, .field input { -webkit-user-select: text; user-select: text; }
 strong { font-weight: 600; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
 
-:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-control); }
+/* Keyboard focus: a solid ring a hair off the control, so it reads on black and around the
+   orange buttons alike, never changes the control's shape, and keeps its own shadow. */
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+/* Edge-to-edge and clipped controls keep the ring inside their own box. */
+.nav button:focus-visible, .postcard button:focus-visible, .destinations button:focus-visible { outline-offset: -3px; }
+.nav button:focus-visible { border-radius: var(--r-control); }
+.award-pop-card:focus-visible, .postcard-full:focus-visible, .celebration-card:focus-visible { outline: none; }
 
 /* ---------- Cards ---------- */
 .page {
@@ -180,7 +188,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .unit-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .unit-toggle span { display: block; text-align: center; padding: 10px 12px; border-radius: var(--r-pill); font-weight: 600; color: var(--text-2); cursor: pointer; min-height: 40px; }
 .unit-toggle input:checked + span { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 0 0 1px var(--hairline-2); }
-.unit-toggle input:focus-visible + span { box-shadow: var(--focus); }
+.unit-toggle input:focus-visible + span { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
 .switch { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3); font-weight: 500; cursor: pointer; min-height: 44px; }
 .switch input { width: 22px; height: 22px; accent-color: var(--accent); }

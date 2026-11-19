@@ -1,0 +1,15 @@
+# Cloudflare Pages response headers for the static files (the /api functions set their own).
+#
+# Fonts never change under the same file name, so a phone keeps them for a year instead of
+# asking "still the same?" on every visit. If a font file is ever replaced, give it a new name.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Icons and launch images change rarely: a week, then a quick check.
+/icons/*
+  Cache-Control: public, max-age=604800
+
+# The pages, scripts and styles keep Cloudflare's default (always checked), so a new deploy
+# shows up right away. Every file is served as the type it says it is.
+/*
+  X-Content-Type-Options: nosniff

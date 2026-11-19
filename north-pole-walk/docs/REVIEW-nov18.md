@@ -39,3 +39,20 @@ The app is in good shape visually. The problems worth fixing are mostly about wh
 ## Checks
 
 `npm test` passes 11 of 11 at the end (8 existing specs plus 3 new ones in `tests/specs/resilience.test.js`: failed first load and Try again, a queued walk surviving a server error, an edit not re-sending its day).
+
+## Second pass, Nov 18 evening
+
+Branch `claude/stroll-polish-nov18b` (from `claude/stroll-polish-nov18`). Preview only, test database only. Walked every main screen again at 390 and 1366 wide with a script that measures text contrast, names on controls, tap sizes and sideways scroll.
+
+| # | What changed | Where |
+| --- | --- | --- |
+| 1 | **Keyboard focus is easy to see.** The old ring was a 45% orange glow (about 2.5:1 on black, nearly invisible around an orange button), it changed a pill's corners while focused, and it replaced the control's own shadow. Now a solid light-orange outline (10:1) a hair off the control; inside the control on the tab bar and the scrolling strips so nothing clips it. | `styles.css` `:focus-visible` |
+| 2 | **Small grey text passes AA.** `--text-3` went from `#78716C` (3.8:1 on a card, 4.1:1 on the page) to `#918A84` (5.4:1 and 5.8:1): tab-bar labels, weekday letters, the hints under the quick-add tiles, the build line. | `styles.css` tokens |
+| 3 | **Pop-ups work from the keyboard and with a screen reader.** The postcard, new-award and arrival pop-ups take the focus, close with Escape (Enter or Space on the first two), and hand the focus back. The whole app is no longer one live region, which made a screen reader re-read the screen after every change; toasts and pop-ups still announce themselves. The You calendar is a list with a spoken name per day. | `app.js` pop-ups, `index.html`, `youScreen()` |
+| 4 | **A failed Awards load says so.** It used to flash a toast and leave the loading boxes up for good (the same fault as problems 1 and 7, missed on this tab). Now: "Your awards could not load" with Try again. | `loadAwards()`, `awardsScreen()` |
+| 5 | **Four small bugs from the list above.** Tied walkers share a rank (1, 1, 3). The calendar's day label follows the walker's unit. Every `localStorage` call is guarded, so private mode on older Safari can sign in, join and switch walks. Signing out with walks still waiting to send asks first. | `standingsCard()`, `youScreen()`, `lsGet/lsSet/lsDel`, `sign-out` |
+| 6 | **Fonts and icons are kept by the phone.** A new `public/_headers` file: fonts for a year, icons for a week, `nosniff` on everything. Pages, scripts and styles keep the default check on every visit so a deploy shows up at once. | `public/_headers` |
+
+Not done, still worth doing: the PNG icons and the social card could shrink by roughly a third with a lossless squeeze (no tool for it on this machine); the scene itself has no spoken description; text at 200% zoom has not been checked; and none of the screen-reader changes have been heard on a real phone with VoiceOver, only checked in the page structure.
+
+`npm test` passes 16 of 16 (11 before, plus 5 in `tests/specs/polish.test.js`).
