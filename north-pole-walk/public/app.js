@@ -453,7 +453,7 @@
           ux_mode: 'popup',
         });
         google.accounts.id.renderButton(holder, {
-          theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 280,
+          theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: Math.max(200, Math.min(280, window.innerWidth - 32)), // Google's button will not go under 200
         });
       } else if (tries > 100) {
         clearInterval(timer);
@@ -560,7 +560,7 @@
         </section>
         <section class="landing-phones" aria-label="What Stroll looks like">
           <div class="phone"><div class="phone-screen">
-            <div class="mock-scene">${th(oz, 28)}</div>
+            <div class="mock-scene">${th(oz, 28, { label: "Example: a walker with a backpack on the yellow brick road, nearing the Scarecrow's cornfield." })}</div>
             <div class="mock-card hero"><div class="kicker">6% of the way</div><div class="mock-number"><b>28.4</b><small>of 450 mi</small></div><div class="progress-bar"><div style="width:6.3%"></div></div><p>Next: The Scarecrow's cornfield · 1.6 mi</p></div>
           </div><p class="phone-caption">Your journey, every day</p></div>
           <div class="phone"><div class="phone-screen">
@@ -569,7 +569,7 @@
             </div>
           </div><p class="phone-caption">A postcard at every stop</p></div>
           <div class="phone"><div class="phone-screen">
-            <div class="mock-finale">${th(camino, camino.totalMiles, { hour: 19, walker: false })}<div class="mock-finale-copy"><span class="kicker">Journey complete</span><strong>I walked to Santiago de Compostela</strong><span>485 mi · Stroll</span></div></div>
+            <div class="mock-finale">${th(camino, camino.totalMiles, { hour: 19, walker: false, label: 'Example: the finish at Santiago de Compostela at dusk, with fireworks.' })}<div class="mock-finale-copy"><span class="kicker">Journey complete</span><strong>I walked to Santiago de Compostela</strong><span>485 mi · Stroll</span></div></div>
           </div><p class="phone-caption">A card to share when you arrive</p></div>
         </section>
         <section class="landing-dest">
@@ -1362,12 +1362,18 @@
     return `<em class="cheer-line">${esc(text)} cheered</em>`;
   }
 
+  // What a screen reader says for the picture: what is drawn, then how far along the walk is.
   function sceneLabel(p) {
-    const hero = capitalize(`the ${heroWord(p.J)}`);
-    const walked = `${fmt(p.mile, 0)} of ${fmt(p.goal, 0)} miles`;
-    if (p.arrived) return `${hero} has reached ${p.J.end} after walking ${fmt(p.goal, 0)} miles.`;
-    if (p.here.mile === 0) return `${hero} is at the start in ${p.here.name} and has walked ${walked}. Next stop: ${p.next.name}.`;
-    return `${hero} has walked ${walked} and just passed ${p.here.name}.${p.next ? ` Next stop: ${p.next.name}.` : ''}`;
+    const who = heroWord(p.J);
+    const hero = capitalize(`the ${who}`);
+    const figure = who === 'elf' ? 'an elf in a striped hat, with a backpack and a map,' : 'a walker in a hat, with a backpack,';
+    const where = p.arrived ? ` arriving at ${p.J.end}, with fireworks overhead` : p.here && p.here.region ? ` on the trail, ${p.here.region}` : ' on the trail';
+    const picture = `Illustration: ${figure}${where}.`;
+    const n = (m) => fmt(dnum(m), 0);
+    const walked = `${n(p.mile)} of ${n(p.goal)} ${unitWord()}`;
+    if (p.arrived) return `${picture} ${hero} has reached ${p.J.end} after walking ${n(p.goal)} ${unitWord()}.`;
+    if (p.here.mile === 0) return `${picture} ${hero} is at the start in ${p.here.name} and has walked ${walked}. Next stop: ${p.next.name}.`;
+    return `${picture} ${hero} has walked ${walked} and just passed ${p.here.name}.${p.next ? ` Next stop: ${p.next.name}.` : ''}`;
   }
 
   function positionScene() {
@@ -1776,7 +1782,7 @@
         <h2>Account</h2>
         <button class="button quiet wide" data-action="sign-out">Sign out</button>
         <p class="small" style="text-align:center;margin-top:12px"><button class="button link danger" type="button" data-action="delete-account">Delete my account</button></p>
-        <p class="small muted" style="text-align:center;margin-top:8px"><a class="tap-link" href="/privacy.html">Privacy</a></p>
+        <p class="small muted" style="text-align:center;margin-top:22px"><a class="tap-link" href="/privacy.html">Privacy</a></p>
         <p class="small muted build-line">Stroll · build ${esc(state.config.build || 'dev')}${state.config.branch && state.config.branch !== 'main' ? ` · ${esc(state.config.branch)}` : ''}</p>
       </div>`;
   }

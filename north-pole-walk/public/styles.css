@@ -874,3 +874,33 @@ body { overscroll-behavior-y: contain; }
 .load-error { min-height: 80vh; min-height: 80svh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--s3); padding: var(--s5) var(--s4); max-width: 420px; margin: 0 auto; }
 .load-error h1 { font-size: var(--fs-28); line-height: var(--lh-28); margin: var(--s2) 0 0; }
 .load-error p { margin: 0 0 var(--s3); }
+
+/* ---------- Very narrow screens ---------- */
+/* A phone zoomed to 200% is about 195px wide. Rows that sit four-across on a phone fold to
+   two, pills stack, and long rows wrap, so nothing runs off the side or gets cut. */
+@media (max-width: 300px) {
+  .main-header .brand span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .main-header .header-tools { min-width: 0; }
+  .main-header .header-tools select { min-width: 0; max-width: 100%; }
+  .header h1 { -webkit-line-clamp: 4; overflow-wrap: anywhere; }
+  .quick-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .unit-toggle { flex-direction: column; border-radius: var(--r-control); }
+  .unit-toggle span { border-radius: var(--r-control); }
+  .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .week-head { flex-wrap: wrap; }
+  .week-dots { gap: 2px; }
+  .week-dots i { width: 18px; height: 18px; }
+  .cal-head { flex-wrap: wrap; }
+  .cal-head h2 { order: -1; flex: 1 1 100%; }
+  .cal-grid { gap: 1px; }
+  .cal-cell small { display: none; }
+  .list li { flex-wrap: wrap; }
+  .list li .who { min-width: 0; overflow-wrap: anywhere; }
+  .landing-cta { padding-left: var(--s3); padding-right: var(--s3); }
+  .landing-cta .button { min-width: 0; width: 100%; }
+  .button { white-space: normal; }
+  .list li strong, .list li em { white-space: normal; }
+  .nav button { min-width: 0; padding-left: 0; padding-right: 0; font-size: 9.5px; letter-spacing: -0.01em; text-align: center; }
+  .badges { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3) var(--s2); }
+  .destinations button { overflow-wrap: anywhere; }
+}

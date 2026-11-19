@@ -20,5 +20,6 @@ Nothing touches a real database or the network. Run one file with `npm test -- s
 | `funnel` | launch counts: a front-page view and a first entry count as daily totals; only ADMIN_EMAILS can read them |
 | `resilience` | a failed first load offers Try again; a walk waiting on the phone survives a server error; an edit leaves the day alone |
 | `polish` | tied walkers share a rank; a failed Awards load offers Try again; Escape closes pop-ups and focus returns; the calendar speaks km; sign-out asks before dropping a waiting walk |
+| `zoom` | the scene has a spoken description in the walker's unit; decoration is hidden from screen readers; a phone zoomed to 200% (195px wide) has no sideways scroll on the main tabs |
 
 First time: `npm install` (wrangler and Playwright), then `npx playwright install chromium` once.

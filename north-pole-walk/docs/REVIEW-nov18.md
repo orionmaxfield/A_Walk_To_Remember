@@ -56,3 +56,21 @@ Branch `claude/stroll-polish-nov18b` (from `claude/stroll-polish-nov18`). Previe
 Not done, still worth doing: the PNG icons and the social card could shrink by roughly a third with a lossless squeeze (no tool for it on this machine); the scene itself has no spoken description; text at 200% zoom has not been checked; and none of the screen-reader changes have been heard on a real phone with VoiceOver, only checked in the page structure.
 
 `npm test` passes 16 of 16 (11 before, plus 5 in `tests/specs/polish.test.js`).
+
+## Third pass, Nov 18 night
+
+Branch `claude/stroll-polish-nov18c` (from `claude/stroll-polish-nov18b`). Preview only, test database only. Walked every main screen with a script at phone (390) and desktop (1366) size, at 200% zoom on each (683 and 195 wide), and at 320 wide.
+
+| # | What changed | Where |
+| --- | --- | --- |
+| 1 | **Icons, launch images and the social card are half the size.** 637,981 bytes down to 302,791 (335,190 saved, 53%). Same pixel sizes, transparency kept. Each file is now a 256-colour PNG laid down with dithering, so the soft glows and dark gradients do not band; laid over black, white and grey no pixel moves more than a few shades. A plain 256-colour squeeze was smaller still (184 KB) but banded the glow on the social card and the icon background, so it was not used. | `public/icons/*`, `tools/squeeze-icons.py` |
+| 2 | **The picture has a spoken description.** The scene used to say only how far along the walk is. Now it says what is drawn first ("Illustration: an elf in a striped hat, with a backpack and a map, on the trail, leaving Layton."), then the progress, and the progress is in the walker's unit (it said "miles" in kilometre mode). The two example pictures on the front page are described. Pictures that are only decoration (postcards and destination cards, which have their name beside them) had an empty spoken name; they are now hidden from screen readers. | `sceneLabel()`, `scene.js` `render()`, `landingHtml()` |
+| 3 | **A phone zoomed to 200% fits.** At 200% a 390 phone is 195 wide: the Journey, Add miles, You, Awards and Settings tabs scrolled sideways by up to 82px, the fourth quick-add tile, the Calories tab, Kilometers, the calendar's next-month arrow and Edit/Remove were off the side, the brand sat on top of the walk switcher and the title was cut after two lines. Under 300px wide the quick-add tiles and stats now sit two across, the pill switches stack, the calendar arrows drop under the month, list rows wrap, and the header drops the word "Stroll" (the mark stays). Desktop at 200% and a 320-wide screen were already clean. | `styles.css` "Very narrow screens" |
+| 4 | **Privacy no longer shares a tap area with Delete my account.** The two overlapped by 9px in Settings. | `settingsScreen()` |
+| 5 | **Contrast and focus: nothing new found.** The script found no text under AA on a solid background and every Tab stop showed the ring, at all five sizes. | |
+
+Still open at 195 wide: Google's own sign-in button will not go under 200px (3px of sideways scroll on the front page); on the Team tab the invite code runs out of its box, the rename box is very small and leaderboard names are cut short. None of these happen at 320 or wider. Still not done: a listen with VoiceOver on a real phone.
+
+`npm test` passes 19 of 19 (16 before, plus 3 in `tests/specs/zoom.test.js`).
+
+To squeeze new artwork: `~/agents/tools/venv/bin/python tools/squeeze-icons.py <folder of new PNGs> <output folder>` (needs Pillow and numpy; prints before and after bytes and how far any pixel moved), then copy the output into `public/icons/`.

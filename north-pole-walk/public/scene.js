@@ -1874,7 +1874,7 @@
     const walker = opts.walker === false ? '' : theme.walker === 'hiker' ? hiker(VW / 2) : elf(VW / 2);
     const weather = opts.still ? '' : snowfall(VW, c, c.embers ? '#ffb347' : null) + particles(VW, theme.particles);
     const arrived = mile >= total - 1e-6;
-    return `<svg class="scene-svg${opts.still ? ' still' : ''}" viewBox="0 0 ${VW} ${H}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${esc(opts.label || '')}" style="${vars}">
+    return `<svg class="scene-svg${opts.still ? ' still' : ''}" viewBox="0 0 ${VW} ${H}" preserveAspectRatio="xMidYMax slice" ${opts.label ? `role="img" aria-label="${esc(opts.label)}"` : 'aria-hidden="true" focusable="false"'} style="${vars}">
       ${defs(c)}
       ${sky(c, VW, theme)}
       <g class="layer far" data-speed="${SPEED.far}">${farLayer(total, VW, c, theme)}</g>
@@ -2008,6 +2008,7 @@
 
   // A still picture of a journey for the destination cards: the walker a little
   // way short of the finish, with the finish landmark in view. No animation.
+  // A picture with no opts.label is decoration: it is hidden from screen readers.
   // opts.hour fixes the time of day (0-23); opts.mark adds a stop's own landmark silhouette
   // (a waypoint object) so postcards for different stops look different.
   function thumbnail(J, atMile, opts) {
@@ -2016,7 +2017,7 @@
     const VW = 720;
     setWorld(J);
     const mile = atMile != null ? clamp(atMile, 0, J.totalMiles) : clamp(mileAt(worldX(J.totalMiles) - 150), 0, J.totalMiles);
-    let svg = render(J, mile, VW, { still: true, label: '', hour: opts.hour, accent: opts.accent, walker: opts.walker });
+    let svg = render(J, mile, VW, { still: true, label: opts.label || '', hour: opts.hour, accent: opts.accent, walker: opts.walker });
     if (opts.mark) svg = svg.replace('</svg>', stopMark(opts.mark, VW, opts.markScale || 1) + '</svg>');
     // Slide the layers into place, as mount() would, by baking the transforms in.
     svg = svg.replace(/<g class="layer (far|mid|near)" data-speed="([\d.]+)">/g, (m, l, s) => `<g class="layer ${l}" data-speed="${s}" transform="translate(${(VW / 2 - worldX(mile) * Number(s)).toFixed(2)} 0)">`);
